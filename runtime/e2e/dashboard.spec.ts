@@ -340,6 +340,10 @@ test("two browser pages establish a real WebRTC DataChannel through a signaling 
   peerConfig.ice_servers = [];
 
   const context = await browser.newContext();
+  // Chromium otherwise limits ICE route enumeration in network-isolated runs.
+  await context.grantPermissions(["camera", "microphone"], {
+    origin: "http://127.0.0.1:4173",
+  });
   const host = await context.newPage();
   const device = await context.newPage();
   await host.route("**/bench-meter/out/bench-meter/dashboard.config.json", (route) =>
