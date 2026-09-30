@@ -9,10 +9,13 @@ ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.6.0/servo-x86_
 ARG SERVO_SHA256=ad951ede1a1a73899b822c9464f6bdb3ec25b531b27cd806671d79ac8b6a60d0
 
 ENV EMSDK=/emsdk \
+    EM_CACHE=/opt/emscripten-cache \
+    HOME=/tmp \
     PATH="/opt/dashboard/.venv/bin:/opt/servo/servo:/emsdk:/emsdk/upstream/emscripten:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
     SERVO_BIN=/opt/servo/servo/servoshell \
     PYTHONPYCACHEPREFIX=/tmp/dashboard-pycache \
-    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright
+    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright \
+    UV_PYTHON_INSTALL_DIR=/opt/uv-python
 
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/dashboard-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
@@ -66,6 +69,7 @@ COPY src ./src
 COPY runtime ./runtime
 COPY examples ./examples
 COPY scripts ./scripts
+COPY docker/dashboard-tools-entrypoint.sh /usr/local/bin/dashboard-entrypoint
 RUN uv python install 3.12 \
     && uv sync --locked --no-dev --no-group sdk-check \
     && cd runtime \
@@ -79,3 +83,30 @@ RUN uv python install 3.12 \
     && emcc --version \
     && node --version \
     && /opt/servo/servo/servoshell --version
+
+RUN python - <<'PY'
+import shutil
+import tempfile
+from pathlib import Path
+
+from dashboard.wasm import build_codec_parity
+
+output = Path(tempfile.mkdtemp(prefix="dashboard-wasm-cache-", dir="/tmp"))
+try:
+    result = build_codec_parity(Path("/opt/dashboard"), output)
+    if not result.ok:
+        raise SystemExit(result.detail)
+finally:
+    shutil.rmtree(output, ignore_errors=True)
+PY
+
+RUN chmod -R a+rX \
+        /emsdk \
+        /opt/dashboard \
+        /opt/emscripten-cache \
+        /opt/playwright \
+        /opt/servo \
+        /opt/uv-python \
+    && chmod a+rx /usr/local/bin/dashboard-entrypoint
+
+ENTRYPOINT ["/usr/local/bin/dashboard-entrypoint"]
