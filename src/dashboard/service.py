@@ -16,6 +16,7 @@ from .matrix import CAVEATS, SUPPORT
 from .protocol import protocol_export
 from .report import write_outputs
 from .requests import write_request
+from .screenshots import capture
 
 Json = dict[str, object]
 
@@ -134,8 +135,6 @@ def screenshot_payload(contract_path: Path, out_dir: Path | None = None) -> Json
                 "detail": "; ".join(freshness),
                 "images": [],
             }
-        from .screenshots import capture
-
         result = capture(generated_dir, output)
     except (OSError, ValueError, RuntimeError, ValidationError) as exc:
         return {"verdict": FAIL, "stage": "screenshot", "detail": str(exc), "images": []}

@@ -53,7 +53,10 @@ def test_servo_screenshot_failure_does_not_change_smoke_verdict(
         *,
         method: str = "GET",
         payload: object | None = None,
+        timeout: float = 5,
+        **_kwargs: object,
     ) -> object:
+        del timeout
         if url.endswith("/status"):
             return {}
         if url.endswith("/session") and method == "POST":
@@ -122,3 +125,25 @@ def test_servo_screenshot_decodes_webdriver_png(
     assert path == tmp_path / "generated.screens" / "servo.png"
     assert path is not None
     assert path.read_bytes() == image
+
+
+def test_servo_screenshot_uses_long_request_timeout(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    image = b"\x89PNG\r\n\x1a\nservo"
+    timeouts: list[float] = []
+
+    def request(_url: str, *, timeout: float = 5, **_kwargs: object) -> object:
+        timeouts.append(timeout)
+        return {"value": base64.b64encode(image).decode("ascii")}
+
+    monkeypatch.setattr(servo, "_request", request)
+    app = tmp_path / "generated"
+    app.mkdir()
+
+    path, error = servo.save_screenshot("http://127.0.0.1:4444/session/id", app)
+
+    assert error is None
+    assert path is not None
+    assert timeouts == [30]

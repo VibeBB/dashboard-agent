@@ -25,6 +25,7 @@ from .contract import (
 )
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
+from .screenshots import capture
 from .wasm import build_codec_parity, build_module
 from .webmcp import definitions, has_hazard, json_schema_valid
 
@@ -563,8 +564,6 @@ def _run_full(contract_path: Path, out_dir: Path, contract: DashboardContract) -
         checks.append(_check("e2e.chromium", [] if ok else [output], [output] if output else []))
 
     try:
-        from .screenshots import capture
-
         result = capture(generated_dir, out_dir)
         checks.append(
             _check(

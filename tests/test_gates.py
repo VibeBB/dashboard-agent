@@ -96,7 +96,7 @@ def test_full_gates_capture_visuals_after_browser_e2e(
             ],
         )
 
-    monkeypatch.setattr(screenshots, "capture", capture)
+    monkeypatch.setattr(gates_module, "capture", capture)
 
     def smoke(_generated: Path) -> SmokeResult:
         return SmokeResult(ok=True, detail="servo passed")

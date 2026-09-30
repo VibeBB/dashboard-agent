@@ -20,6 +20,8 @@ from urllib.request import Request, urlopen
 
 from pydantic import BaseModel, ConfigDict
 
+_SCREENSHOT_TIMEOUT_S = 30
+
 
 class SmokeResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
@@ -40,7 +42,13 @@ def _free_port() -> int:
         return int(listener.getsockname()[1])
 
 
-def _request(url: str, *, method: str = "GET", payload: object | None = None) -> object:
+def _request(
+    url: str,
+    *,
+    method: str = "GET",
+    payload: object | None = None,
+    timeout: float = 5,
+) -> object:
     data = None if payload is None else json.dumps(payload).encode()
     request = Request(
         url,
@@ -48,7 +56,7 @@ def _request(url: str, *, method: str = "GET", payload: object | None = None) ->
         method=method,
         headers={"Content-Type": "application/json"},
     )
-    with urlopen(request, timeout=5) as response:
+    with urlopen(request, timeout=timeout) as response:
         raw = response.read()
     return json.loads(raw) if raw else {}
 
@@ -83,7 +91,7 @@ def _has_route_kind(value: object, kind: str) -> bool:
 
 def save_screenshot(base: str, app: Path) -> tuple[Path | None, str | None]:
     try:
-        value = _webdriver_value(_request(f"{base}/screenshot"))
+        value = _webdriver_value(_request(f"{base}/screenshot", timeout=_SCREENSHOT_TIMEOUT_S))
         if not isinstance(value, str):
             raise RuntimeError("Servo screenshot response did not contain base64 data")
         image = base64.b64decode(value, validate=True)
