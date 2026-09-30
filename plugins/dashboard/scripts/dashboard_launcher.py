@@ -9,9 +9,13 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any, cast
 
 _MODULES = {"mcp_server": "dashboard.mcp_server"}
 ISOLATED_NETWORK = "dashboard-isolated"
+_INSPECT_TIMEOUT_S = 30
+_PULL_TIMEOUT_S = 900
+_NETWORK_TIMEOUT_S = 30
 
 
 def _plugin_root() -> Path:
@@ -50,15 +54,25 @@ def resolve_source(plugin_root: Path) -> Path | None:
 
 def _lock_ref(lock_path: Path) -> str | None:
     try:
-        entry = json.loads(lock_path.read_text(encoding="utf-8")).get("dashboard_tools")
+        data: object = json.loads(lock_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return None
-    if not isinstance(entry, dict) or not entry.get("image"):
+    if not isinstance(data, dict):
         return None
-    if entry.get("digest"):
-        return f"{entry['image']}@{entry['digest']}"
-    if entry.get("tag"):
-        return f"{entry['image']}:{entry['tag']}"
+    data = cast(dict[str, object], data)
+    entry = data.get("dashboard_tools")
+    if not isinstance(entry, dict):
+        return None
+    entry = cast(dict[str, object], entry)
+    image = entry.get("image")
+    if not isinstance(image, str) or not image:
+        return None
+    digest = entry.get("digest")
+    if isinstance(digest, str) and digest:
+        return f"{image}@{digest}"
+    tag = entry.get("tag")
+    if isinstance(tag, str) and tag:
+        return f"{image}:{tag}"
     return None
 
 
@@ -79,14 +93,23 @@ def ensure_isolated_network(docker: str) -> None:
         "{{.Internal}}",
         ISOLATED_NETWORK,
     ]
-    inspected = subprocess.run(inspect_command, capture_output=True, text=True, check=False)
+    inspected = _run_timed(
+        inspect_command,
+        "docker network inspect",
+        _NETWORK_TIMEOUT_S,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if inspected.returncode == 0:
         if inspected.stdout.strip().lower() != "true":
             raise RuntimeError(f"Docker network {ISOLATED_NETWORK} exists but is not internal")
         return
 
-    created = subprocess.run(
+    created = _run_timed(
         [docker, "network", "create", "--internal", ISOLATED_NETWORK],
+        "docker network create",
+        _NETWORK_TIMEOUT_S,
         capture_output=True,
         text=True,
         check=False,
@@ -94,7 +117,14 @@ def ensure_isolated_network(docker: str) -> None:
     if created.returncode == 0:
         return
 
-    inspected = subprocess.run(inspect_command, capture_output=True, text=True, check=False)
+    inspected = _run_timed(
+        inspect_command,
+        "docker network inspect",
+        _NETWORK_TIMEOUT_S,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
     if inspected.returncode == 0:
         if inspected.stdout.strip().lower() == "true":
             return
@@ -129,6 +159,8 @@ def _docker(image: str, source: Path | None, command: list[str]) -> list[str]:
     for key, value in os.environ.items():
         if key == "TMPDIR" or key.startswith(("OPENHANDS_", "DASHBOARD_")):
             argv.extend(["-e", f"{key}={value}"])
+    if "OPENHANDS_PROJECT_DIR" not in os.environ:
+        argv.extend(["-e", f"OPENHANDS_PROJECT_DIR={workspace}"])
     return [*argv, image, *command]
 
 
@@ -138,12 +170,29 @@ def _inner_args(arguments: list[str], python: str) -> list[str]:
     return [python, "-m", "dashboard", *arguments]
 
 
+def _run_timed(
+    command: list[str],
+    operation: str,
+    timeout: int,
+    **kwargs: Any,
+) -> subprocess.CompletedProcess[str]:
+    try:
+        return cast(
+            subprocess.CompletedProcess[str],
+            subprocess.run(command, timeout=timeout, **kwargs),
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"{operation} timed out after {timeout}s") from exc
+
+
 def _image_ready(image: str, *, pull: bool) -> bool:
     docker = shutil.which("docker")
     if docker is None:
         raise RuntimeError("docker is not on PATH")
-    inspected = subprocess.run(
+    inspected = _run_timed(
         [docker, "image", "inspect", image],
+        "docker image inspect",
+        _INSPECT_TIMEOUT_S,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,
         check=False,
@@ -152,7 +201,15 @@ def _image_ready(image: str, *, pull: bool) -> bool:
         return True
     if not pull:
         return False
-    return subprocess.run([docker, "pull", image], check=False).returncode == 0
+    return (
+        _run_timed(
+            [docker, "pull", image],
+            "docker pull",
+            _PULL_TIMEOUT_S,
+            check=False,
+        ).returncode
+        == 0
+    )
 
 
 def main() -> int:

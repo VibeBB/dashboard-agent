@@ -13,6 +13,7 @@ dependencies = [
 dev = [
     "pyright>=1.1.414",
     "pytest>=9",
+    "pytest-cov==7.1.0",
     "pytest-xdist>=3",
     "ruff>=0.16",
 ]
@@ -40,8 +41,20 @@ select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
 [tool.pyright]
 pythonVersion = "3.12"
 typeCheckingMode = "strict"
-include = ["src", "scripts", "tests"]
+include = [
+    "src",
+    "scripts",
+    "tests",
+    "plugins/dashboard/hooks/scripts",
+    "plugins/dashboard/scripts",
+]
 exclude = ["**/__pycache__", ".venv", "examples"]
+
+[tool.coverage.run]
+source = ["src/dashboard"]
+
+[tool.coverage.report]
+fail_under = 56
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

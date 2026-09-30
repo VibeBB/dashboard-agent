@@ -22,13 +22,13 @@ EXPECTED_SKILLS = {
     "dashboard-webmcp",
     "dashboard-workflow",
 }
-EXPECTED_COMMANDS = {"design", "doctor", "gates", "generate", "smoke"}
+EXPECTED_COMMANDS = {"design", "doctor", "gates", "generate", "screenshot", "smoke"}
 EXPECTED_HOOKS: dict[str, set[str]] = {
-    "session_start": {"dashboard-doctor"},
-    "user_prompt_submit": set(),
+    "session_start": {"dashboard-doctor", "intake-attachments", "ensure-llm-profiles"},
+    "user_prompt_submit": {"intake-attachments"},
     "pre_tool_use": {"protect-generated", "safety-rail"},
-    "stop": {"report-dashboard-status"},
-    "post_tool_use": set(),
+    "stop": {"intake-attachments", "report-dashboard-status"},
+    "post_tool_use": {"record-vision-tool-event", "record-image-observation"},
 }
 
 

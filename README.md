@@ -62,6 +62,14 @@ require an origin trial or testing flag. It exposes status and telemetry as
 read tools; optional command tools use the same confirmation and
 acknowledgement path as the dashboard. WebMCP is unavailable on iOS and iPadOS.
 
+## CLI and MCP tools
+
+The `dashboard` CLI and MCP server expose doctor, matrix, validate, generate,
+check, gates, smoke, protocol export, and sibling-request operations. Use
+`dashboard screenshot <contract>` or MCP `dashboard_screenshot` to capture a
+fresh generated app at desktop and mobile viewports; the MCP result attaches
+eligible PNGs inline for advisory visual review.
+
 ## Architecture and layout
 
 The `.dash.json` contract is the source of truth. Python validates contracts,
@@ -142,6 +150,14 @@ npx tauri dev
 
 雛形の README にデスクトップ / モバイルのビルド方法と OS ごとの前提条件を記載
 しています。WebMCP はデバイス選択や接続ツールを公開しません。
+
+### CLI と MCP ツール
+
+`dashboard` CLI と MCP サーバーでは doctor、matrix、validate、generate、check、
+gates、smoke、protocol export、sibling request を利用できます。
+`dashboard screenshot <contract>` または MCP `dashboard_screenshot` は、最新の
+生成アプリをデスクトップ / モバイルで撮影します。MCP は対象 PNG をインラインで
+添付し、表示確認は助言として扱います。
 
 ## トランスポートと WebMCP
 

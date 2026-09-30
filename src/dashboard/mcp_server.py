@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import json
 from collections.abc import Callable, Mapping
 from pathlib import Path
@@ -15,12 +17,17 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
 from . import __version__, service
+from .workspace import workspace_path
 
 server: Server = Server(f"dashboard-mcp/{__version__}")
 
 _CONTRACT = {"contract_path": {"type": "string"}}
 _OUT = {"out_dir": {"type": "string"}}
 _STRINGS = {"type": "array", "items": {"type": "string"}}
+_IMAGE_TOOLS = {"dashboard_screenshot", "dashboard_gates", "dashboard_smoke"}
+_IMAGE_MIME = {".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg"}
+_MAX_INLINE_IMAGES = 8
+_MAX_INLINE_IMAGE_BYTES = 4 * 1024 * 1024
 
 
 def _schema(properties: Mapping[str, object], required: list[str]) -> dict[str, object]:
@@ -57,6 +64,11 @@ TOOLS: dict[str, tuple[str, dict[str, object], bool]] = {
     ),
     "dashboard_smoke": (
         "Run the Servo WebDriver smoke check for a generated dashboard",
+        _schema({**_CONTRACT, **_OUT}, ["contract_path"]),
+        False,
+    ),
+    "dashboard_screenshot": (
+        "Capture desktop and mobile screenshots of a fresh generated dashboard",
         _schema({**_CONTRACT, **_OUT}, ["contract_path"]),
         False,
     ),
@@ -114,7 +126,7 @@ def _path(arguments: dict[str, object], key: str) -> Path | None:
         return None
     if not isinstance(value, str) or not value:
         raise ValueError(f"{key} must be a non-empty path")
-    return Path(value)
+    return workspace_path(value)
 
 
 def _strings(arguments: dict[str, object], key: str) -> list[str]:
@@ -132,32 +144,36 @@ def dispatch(name: str, arguments: dict[str, object]) -> service.Json:
         "dashboard_doctor": service.doctor_payload,
         "dashboard_matrix": service.matrix_payload,
         "dashboard_validate": lambda: service.validate_payload(
-            Path(_string(arguments, "contract_path"))
+            workspace_path(_string(arguments, "contract_path"))
         ),
         "dashboard_generate": lambda: service.generate_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
         ),
         "dashboard_check": lambda: service.gates_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
             full=False,
         ),
         "dashboard_gates": lambda: service.gates_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
             full=True,
         ),
         "dashboard_smoke": lambda: service.smoke_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
+            _path(arguments, "out_dir"),
+        ),
+        "dashboard_screenshot": lambda: service.screenshot_payload(
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
         ),
         "dashboard_protocol_export": lambda: service.protocol_export_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
         ),
         "dashboard_request": lambda: service.request_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
             target=_string(arguments, "target"),
             risk=_string(arguments, "risk"),
@@ -172,18 +188,95 @@ def dispatch(name: str, arguments: dict[str, object]) -> service.Json:
     return handler()
 
 
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, object]) -> list[types.ContentBlock]:
-    try:
-        payload = await asyncio.to_thread(dispatch, name, arguments or {})
-    except Exception as exc:
-        payload = {"verdict": "fail", "detail": f"{name} error: {exc}"}
+def _file_sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for block in iter(lambda: stream.read(64 * 1024), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def render_content(payload: service.Json) -> list[types.ContentBlock]:
+    rendered = dict(payload)
+    values = rendered.pop("images", [])
+    paths = cast(list[object], values) if isinstance(values, list) else []
+    inline_images: list[dict[str, object]] = []
+    images: list[types.ImageContent] = []
+    for value in paths:
+        if not isinstance(value, str):
+            continue
+        path = Path(value)
+        mime = _IMAGE_MIME.get(path.suffix.lower())
+        if mime is None:
+            continue
+        entry: dict[str, object] = {
+            "path": str(path),
+            "sha256": None,
+            "attached": False,
+            "reason": None,
+        }
+        try:
+            size = path.stat().st_size
+            if size > _MAX_INLINE_IMAGE_BYTES:
+                entry["sha256"] = _file_sha256(path)
+                entry["reason"] = "over_4_mib"
+            elif len(images) >= _MAX_INLINE_IMAGES:
+                entry["sha256"] = _file_sha256(path)
+                entry["reason"] = "image_limit_reached"
+            else:
+                data = path.read_bytes()
+                if len(data) > _MAX_INLINE_IMAGE_BYTES:
+                    entry["sha256"] = hashlib.sha256(data).hexdigest()
+                    entry["reason"] = "over_4_mib"
+                else:
+                    entry["sha256"] = hashlib.sha256(data).hexdigest()
+                    entry["attached"] = True
+                    images.append(
+                        types.ImageContent(
+                            type="image",
+                            data=base64.b64encode(data).decode("ascii"),
+                            mimeType=mime,
+                        )
+                    )
+        except OSError:
+            entry["reason"] = "unavailable"
+        inline_images.append(entry)
+    rendered["inline_images"] = inline_images
     return [
         types.TextContent(
             type="text",
-            text=json.dumps(payload, ensure_ascii=False, indent=2),
-        )
+            text=json.dumps(rendered, ensure_ascii=False, indent=2),
+        ),
+        *images,
     ]
+
+
+@server.call_tool()
+async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
+    is_error = name not in TOOLS
+    try:
+        payload: service.Json = await asyncio.to_thread(dispatch, name, arguments or {})
+    except Exception as exc:
+        payload = {
+            "verdict": "fail",
+            "detail": f"{name} error: {exc}",
+            "error_type": type(exc).__name__,
+        }
+        is_error = True
+    content = (
+        render_content(payload)
+        if name in _IMAGE_TOOLS
+        else [
+            cast(
+                types.ContentBlock,
+                types.TextContent(
+                    type="text",
+                    text=json.dumps(payload, ensure_ascii=False, indent=2),
+                ),
+            )
+        ]
+    )
+    return types.CallToolResult(content=content, isError=is_error)
 
 
 async def _run() -> None:
