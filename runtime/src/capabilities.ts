@@ -1,4 +1,5 @@
 import type { DashboardConfig, TransportKind } from "./types.ts";
+import { hasTauriBackend, isTauriRuntime } from "./transports/tauri.ts";
 
 export interface CapabilityReport {
   os: string;
@@ -10,6 +11,8 @@ export interface CapabilityReport {
   websocket: boolean;
   webrtc: boolean;
   webmcp: boolean;
+  tauri_ble: boolean;
+  tauri_serial: boolean;
 }
 
 export interface BrowserEnvironment {
@@ -103,7 +106,9 @@ export function detectEnvironment(
   const os = osFromStrings(uaData?.platform ?? "", userAgent, maxTouchPoints);
   const osVariant = bsdVariantFromUserAgent(userAgent);
   const hasBluetooth = "bluetooth" in targetNavigator;
-  const browser = browserFromStrings(userAgent, uaData?.brands ?? [], os, hasBluetooth);
+  const browser = isTauriRuntime()
+    ? "tauri"
+    : browserFromStrings(userAgent, uaData?.brands ?? [], os, hasBluetooth);
   return {
     os,
     os_variant: osVariant,
@@ -124,6 +129,8 @@ export function detectEnvironment(
           document.modelContext &&
           "registerTool" in document.modelContext,
       ),
+      tauri_ble: hasTauriBackend("tauri_ble"),
+      tauri_serial: hasTauriBackend("tauri_serial"),
     },
   };
 }
@@ -137,6 +144,8 @@ function routeAvailable(kind: TransportKind, environment: BrowserEnvironment): b
   if (kind === "web_bluetooth") return capabilities.web_bluetooth && capabilities.secure_context;
   if (kind === "webusb") return capabilities.webusb && capabilities.secure_context;
   if (kind === "web_serial") return capabilities.web_serial && capabilities.secure_context;
+  if (kind === "tauri_ble") return capabilities.tauri_ble;
+  if (kind === "tauri_serial") return capabilities.tauri_serial;
   if (kind === "webrtc") return capabilities.webrtc && capabilities.secure_context;
   return capabilities.websocket;
 }
@@ -172,13 +181,22 @@ export function selectRoutes(config: DashboardConfig, environment: BrowserEnviro
 }
 
 export function transportCapability(kind: TransportKind, capabilities: CapabilityReport): boolean {
-  type CapabilityFlag = "web_bluetooth" | "webusb" | "web_serial" | "websocket" | "webrtc";
+  type CapabilityFlag =
+    | "web_bluetooth"
+    | "webusb"
+    | "web_serial"
+    | "websocket"
+    | "webrtc"
+    | "tauri_ble"
+    | "tauri_serial";
   const keys: Record<TransportKind, CapabilityFlag> = {
     web_bluetooth: "web_bluetooth",
     webusb: "webusb",
     web_serial: "web_serial",
     websocket: "websocket",
     webrtc: "webrtc",
+    tauri_ble: "tauri_ble",
+    tauri_serial: "tauri_serial",
   };
   return capabilities[keys[kind]];
 }

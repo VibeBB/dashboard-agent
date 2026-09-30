@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from dashboard.contract import BrowserName, OSName, TransportKind, load_contract
-from dashboard.matrix import CAVEATS, SUPPORT, route_caveats
+from dashboard.matrix import CAVEATS, SUPPORT, route_caveats, route_support
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -77,3 +77,19 @@ def test_platform_caveats_match_routes() -> None:
         "webusb-claimed-interface",
     ]
     assert route_caveats("windows", "chrome", "webusb", None) == ["webusb-claimed-interface"]
+
+
+def test_tauri_native_transport_pairs_follow_shell_targets() -> None:
+    for os_name in ("windows", "macos", "linux", "android", "ios", "ipados"):
+        assert route_support(os_name, "tauri", "tauri_ble") == ("yes", None)
+        assert route_support(os_name, "tauri", "websocket") == ("yes", None)
+        assert route_support(os_name, "tauri", "webrtc") is not None
+
+    for os_name in ("windows", "macos", "linux", "android"):
+        assert route_support(os_name, "tauri", "tauri_serial") == ("yes", None)
+    assert route_support("ios", "tauri", "tauri_serial") is None
+    assert route_support("ipados", "tauri", "tauri_serial") is None
+    assert route_support("chromeos", "tauri", "tauri_ble") is None
+    assert route_support("windows", "chrome", "tauri_ble") is None
+    assert SUPPORT[("linux", "tauri", "webrtc")] == ("caveat", "webkitgtk-webrtc")
+    assert route_caveats("linux", "tauri", "webrtc", None) == ["webkitgtk-webrtc"]

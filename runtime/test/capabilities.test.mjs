@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { detectEnvironment, selectRoutes } from '../src/capabilities.ts';
+import { registerTauriBackends } from '../src/transports/tauri.ts';
 
 test('platform and browser detection distinguishes iOS, iPadOS, and macOS', () => {
   const iphone = detectEnvironment({
@@ -82,6 +83,32 @@ test('BSD operating systems are detected from their user-agent tokens', () => {
   assert.equal(firefox.os, 'bsd');
   assert.equal(firefox.os_variant, 'FreeBSD');
   assert.equal(firefox.browser, 'firefox');
+});
+
+test('Tauri is detected only with registered backends and the Tauri runtime marker', () => {
+  const descriptor = Object.getOwnPropertyDescriptor(globalThis, '__TAURI_INTERNALS__');
+  try {
+    registerTauriBackends({ ble: {} });
+    delete globalThis.__TAURI_INTERNALS__;
+    const browser = detectEnvironment({
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
+      maxTouchPoints: 0,
+    }, true);
+    assert.equal(browser.browser, 'chrome');
+
+    Object.defineProperty(globalThis, '__TAURI_INTERNALS__', { configurable: true, value: {} });
+    const tauri = detectEnvironment({
+      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/126.0.0.0 Safari/537.36',
+      maxTouchPoints: 0,
+    }, true);
+    assert.equal(tauri.browser, 'tauri');
+    assert.equal(tauri.capabilities.tauri_ble, true);
+    assert.equal(tauri.capabilities.tauri_serial, false);
+  } finally {
+    registerTauriBackends({});
+    if (descriptor) Object.defineProperty(globalThis, '__TAURI_INTERNALS__', descriptor);
+    else delete globalThis.__TAURI_INTERNALS__;
+  }
 });
 
 test('route selection requires a declared supported platform and matching APIs', () => {

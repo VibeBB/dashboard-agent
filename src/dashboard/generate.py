@@ -82,7 +82,7 @@ def _config(contract: DashboardContract, contract_sha256: str) -> dict[str, obje
             )
     return {
         "contract_sha256": contract_sha256,
-        "contract": contract.model_dump(mode="json"),
+        "contract": contract.model_dump(mode="json", exclude={"shell"}),
         "routes": routes,
         "webmcp_tools": definitions(contract),
     }

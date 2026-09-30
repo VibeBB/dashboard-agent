@@ -1,6 +1,13 @@
 export type WireType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32" | "bool";
 export type MessageDirection = "device_to_host" | "host_to_device";
-export type TransportKind = "web_bluetooth" | "webusb" | "web_serial" | "websocket" | "webrtc";
+export type TransportKind =
+  | "web_bluetooth"
+  | "webusb"
+  | "web_serial"
+  | "websocket"
+  | "webrtc"
+  | "tauri_ble"
+  | "tauri_serial";
 
 export interface FieldConfig {
   name: string;
@@ -32,6 +39,13 @@ export type TransportConfig =
     name_prefix?: string | null;
   })
   | (TransportConfigBase & {
+    kind: "tauri_ble";
+    service_uuid: string;
+    rx_characteristic: string;
+    tx_characteristic: string;
+    name_prefix?: string | null;
+  })
+  | (TransportConfigBase & {
     kind: "webusb";
     vendor_id: number;
     product_id?: number | null;
@@ -46,6 +60,12 @@ export type TransportConfig =
     usb_vendor_id?: number | null;
     usb_product_id?: number | null;
     bluetooth_service_class_id?: string | null;
+  })
+  | (TransportConfigBase & {
+    kind: "tauri_serial";
+    baud_rate: number;
+    usb_vendor_id?: number | null;
+    usb_product_id?: number | null;
   })
   | (TransportConfigBase & {
     kind: "websocket";

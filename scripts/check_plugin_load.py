@@ -13,6 +13,7 @@ EXPECTED_AGENTS = {"dashboard-architect", "dashboard-developer", "dashboard-revi
 EXPECTED_SKILLS = {
     "dashboard-contract",
     "dashboard-platform-matrix",
+    "dashboard-tauri",
     "dashboard-protocol",
     "dashboard-servo",
     "dashboard-sibling-cooperation",

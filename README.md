@@ -22,20 +22,30 @@ Contracts declare `ios` and `ipados` independently; see both examples.
 
 | OS | Browsers | Usable transports | Caveats |
 | --- | --- | --- | --- |
-| Windows | Chrome, Edge, Opera (all five); Firefox (network only) | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel | A WebUSB interface may be claimed by an OS driver. |
-| macOS | Chrome, Edge, Opera (all five); Safari and Firefox (network only) | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel | A WebUSB interface may be claimed by an OS driver. |
-| Linux | Chrome, Edge, Opera (all five); Firefox (network only) | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel | Web Bluetooth needs a Chromium flag and BlueZ; a WebUSB interface may be claimed by an OS driver. |
+| Windows | Chrome, Edge, Opera (all five); Firefox (network only); Tauri v2 | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel; Tauri native BLE and serial | A WebUSB interface may be claimed by an OS driver. |
+| macOS | Chrome, Edge, Opera (all five); Safari and Firefox (network only); Tauri v2 | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel; Tauri native BLE and serial | A WebUSB interface may be claimed by an OS driver. |
+| Linux | Chrome, Edge, Opera (all five); Firefox (network only); Tauri v2 | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel; Tauri native BLE and serial | Web Bluetooth needs a Chromium flag and BlueZ; WebRTC in Tauri depends on the WebKitGTK build; a WebUSB interface may be claimed by an OS driver. |
 | BSD | BSD Chromium ports and Firefox (network only) | WebSocket, WebRTC DataChannel | Web Bluetooth is disabled; Web Serial is not built; FreeBSD/NetBSD WebUSB is fake-only. OpenBSD compiles a libusb backend, but it is unverified and not offered. WebMCP needs Chromium's testing/origin-trial feature. [Details](docs/research/bsd-chromium.md). |
 | ChromeOS | Chrome, Edge, Opera (all five) | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel | WebUSB may need an interface not claimed by an OS driver. Managed Chromebooks may restrict device APIs; check your admin policy. |
-| iOS | Safari, Chrome, Edge, Firefox (WebKit; network only); Bluefy (network and Web Bluetooth) | WebSocket, WebRTC DataChannel; Bluefy Web Bluetooth | Bluefy notifications can be unreliable. |
-| iPadOS | Safari, Chrome, Edge, Firefox (WebKit; network only); Bluefy (network and Web Bluetooth) | WebSocket, WebRTC DataChannel; Bluefy Web Bluetooth | No WebUSB or Web Serial routes. Bluefy notifications can be unreliable. |
-| Android | Chrome, Edge, Opera (all five); Firefox and Samsung Internet (network only) | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel | Android WebUSB and Web Serial have device-driver and support limitations. |
+| iOS | Safari, Chrome, Edge, Firefox (WebKit; network only); Bluefy (network and Web Bluetooth); Tauri v2 | WebSocket, WebRTC DataChannel; Bluefy Web Bluetooth; Tauri native BLE | Tauri serial is not supported on iOS; Bluefy notifications can be unreliable. |
+| iPadOS | Safari, Chrome, Edge, Firefox (WebKit; network only); Bluefy (network and Web Bluetooth); Tauri v2 | WebSocket, WebRTC DataChannel; Bluefy Web Bluetooth; Tauri native BLE | No WebUSB or Web Serial routes; Tauri serial is not supported. Bluefy notifications can be unreliable. |
+| Android | Chrome, Edge, Opera (all five); Firefox and Samsung Internet (network only); Tauri v2 | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel; Tauri native BLE and serial | Android WebUSB and Web Serial have device-driver and support limitations. |
+
+### Native shell (Tauri v2)
+
+The `tauri` route uses native BLE on Windows, macOS, Linux, Android, iOS, and
+iPadOS; native serial is available on Windows, macOS, Linux, and Android.
+Tauri's iOS target covers iPadOS. Native routes use an in-page picker and
+require an explicit connection click. WebSocket and WebRTC remain webview
+routes. `shell.tauri` is validated and gated, but this release does not
+generate a Tauri app scaffold. WebMCP never exposes device selection or
+connection tools.
 
 ## Transports
 
-The runtime supports Web Bluetooth, WebUSB, Web Serial, WebSocket, and WebRTC
-DataChannel. Private, link-local, and `.local` network endpoints require a
-local-network caveat in the contract.
+The runtime supports Web Bluetooth, WebUSB, Web Serial, native Tauri BLE and
+serial, WebSocket, and WebRTC DataChannel. Private, link-local, and `.local`
+network endpoints require a local-network caveat in the contract.
 
 ## WebMCP
 
@@ -89,19 +99,29 @@ VibeBB OpenHands プラグインです。JSON 契約がデバイス接続ルー�
 
 | OS | ブラウザー | 利用可能なトランスポート | 注意事項 |
 | --- | --- | --- | --- |
-| Windows | Chrome、Edge、Opera（5 種すべて）；Firefox（ネットワークのみ） | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel | OS ドライバーが WebUSB インターフェースを使用中の場合があります。 |
-| macOS | Chrome、Edge、Opera（5 種すべて）；Safari、Firefox（ネットワークのみ） | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel | OS ドライバーが WebUSB インターフェースを使用中の場合があります。 |
-| Linux | Chrome、Edge、Opera（5 種すべて）；Firefox（ネットワークのみ） | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel | Web Bluetooth には Chromium フラグと BlueZ が必要です。WebUSB は OS ドライバーが使用中の場合があります。 |
+| Windows | Chrome、Edge、Opera（5 種すべて）；Firefox（ネットワークのみ）；Tauri v2 | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel；Tauri ネイティブ BLE / serial | OS ドライバーが WebUSB インターフェースを使用中の場合があります。 |
+| macOS | Chrome、Edge、Opera（5 種すべて）；Safari、Firefox（ネットワークのみ）；Tauri v2 | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel；Tauri ネイティブ BLE / serial | OS ドライバーが WebUSB インターフェースを使用中の場合があります。 |
+| Linux | Chrome、Edge、Opera（5 種すべて）；Firefox（ネットワークのみ）；Tauri v2 | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel；Tauri ネイティブ BLE / serial | Web Bluetooth には Chromium フラグと BlueZ が必要です。Tauri の WebRTC は WebKitGTK ビルドに依存します。WebUSB は OS ドライバーが使用中の場合があります。 |
 | BSD | BSD Chromium ポート、Firefox（ネットワークのみ） | WebSocket、WebRTC DataChannel | Web Bluetooth は無効、Web Serial は未ビルドです。FreeBSD / NetBSD の WebUSB は fake のみです。OpenBSD では libusb バックエンドがビルドされますが未検証のため提供しません。WebMCP には Chromium のテスト / Origin Trial 機能が必要です。[詳細](docs/research/bsd-chromium.md)。 |
 | ChromeOS | Chrome、Edge、Opera（5 種すべて） | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel | WebUSB は OS ドライバーが使用していないインターフェースを必要とする場合があります。管理対象端末では API が制限されることがあります。管理ポリシーを確認してください。 |
-| iOS | Safari、Chrome、Edge、Firefox（WebKit、ネットワークのみ）；Bluefy（ネットワーク、Web Bluetooth） | WebSocket、WebRTC DataChannel；Bluefy Web Bluetooth | Bluefy の通知機能は不安定な場合があります。 |
-| iPadOS | Safari、Chrome、Edge、Firefox（WebKit、ネットワークのみ）；Bluefy（ネットワーク、Web Bluetooth） | WebSocket、WebRTC DataChannel；Bluefy Web Bluetooth | WebUSB / Web Serial ルートはありません。Bluefy の通知機能は不安定な場合があります。 |
-| Android | Chrome、Edge、Opera（5 種すべて）；Firefox、Samsung Internet（ネットワークのみ） | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel | WebUSB / Web Serial はドライバーや対応デバイスに制限があります。 |
+| iOS | Safari、Chrome、Edge、Firefox（WebKit、ネットワークのみ）；Bluefy（ネットワーク、Web Bluetooth）；Tauri v2 | WebSocket、WebRTC DataChannel；Bluefy Web Bluetooth；Tauri ネイティブ BLE | Tauri serial は iOS 非対応です。Bluefy の通知機能は不安定な場合があります。 |
+| iPadOS | Safari、Chrome、Edge、Firefox（WebKit、ネットワークのみ）；Bluefy（ネットワーク、Web Bluetooth）；Tauri v2 | WebSocket、WebRTC DataChannel；Bluefy Web Bluetooth；Tauri ネイティブ BLE | WebUSB / Web Serial ルートはありません。Tauri serial も非対応です。Bluefy の通知機能は不安定な場合があります。 |
+| Android | Chrome、Edge、Opera（5 種すべて）；Firefox、Samsung Internet（ネットワークのみ）；Tauri v2 | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel；Tauri ネイティブ BLE / serial | WebUSB / Web Serial はドライバーや対応デバイスに制限があります。 |
+
+### ネイティブシェル（Tauri v2）
+
+Tauri ルートでは Windows、macOS、Linux、Android、iOS、iPadOS でネイティブ
+BLE を利用できます。ネイティブ serial は Windows、macOS、Linux、Android
+のみ対応します。iPadOS は Tauri の iOS ターゲットを使います。デバイス選択
+には画面内のピッカーを使い、接続には明示的なクリックが必要です。WebSocket
+と WebRTC は WebView のルートです。`shell.tauri` は検証・ゲート対象ですが、
+この機能では Tauri アプリの雛形を生成しません。WebMCP はデバイス選択や
+接続ツールを公開しません。
 
 ## トランスポートと WebMCP
 
-ランタイムは Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC
-DataChannel を使用します。プライベート IP、リンクローカル、`.local`
+ランタイムは Web Bluetooth、WebUSB、Web Serial、Tauri ネイティブ BLE / serial、
+WebSocket、WebRTC DataChannel を使用します。プライベート IP、リンクローカル、`.local`
 エンドポイントには、契約でローカルネットワークの注意事項が必要です。
 
 Chromium では `document.modelContext` を検出して WebMCP を有効にします。
