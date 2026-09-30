@@ -56,16 +56,31 @@ type PickerState = {
   selected: string;
   loading: boolean;
   error: string | null;
+  scanController: AbortController | null;
 };
 const pickerStates = new Map<string, PickerState>();
 
 function pickerState(transportId: string): PickerState {
   let state = pickerStates.get(transportId);
   if (!state) {
-    state = { options: [], selected: "", loading: false, error: null };
+    state = { options: [], selected: "", loading: false, error: null, scanController: null };
     pickerStates.set(transportId, state);
   }
   return state;
+}
+
+function waitForScanWindow(timeout: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    let timer = 0;
+    const finish = (): void => {
+      window.clearTimeout(timer);
+      signal.removeEventListener("abort", finish);
+      resolve();
+    };
+    timer = window.setTimeout(finish, timeout);
+    signal.addEventListener("abort", finish, { once: true });
+  });
 }
 
 function renderCaveats(): void {
@@ -116,23 +131,37 @@ function renderTauriPicker(
 
   const scan = make(
     "button",
-    state.loading ? (ble ? "Scanning…" : "Listing ports…") : (ble ? "Scan for Bluetooth devices" : "List serial ports"),
+    state.loading
+      ? (ble ? "Cancel Bluetooth scan" : "Listing ports…")
+      : (ble ? "Scan for Bluetooth devices" : "List serial ports"),
   );
   scan.type = "button";
-  scan.disabled = disabled || state.loading;
+  scan.disabled = disabled || (state.loading && !ble);
   scan.addEventListener("click", async () => {
+    if (state.loading) {
+      state.scanController?.abort();
+      return;
+    }
     state.loading = true;
     state.error = null;
+    const scanController = new AbortController();
+    state.scanController = ble ? scanController : null;
     renderConnection();
     try {
       if (transport.kind === "tauri_ble") {
         const backend = getTauriBackends().ble;
         if (!backend) throw new Error("Tauri BLE backend is unavailable");
+        if (!(await backend.checkPermissions(true))) {
+          throw new Error("Bluetooth permission denied");
+        }
+        if (scanController.signal.aborted) return;
         const devices = new Map<string, TauriBleDevice>();
+        const timeout = 5000;
         try {
           await backend.startScan((found) => {
             for (const device of found) devices.set(device.address, device);
-          }, 5000);
+          }, timeout);
+          await waitForScanWindow(timeout, scanController.signal);
         } finally {
           await backend.stopScan().catch(() => undefined);
         }
@@ -150,11 +179,14 @@ function renderTauriPicker(
         }));
       }
       state.selected = "";
-      if (!state.options.length) state.error = `No matching ${ble ? "Bluetooth devices" : "serial ports"} found.`;
+      if (!state.options.length && !scanController.signal.aborted) {
+        state.error = `No matching ${ble ? "Bluetooth devices" : "serial ports"} found.`;
+      }
     } catch (error) {
       state.error = error instanceof Error ? error.message : String(error);
     } finally {
       state.loading = false;
+      state.scanController = null;
       renderConnection();
     }
   });

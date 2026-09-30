@@ -127,8 +127,6 @@ def route_caveats(
     caveats = [support[1]] if support and support[0] == "caveat" and support[1] else []
     if kind == "webusb":
         caveats.append("webusb-claimed-interface")
-    if os_name == "linux" and browser == "tauri" and kind == "webrtc":
-        caveats.append("webkitgtk-webrtc")
     if os_name == "chromeos" and kind in ("web_bluetooth", "webusb", "web_serial"):
         caveats.append("chromeos-managed-device-apis")
     if kind in ("websocket", "webrtc") and url:

@@ -52,7 +52,7 @@ def _protocol_header(contract: DashboardContract) -> str:
     return "\n".join(lines)
 
 
-def _config(contract: DashboardContract, contract_sha256: str) -> dict[str, object]:
+def build_config(contract: DashboardContract, contract_sha256: str) -> dict[str, object]:
     routes: list[dict[str, object]] = []
     by_id = {transport.id: transport for transport in contract.transports}
     for platform in contract.platforms:
@@ -138,7 +138,7 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     source_root = Path(__file__).resolve().parents[2]
     artifacts: dict[str, bytes] = {
         "index.html": _html(contract).encode(),
-        "dashboard.config.json": _json(_config(contract, contract_sha)).encode(),
+        "dashboard.config.json": _json(build_config(contract, contract_sha)).encode(),
         "manifest.webmanifest": _json(
             {
                 "name": contract.name,

@@ -32,7 +32,7 @@ test('native picker filters BLE devices by name and service and serial ports by 
     good: {
       path: '/dev/ttyUSB0',
       manufacturer: 'Maker',
-      pid: '5678',
+      pid: '0x5678',
       product: 'Adapter',
       serial_number: 'A',
       type: 'PCI',
@@ -41,7 +41,7 @@ test('native picker filters BLE devices by name and service and serial ports by 
     wrongVendor: {
       path: '/dev/ttyUSB1',
       manufacturer: 'Maker',
-      pid: '5678',
+      pid: '0x5678',
       product: 'Adapter',
       serial_number: 'B',
       type: 'PCI',
@@ -60,6 +60,39 @@ test('native picker filters BLE devices by name and service and serial ports by 
   assert.deepEqual(ports.map((port) => port.path), ['/dev/ttyUSB0']);
 });
 
+test('serial USB IDs match the plugin formats without interpreting decimal as hex', () => {
+  const ports = filterTauriSerialPorts({
+    android: {
+      path: '/dev/bus/usb/001/001',
+      manufacturer: 'Maker',
+      pid: '0x5678',
+      product: 'Adapter',
+      serial_number: 'A',
+      type: 'Usb',
+      vid: '0x1234',
+    },
+    desktop: {
+      path: '/dev/ttyUSB0',
+      manufacturer: 'Maker',
+      pid: '22136',
+      product: 'Adapter',
+      serial_number: 'B',
+      type: 'USB',
+      vid: '4660',
+    },
+    decimalFalsePositive: {
+      path: '/dev/ttyUSB1',
+      manufacturer: 'Maker',
+      pid: '22136',
+      product: 'Adapter',
+      serial_number: 'C',
+      type: 'USB',
+      vid: '1234',
+    },
+  }, serialConfig);
+  assert.deepEqual(ports.map((port) => port.path), ['/dev/bus/usb/001/001', '/dev/ttyUSB0']);
+});
+
 test('Tauri BLE connects the picked device, splits frames, writes, and disconnects', async () => {
   const chunks = [];
   const writes = [];
@@ -68,6 +101,7 @@ test('Tauri BLE connects the picked device, splits frames, writes, and disconnec
   let unsubscribeCount = 0;
   let disconnectCount = 0;
   const backend = {
+    async checkPermissions() { return true; },
     async startScan() {},
     async stopScan() {},
     async connect(address, onDisconnect) {

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import cast
 
@@ -8,7 +7,8 @@ import pytest
 from pydantic import ValidationError
 
 from dashboard.contract import DashboardContract, load_contract
-from dashboard.generate import generate
+from dashboard.generate import build_config
+from dashboard.interchange import sha256_file
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -60,9 +60,7 @@ def test_contract_models_reject_unknown_fields_and_invalid_platforms() -> None:
     assert DashboardContract.model_validate(value).platforms[0].os == "bsd"
 
 
-def test_smart_kettle_declares_tauri_routes_without_projecting_the_shell(
-    tmp_path: Path,
-) -> None:
+def test_smart_kettle_declares_tauri_routes_without_projecting_the_shell() -> None:
     kettle_path = ROOT / "examples/smart-kettle/smart-kettle.dash.json"
     kettle = load_contract(kettle_path)
     assert kettle.shell is not None
@@ -70,8 +68,7 @@ def test_smart_kettle_declares_tauri_routes_without_projecting_the_shell(
     assert kettle.shell.tauri.identifier == "com.vibebb.smartkettle"
     assert kettle.shell.tauri.targets == ["windows", "macos", "linux", "android", "ios"]
 
-    output, _ = generate(kettle_path, tmp_path)
-    config = json.loads((output / "dashboard.config.json").read_text(encoding="utf-8"))
+    config = build_config(kettle, sha256_file(kettle_path))
     projected_contract = cast(dict[str, object], config["contract"])
     assert "shell" not in projected_contract
     transports = cast(list[dict[str, object]], projected_contract["transports"])

@@ -93,3 +93,7 @@ def test_tauri_native_transport_pairs_follow_shell_targets() -> None:
     assert route_support("windows", "chrome", "tauri_ble") is None
     assert SUPPORT[("linux", "tauri", "webrtc")] == ("caveat", "webkitgtk-webrtc")
     assert route_caveats("linux", "tauri", "webrtc", None) == ["webkitgtk-webrtc"]
+    assert route_caveats("linux", "tauri", "webrtc", "ws://kettle.local/ws") == [
+        "local-network-access",
+        "webkitgtk-webrtc",
+    ]
