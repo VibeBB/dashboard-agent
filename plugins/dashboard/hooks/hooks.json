@@ -1,0 +1,48 @@
+{
+  "session_start": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "name": "dashboard-doctor",
+          "command": "p=$(for c in \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\"; do [ -f \"$c/scripts/dashboard_launcher.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || { echo \"dashboard plugin root unresolved\" >&2; exit 1; }; exec python3 \"$p/scripts/dashboard_launcher.py\" doctor --warn"
+        }
+      ]
+    }
+  ],
+  "pre_tool_use": [
+    {
+      "matcher": "file_editor|apply_patch|terminal",
+      "hooks": [
+        {
+          "type": "command",
+          "name": "protect-generated",
+          "command": "p=$(for c in \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\"; do [ -f \"$c/hooks/scripts/protect_generated.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || { echo \"dashboard plugin root unresolved\" >&2; exit 2; }; exec python3 \"$p/hooks/scripts/protect_generated.py\""
+        }
+      ]
+    },
+    {
+      "matcher": "terminal",
+      "hooks": [
+        {
+          "type": "command",
+          "name": "safety-rail",
+          "command": "p=$(for c in \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\"; do [ -f \"$c/hooks/scripts/safety_rail.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/safety_rail.py\""
+        }
+      ]
+    }
+  ],
+  "stop": [
+    {
+      "matcher": "*",
+      "hooks": [
+        {
+          "type": "command",
+          "name": "report-dashboard-status",
+          "command": "p=$(for c in \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\"; do [ -f \"$c/hooks/scripts/report_dashboard_status.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || { echo \"dashboard plugin root unresolved\" >&2; exit 1; }; exec python3 \"$p/hooks/scripts/report_dashboard_status.py\""
+        }
+      ]
+    }
+  ]
+}

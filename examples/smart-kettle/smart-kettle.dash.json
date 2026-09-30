@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "system": "dashboard",
+  "artifact_kind": "dashboard_contract",
+  "name": "smart-kettle",
+  "description": "Monitor and control a connected smart kettle.",
+  "device": {
+    "firmware_contract": "firmware/smart-kettle.fw.json",
+    "firmware_sha256": "97a7e2b34da3356129d46997d84947c595e8a5ab0a338d77b3add18093cfc8ca"
+  },
+  "protocol": {
+    "framing": "cobs-crc16",
+    "max_frame_bytes": 128,
+    "messages": [
+      {
+        "id": 1,
+        "name": "status",
+        "direction": "device_to_host",
+        "fields": [
+          { "name": "water_temp_c", "type": "i16", "unit": "°C", "scale": 0.1 },
+          { "name": "target_temp_c", "type": "u8", "unit": "°C" },
+          { "name": "heating", "type": "bool" },
+          { "name": "error_code", "type": "u8" }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "set_target",
+        "direction": "host_to_device",
+        "ack": true,
+        "fields": [{ "name": "target_temp_c", "type": "u8", "unit": "°C" }]
+      },
+      {
+        "id": 3,
+        "name": "start_boil",
+        "direction": "host_to_device",
+        "ack": true,
+        "fields": []
+      }
+    ]
+  },
+  "transports": [
+    {
+      "id": "kettle-ble",
+      "kind": "web_bluetooth",
+      "service_uuid": "12345678-1234-5678-1234-56789abcdef0",
+      "rx_characteristic": "12345678-1234-5678-1234-56789abcdef1",
+      "tx_characteristic": "12345678-1234-5678-1234-56789abcdef2",
+      "name_prefix": "Kettle"
+    },
+    { "id": "kettle-serial", "kind": "web_serial", "baud_rate": 115200 },
+    { "id": "kettle-ws", "kind": "websocket", "url": "wss://kettle.local/ws" }
+  ],
+  "platforms": [
+    {
+      "os": "windows",
+      "status": "supported",
+      "routes": [
+        { "browser": "chrome", "transport": "kettle-ble" },
+        { "browser": "chrome", "transport": "kettle-serial" },
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+      ]
+    },
+    {
+      "os": "macos",
+      "status": "supported",
+      "routes": [
+        { "browser": "chrome", "transport": "kettle-ble" },
+        { "browser": "chrome", "transport": "kettle-serial" },
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+      ]
+    },
+    {
+      "os": "chromeos",
+      "status": "supported",
+      "routes": [
+        {
+          "browser": "chrome",
+          "transport": "kettle-ble",
+          "acknowledged_caveats": ["chromeos-managed-device-apis"]
+        },
+        {
+          "browser": "chrome",
+          "transport": "kettle-serial",
+          "acknowledged_caveats": ["chromeos-managed-device-apis"]
+        },
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+      ]
+    },
+    {
+      "os": "linux",
+      "status": "supported",
+      "routes": [
+        {
+          "browser": "chrome",
+          "transport": "kettle-ble",
+          "acknowledged_caveats": ["linux-web-bluetooth-flag"]
+        },
+        { "browser": "chrome", "transport": "kettle-serial" },
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+      ]
+    },
+    {
+      "os": "android",
+      "status": "supported",
+      "routes": [
+        { "browser": "chrome", "transport": "kettle-ble" },
+        {
+          "browser": "chrome",
+          "transport": "kettle-serial",
+          "acknowledged_caveats": ["android-web-serial-limited"]
+        },
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "samsung_internet", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+      ]
+    },
+    {
+      "os": "ios",
+      "status": "supported",
+      "routes": [
+        {
+          "browser": "bluefy",
+          "transport": "kettle-ble",
+          "acknowledged_caveats": ["bluefy-notifications"]
+        },
+        { "browser": "bluefy", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+      ]
+    },
+    {
+      "os": "ipados",
+      "status": "supported",
+      "routes": [
+        {
+          "browser": "bluefy",
+          "transport": "kettle-ble",
+          "acknowledged_caveats": ["bluefy-notifications"]
+        },
+        { "browser": "bluefy", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+      ]
+    }
+  ],
+  "widgets": [
+    {
+      "id": "water-temperature",
+      "kind": "gauge",
+      "label": "Water temperature",
+      "source": "status.water_temp_c"
+    },
+    {
+      "id": "target-temperature",
+      "kind": "value",
+      "label": "Target temperature",
+      "source": "status.target_temp_c"
+    },
+    { "id": "heating-status", "kind": "indicator", "label": "Heating", "source": "status.heating" },
+    { "id": "error-code", "kind": "value", "label": "Error code", "source": "status.error_code" },
+    {
+      "id": "set-target",
+      "kind": "slider",
+      "label": "Set target",
+      "command": "set_target",
+      "field": "target_temp_c"
+    },
+    {
+      "id": "start-boil",
+      "kind": "button",
+      "label": "Start boil",
+      "command": "start_boil",
+      "hazard": true,
+      "confirm": true
+    }
+  ],
+  "session": {
+    "connect_timeout_ms": 10000,
+    "ack_timeout_ms": 1000,
+    "reconnect": { "max_attempts": 5, "backoff_ms": 1000 }
+  },
+  "imports": [
+    {
+      "from_system": "firmware",
+      "path": "firmware/smart-kettle.fw.json",
+      "sha256": "97a7e2b34da3356129d46997d84947c595e8a5ab0a338d77b3add18093cfc8ca"
+    }
+  ],
+  "webmcp": { "enabled": true, "expose_controls": true }
+}
