@@ -1,0 +1,123 @@
+{
+  "schema_version": 1,
+  "system": "dashboard",
+  "artifact_kind": "dashboard_contract",
+  "name": "bench-meter",
+  "description": "Monitor a laboratory bench meter over USB or WebRTC.",
+  "device": { "firmware_contract": null, "firmware_sha256": null },
+  "protocol": {
+    "framing": "cobs-crc16",
+    "max_frame_bytes": 128,
+    "messages": [
+      {
+        "id": 1,
+        "name": "sample",
+        "direction": "device_to_host",
+        "fields": [
+          { "name": "voltage_mv", "type": "u16", "unit": "mV" },
+          { "name": "current_ua", "type": "i32", "unit": "µA" },
+          { "name": "temperature_c", "type": "f32", "unit": "°C" }
+        ]
+      },
+      {
+        "id": 2,
+        "name": "set_range",
+        "direction": "host_to_device",
+        "ack": true,
+        "fields": [{ "name": "range", "type": "u8" }]
+      }
+    ]
+  },
+  "transports": [
+    {
+      "id": "meter-usb",
+      "kind": "webusb",
+      "vendor_id": 4617,
+      "product_id": 66,
+      "interface_class": 255,
+      "interface_number": 0,
+      "endpoint_in": 129,
+      "endpoint_out": 1
+    },
+    {
+      "id": "meter-webrtc",
+      "kind": "webrtc",
+      "signaling_url": "wss://signal.example.com/bench",
+      "data_channel": "bench",
+      "ordered": true,
+      "ice_servers": [{ "urls": ["stun:stun.l.google.com:19302"] }]
+    }
+  ],
+  "platforms": [
+    {
+      "os": "windows",
+      "status": "supported",
+      "routes": [
+        { "browser": "chrome", "transport": "meter-usb", "acknowledged_caveats": ["webusb-claimed-interface"] },
+        { "browser": "chrome", "transport": "meter-webrtc" }
+      ]
+    },
+    {
+      "os": "macos",
+      "status": "supported",
+      "routes": [
+        { "browser": "chrome", "transport": "meter-usb", "acknowledged_caveats": ["webusb-claimed-interface"] },
+        { "browser": "chrome", "transport": "meter-webrtc" }
+      ]
+    },
+    {
+      "os": "linux",
+      "status": "supported",
+      "routes": [
+        { "browser": "chrome", "transport": "meter-usb", "acknowledged_caveats": ["webusb-claimed-interface"] },
+        { "browser": "chrome", "transport": "meter-webrtc" }
+      ]
+    },
+    {
+      "os": "chromeos",
+      "status": "supported",
+      "routes": [
+        {
+          "browser": "chrome",
+          "transport": "meter-usb",
+          "acknowledged_caveats": ["webusb-claimed-interface", "chromeos-managed-device-apis"]
+        },
+        { "browser": "chrome", "transport": "meter-webrtc" }
+      ]
+    },
+    {
+      "os": "android",
+      "status": "supported",
+      "routes": [
+        {
+          "browser": "chrome",
+          "transport": "meter-usb",
+          "acknowledged_caveats": ["android-webusb-driver", "webusb-claimed-interface"]
+        },
+        { "browser": "chrome", "transport": "meter-webrtc" }
+      ]
+    },
+    {
+      "os": "ios",
+      "status": "unsupported",
+      "reason": "Bench meter requires WebUSB; no iOS browser implements it."
+    },
+    {
+      "os": "ipados",
+      "status": "unsupported",
+      "reason": "Bench meter requires WebUSB; no iPadOS browser implements it."
+    }
+  ],
+  "widgets": [
+    { "id": "voltage", "kind": "gauge", "label": "Voltage", "source": "sample.voltage_mv" },
+    { "id": "current", "kind": "value", "label": "Current", "source": "sample.current_ua" },
+    { "id": "temperature", "kind": "chart", "label": "Temperature", "source": "sample.temperature_c" },
+    { "id": "set-range", "kind": "slider", "label": "Set range", "command": "set_range", "field": "range" }
+  ],
+  "session": {
+    "connect_timeout_ms": 10000,
+    "ack_timeout_ms": 1000,
+    "reconnect": { "max_attempts": 5, "backoff_ms": 1000 }
+  },
+  "webmcp": { "enabled": true, "expose_controls": false }
+}

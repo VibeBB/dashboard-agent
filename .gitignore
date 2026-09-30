@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.pyright/
+out/
+examples/*/out/
+runtime/node_modules/
+runtime/dist/
+runtime/test-results/
+runtime/playwright-report/
+runtime/.cache/

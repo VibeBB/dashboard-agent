@@ -1,0 +1,12 @@
+{
+  "name": "dashboard",
+  "version": "0.1.0",
+  "description": "Contract-driven browser dashboards for connected devices, with transport support gates, protocol generation, and safety-aware controls",
+  "author": {
+    "name": "VibeBB",
+    "url": "https://github.com/VibeBB/dashboard-agent"
+  },
+  "license": "BSD-3-Clause",
+  "repository": "https://github.com/VibeBB/dashboard-agent",
+  "entry_command": "doctor"
+}

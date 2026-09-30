@@ -1,0 +1,63 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from plugins.dashboard.hooks.scripts.protect_generated import is_protected
+from plugins.dashboard.hooks.scripts.safety_rail import evaluate
+
+ROOT = Path(__file__).resolve().parents[1]
+PLUGIN = ROOT / "plugins/dashboard"
+
+
+def test_plugin_assets_have_expected_manifest_and_entry_points() -> None:
+    manifest = json.loads((PLUGIN / ".plugin/plugin.json").read_text(encoding="utf-8"))
+    hooks = json.loads((PLUGIN / "hooks/hooks.json").read_text(encoding="utf-8"))
+    mcp = json.loads((PLUGIN / ".mcp.json").read_text(encoding="utf-8"))
+
+    assert manifest["name"] == "dashboard"
+    assert set(mcp["mcpServers"]) == {"dashboard"}
+    assert set(hooks) == {"session_start", "pre_tool_use", "stop"}
+    assert {path.stem for path in (PLUGIN / "agents").glob("*.md")} == {
+        "dashboard-architect",
+        "dashboard-developer",
+        "dashboard-review",
+    }
+    assert {path.stem for path in (PLUGIN / "commands").glob("*.md")} == {
+        "design",
+        "doctor",
+        "gates",
+        "generate",
+        "smoke",
+    }
+    assert {path.parent.name for path in (PLUGIN / "skills").glob("*/SKILL.md")} == {
+        "dashboard-contract",
+        "dashboard-platform-matrix",
+        "dashboard-protocol",
+        "dashboard-servo",
+        "dashboard-sibling-cooperation",
+        "dashboard-transports",
+        "dashboard-wasm",
+        "dashboard-webmcp",
+        "dashboard-workflow",
+    }
+
+
+def test_generated_artifacts_are_protected() -> None:
+    for path in (
+        "examples/smart-kettle/out/smart-kettle/index.html",
+        "out/dashboard.config.json",
+        "examples/kettle/kettle.dash-protocol.h",
+        "examples/kettle/kettle.dash-protocol.json",
+        "examples/kettle/kettle.dash-report.json",
+    ):
+        assert is_protected(path)
+    assert not is_protected("examples/smart-kettle/smart-kettle.dash.json")
+
+
+def test_safety_rail_blocks_destructive_git_operations() -> None:
+    assert evaluate("git reset --hard") is not None
+    assert evaluate("git add .") is not None
+    assert evaluate("git push --force feature") is not None
+    assert evaluate("git push origin main") is not None
+    assert evaluate("git status --short") is None

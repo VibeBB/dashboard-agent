@@ -1,0 +1,7 @@
+{
+  "dashboard_tools": {
+    "image": "ghcr.io/vibebb/dashboard-tools",
+    "digest": null,
+    "tag": null
+  }
+}
