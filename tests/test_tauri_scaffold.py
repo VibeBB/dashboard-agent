@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import struct
 import tomllib
 from pathlib import Path
 from typing import Any, cast
@@ -9,7 +10,7 @@ from typing import Any, cast
 from plugins.dashboard.hooks.scripts.protect_generated import is_protected
 
 from dashboard.contract import DashboardContract, load_contract
-from dashboard.generate import build_tauri_scaffold, manifest_file_hashes
+from dashboard.generate import build_tauri_scaffold, manifest_file_hashes, write_artifacts
 from dashboard.interchange import sha256_file
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -46,6 +47,8 @@ def test_smart_kettle_tauri_scaffold_is_pinned_complete_and_deterministic() -> N
         "rust-toolchain.toml",
         "src-tauri/Cargo.toml",
         "src-tauri/build.rs",
+        "src-tauri/icons/icon.ico",
+        "src-tauri/icons/icon.png",
         "src-tauri/src/main.rs",
         "src-tauri/src/lib.rs",
         "src-tauri/tauri.conf.json",
@@ -74,6 +77,9 @@ def test_smart_kettle_tauri_scaffold_is_pinned_complete_and_deterministic() -> N
     cargo = tomllib.loads(first["src-tauri/Cargo.toml"].decode())
     assert cargo["dependencies"] == {
         "tauri": {"version": "=2.11.6"},
+        "tauri-runtime": {"version": "=2.11.3"},
+        "tauri-runtime-wry": {"version": "=2.11.4"},
+        "tauri-macros": {"version": "=2.6.3"},
         "tauri-plugin-blec": {"version": "=0.17.0"},
         "tauri-plugin-serialplugin": {"version": "=3.0.7"},
     }
@@ -94,6 +100,28 @@ def test_smart_kettle_tauri_scaffold_is_pinned_complete_and_deterministic() -> N
     assert is_protected("out/smart-kettle/tauri/src-tauri/Cargo.toml")
 
 
+def test_tauri_placeholder_icons_are_valid_and_deterministic() -> None:
+    contract = load_contract(KETTLE)
+    first = build_tauri_scaffold(contract)
+    second = build_tauri_scaffold(contract)
+    png = first["src-tauri/icons/icon.png"]
+    ico = first["src-tauri/icons/icon.ico"]
+
+    assert png[:8] == b"\x89PNG\r\n\x1a\n"
+    assert struct.unpack(">I", png[8:12])[0] == 13
+    assert png[12:16] == b"IHDR"
+    assert struct.unpack(">II", png[16:24]) == (32, 32)
+    assert struct.unpack("<HHH", ico[:6]) == (0, 1, 1)
+    width, height, color_count, reserved, planes, bit_depth, size, offset = struct.unpack(
+        "<BBBBHHII", ico[6:22]
+    )
+    assert (width, height, color_count, reserved, planes, bit_depth) == (32, 32, 0, 0, 1, 32)
+    assert (size, offset) == (len(png), 22)
+    assert ico[offset:] == png
+    assert png == second["src-tauri/icons/icon.png"]
+    assert ico == second["src-tauri/icons/icon.ico"]
+
+
 def test_websocket_only_tauri_scaffold_omits_native_plugins() -> None:
     files = build_tauri_scaffold(_websocket_only_contract())
     package = json.loads(files["package.json"])
@@ -102,7 +130,12 @@ def test_websocket_only_tauri_scaffold_omits_native_plugins() -> None:
     bridge = files["src/bridge.ts"].decode()
 
     assert package["dependencies"] == {"@tauri-apps/api": "2.11.1"}
-    assert set(cargo["dependencies"]) == {"tauri"}
+    assert set(cargo["dependencies"]) == {
+        "tauri",
+        "tauri-runtime",
+        "tauri-runtime-wry",
+        "tauri-macros",
+    }
     assert capabilities["permissions"] == ["core:default"]
     assert "blec:default" not in bridge
     assert "serialplugin-api" not in bridge
@@ -117,8 +150,74 @@ def test_manifest_hashes_nested_scaffold_paths(tmp_path: Path) -> None:
     artifact = tmp_path / "tauri/src-tauri/Cargo.toml"
     artifact.parent.mkdir(parents=True)
     artifact.write_bytes(b"[package]\n")
+    dashboard = tmp_path / "dashboard.js"
+    dashboard.write_bytes(b"bundle")
+    unrelated = tmp_path / "tauri/node_modules/x"
+    unrelated.parent.mkdir(parents=True)
+    unrelated.write_bytes(b"not generated")
 
-    assert manifest_file_hashes(tmp_path) == {"tauri/src-tauri/Cargo.toml": sha256_file(artifact)}
+    assert manifest_file_hashes(tmp_path, ["tauri/src-tauri/Cargo.toml"]) == {
+        "dashboard.js": sha256_file(dashboard),
+        "tauri/src-tauri/Cargo.toml": sha256_file(artifact),
+    }
+
+
+def test_write_artifacts_preserves_user_state_and_hashes_only_written_files(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "app"
+    user_files = {
+        "tauri/node_modules/x": b"node module",
+        "tauri/dist/x": b"build output",
+        "tauri/src-tauri/target/x": b"rust target",
+        "tauri/src-tauri/gen/android/x": b"android project",
+    }
+    for name, content in user_files.items():
+        path = output / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content)
+
+    artifacts = {"index.html": b"new dashboard", "tauri/package.json": b"{}"}
+    write_artifacts(output, artifacts, ["index.html"])
+    (output / "dashboard.js").write_bytes(b"bundle")
+
+    for name, content in user_files.items():
+        assert (output / name).read_bytes() == content
+    assert set(manifest_file_hashes(output, artifacts)) == {
+        "dashboard.js",
+        *artifacts,
+    }
+
+
+def test_write_artifacts_removes_stale_ble_plist_for_shell_without_ble(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "app"
+    stale_name = "tauri/src-tauri/Info.ios.plist"
+    stale_plist = output / stale_name
+    stale_plist.parent.mkdir(parents=True)
+    stale_plist.write_text("old BLE usage description", encoding="utf-8")
+    artifacts = {
+        f"tauri/{name}": content
+        for name, content in build_tauri_scaffold(_websocket_only_contract()).items()
+    }
+
+    write_artifacts(output, artifacts, [stale_name])
+
+    assert not stale_plist.exists()
+
+
+def test_write_artifacts_ignores_previous_manifest_path_traversal(
+    tmp_path: Path,
+) -> None:
+    output = tmp_path / "app"
+    output.mkdir()
+    escaped = tmp_path / "escape"
+    escaped.write_text("keep", encoding="utf-8")
+
+    write_artifacts(output, {}, ["../escape"])
+
+    assert escaped.read_text(encoding="utf-8") == "keep"
 
 
 def test_tauri_config_matches_contract_and_allows_only_local_ipc_http_url() -> None:

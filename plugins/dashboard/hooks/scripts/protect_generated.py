@@ -24,10 +24,24 @@ def _strings(value: Any) -> list[str]:
     return []
 
 
+def _is_tauri_generated_state(parts: list[str]) -> bool:
+    if ".." in parts:
+        return False
+    for out_index, part in enumerate(parts):
+        if part != "out":
+            continue
+        for index in range(out_index + 1, len(parts) - 2):
+            if parts[index : index + 3] == ["tauri", "src-tauri", "gen"]:
+                return True
+    return False
+
+
 def is_protected(value: str) -> bool:
     normalized = value.replace("\\", "/").lower().split("#", 1)[0]
     parts = [part for part in normalized.split("/") if part not in ("", ".")]
     name = parts[-1] if parts else ""
+    if _is_tauri_generated_state(parts):
+        return False
     return (
         "out" in parts
         or name == "dash-manifest.json"

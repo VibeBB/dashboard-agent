@@ -46,3 +46,6 @@ The generated README documents desktop and mobile build commands and links to
 the official Tauri v2 OS prerequisites. The scaffold includes only the BLE
 and serial plugins used by the contract; signing and store distribution remain
 out of scope.
+
+Files under `src-tauri/gen/` created by Tauri's Android or iOS init commands
+are user-owned and preserved on regeneration.

@@ -45,6 +45,9 @@ declared. These dependencies are not added to the dashboard runtime.
 | `@mnlphlp/plugin-blec` | 0.17.0, BLE only | MIT or Apache-2.0 |
 | `tauri-plugin-serialplugin-api` | 3.0.7, serial only | Apache-2.0 or MIT |
 | Rust crate `tauri` | 2.11.6 | Apache-2.0 or MIT |
+| Rust crate `tauri-runtime` | 2.11.3 | Apache-2.0 or MIT |
+| Rust crate `tauri-runtime-wry` | 2.11.4 | Apache-2.0 or MIT |
+| Rust crate `tauri-macros` | 2.6.3 | Apache-2.0 or MIT |
 | Rust crate `tauri-build` | 2.6.3 | Apache-2.0 or MIT |
 | Rust crate `tauri-plugin-blec` | 0.17.0, BLE only | MIT or Apache-2.0 |
 | Rust crate `tauri-plugin-serialplugin` | 3.0.7, serial only | Apache-2.0 or MIT |
@@ -56,3 +59,7 @@ user-controlled. The optional shell scaffold is generated separately from
 the web runtime and remains a source project rather than a signed installer.
 Platform support remains fail-closed, including the Linux WebKitGTK WebRTC
 build caveat.
+
+The generated Cargo manifest pins Tauri's runtime and macro crates to versions
+compatible with the exact Tauri 2.11.6 release, avoiding newer minor releases
+selected by Cargo's semver resolution.

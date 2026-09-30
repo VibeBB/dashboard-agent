@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 import shutil
+import struct
 import subprocess
+import zlib
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from urllib.parse import urlsplit
 from xml.sax.saxutils import escape
 
@@ -27,12 +30,65 @@ def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
 
 
-def manifest_file_hashes(output: Path) -> dict[str, str]:
-    return {
-        path.relative_to(output).as_posix(): sha256_file(path)
-        for path in sorted(output.rglob("*"))
-        if path.is_file() and path.name != "dash-manifest.json"
-    }
+def _png_chunk(kind: bytes, data: bytes) -> bytes:
+    chunk = kind + data
+    return struct.pack(">I", len(data)) + chunk + struct.pack(">I", zlib.crc32(chunk))
+
+
+def _placeholder_icon_png() -> bytes:
+    signature = b"\x89PNG\r\n\x1a\n"
+    header = struct.pack(">IIBBBBB", 32, 32, 8, 6, 0, 0, 0)
+    pixel = bytes((47, 111, 237, 255))
+    image_data = zlib.compress(b"".join(b"\x00" + pixel * 32 for _ in range(32)), level=9)
+    return (
+        signature
+        + _png_chunk(b"IHDR", header)
+        + _png_chunk(b"IDAT", image_data)
+        + _png_chunk(b"IEND", b"")
+    )
+
+
+def _placeholder_icon_ico(png: bytes) -> bytes:
+    directory = struct.pack("<HHH", 0, 1, 1)
+    entry = struct.pack("<BBBBHHII", 32, 32, 0, 0, 1, 32, len(png), 22)
+    return directory + entry + png
+
+
+def manifest_file_hashes(output: Path, names: Iterable[str]) -> dict[str, str]:
+    artifact_names = sorted(set(names) | {"dashboard.js"})
+    return {name: sha256_file(output / name) for name in artifact_names}
+
+
+def _resolves_within(path: Path, root: Path) -> bool:
+    try:
+        path.resolve().relative_to(root)
+    except (OSError, RuntimeError, ValueError):
+        return False
+    return True
+
+
+def write_artifacts(
+    output: Path,
+    artifacts: Mapping[str, bytes],
+    previous_names: Iterable[str],
+) -> None:
+    output.mkdir(parents=True, exist_ok=True)
+    output_root = output.resolve()
+    current_names = set(artifacts) | {"dashboard.js", "dash-manifest.json"}
+    for name in sorted(set(previous_names) - current_names):
+        artifact_path = output / name
+        if (
+            _resolves_within(artifact_path, output_root)
+            and not artifact_path.is_dir()
+            and (artifact_path.exists() or artifact_path.is_symlink())
+        ):
+            artifact_path.unlink()
+    for name, content in artifacts.items():
+        artifact_path = output / name
+        if not _resolves_within(artifact_path, output_root):
+            raise ValueError(f"generated artifact path escapes output: {name}")
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_bytes(content)
 
 
 def _protocol_header(contract: DashboardContract) -> str:
@@ -264,6 +320,8 @@ def _tauri_readme(contract: DashboardContract, *, has_serial: bool) -> str:
         f"# {product_name}\n\n"
         f"This Tauri v2 shell was generated for `{contract.name}`. "
         "Regenerate it with `dashboard generate <contract>`.\n\n"
+        "Files under `src-tauri/gen/` created by Tauri's Android or iOS init "
+        "commands are user-owned and preserved on regeneration.\n\n"
         "## Prerequisites\n\n"
         "Install Node.js 26 and Rust. Follow the "
         "[official Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/) "
@@ -281,8 +339,9 @@ def _tauri_readme(contract: DashboardContract, *, has_serial: bool) -> str:
         "npx tauri dev\n"
         "npx tauri build\n"
         "```\n\n"
-        "This scaffold has no application icons. Before creating bundles, provide a square PNG "
-        "or SVG and run `npx tauri icon ./app-icon.png`. For a compile-only build, "
+        "The included application icons are deterministic placeholders. Before creating bundles, "
+        "replace them with branded icons using `npx tauri icon ./app-icon.png`. "
+        "For a compile-only build, "
         "`npx tauri build --debug --no-bundle` skips bundling.\n\n"
         "## Mobile\n\n"
         "```bash\n"
@@ -330,7 +389,12 @@ def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
         permissions.append("blec:default")
     if has_serial:
         permissions.append("serialplugin:default")
-    cargo_dependencies = ['tauri = { version = "=2.11.6" }']
+    cargo_dependencies = [
+        'tauri = { version = "=2.11.6" }',
+        'tauri-runtime = { version = "=2.11.3" }',
+        'tauri-runtime-wry = { version = "=2.11.4" }',
+        'tauri-macros = { version = "=2.6.3" }',
+    ]
     if has_ble:
         cargo_dependencies.append('tauri-plugin-blec = { version = "=0.17.0" }')
     if has_serial:
@@ -362,6 +426,7 @@ def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
             "",
         ]
     )
+    icon_png = _placeholder_icon_png()
     files: dict[str, bytes] = {
         "README.md": _tauri_readme(contract, has_serial=has_serial).encode(),
         "package.json": _json(package).encode(),
@@ -422,6 +487,8 @@ await writeFile(
             "[dependencies]\n" + "\n".join(cargo_dependencies) + "\n"
         ).encode(),
         "src-tauri/build.rs": b"fn main() {\n    tauri_build::build()\n}\n",
+        "src-tauri/icons/icon.png": icon_png,
+        "src-tauri/icons/icon.ico": _placeholder_icon_ico(icon_png),
         "src-tauri/src/main.rs": (
             '#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]\n'
             "\n"
@@ -512,9 +579,19 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     contract_sha = sha256_file(contract_path)
     output = out_root.resolve() / contract.name
     output.mkdir(parents=True, exist_ok=True)
-    tauri_directory = output / "tauri"
-    if tauri_directory.exists():
-        shutil.rmtree(tauri_directory)
+    manifest_path = output / "dash-manifest.json"
+    previous_names: list[str] = []
+    if manifest_path.is_file():
+        previous_manifest: object = json.loads(manifest_path.read_text(encoding="utf-8"))
+        previous_files = (
+            cast(dict[str, object], previous_manifest).get("files")
+            if isinstance(previous_manifest, dict)
+            else None
+        )
+        if isinstance(previous_files, dict):
+            previous_names = [
+                name for name in cast(dict[object, object], previous_files) if isinstance(name, str)
+            ]
     source_root = Path(__file__).resolve().parents[2]
     artifacts: dict[str, bytes] = {
         "index.html": _html(contract).encode(),
@@ -561,10 +638,7 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     artifacts.update(
         {f"tauri/{name}": content for name, content in build_tauri_scaffold(contract).items()}
     )
-    for name, content in artifacts.items():
-        artifact_path = output / name
-        artifact_path.parent.mkdir(parents=True, exist_ok=True)
-        artifact_path.write_bytes(content)
+    write_artifacts(output, artifacts, previous_names)
     esbuild = source_root / "runtime/node_modules/.bin/esbuild"
     command = str(esbuild) if esbuild.is_file() else shutil.which("esbuild")
     if command is None:
@@ -587,12 +661,11 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     )
     if result.returncode:
         raise RuntimeError((result.stdout + result.stderr).strip() or "esbuild failed")
-    files = manifest_file_hashes(output)
+    files = manifest_file_hashes(output, artifacts)
     manifest: dict[str, Any] = {
         "contract_sha256": contract_sha,
         "generator_version": __version__,
         "files": files,
     }
-    manifest_path = output / "dash-manifest.json"
     manifest_path.write_text(_json(manifest), encoding="utf-8")
     return output, [*(output / name for name in files), manifest_path]
