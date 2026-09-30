@@ -231,8 +231,30 @@ def main() -> int:
             if not _image_ready(image, pull=True):
                 raise RuntimeError(f"could not pull dashboard tools image {image}")
             return 0
+        mode = os.environ.get("DASHBOARD_LAUNCH_MODE", "docker")
+        if mode not in {"auto", "docker", "host"}:
+            print(
+                f"DASHBOARD_LAUNCH_MODE must be auto, docker, or host (got {mode!r}); "
+                "usage: DASHBOARD_LAUNCH_MODE=auto|docker|host",
+                file=sys.stderr,
+            )
+            return 2
         docker = shutil.which("docker")
-        if image and docker:
+        use_docker = mode == "docker" or (
+            mode == "auto" and docker is not None and image is not None
+        )
+        if use_docker:
+            if docker is None or image is None:
+                missing: list[str] = []
+                if docker is None:
+                    missing.append("docker is not on PATH")
+                if image is None:
+                    missing.append(
+                        "no image resolved from DASHBOARD_TOOLS_IMAGE or the dashboard image lock"
+                    )
+                raise RuntimeError(
+                    f"{'; '.join(missing)}. Set DASHBOARD_LAUNCH_MODE=host to run on the host."
+                )
             if not _image_ready(image, pull=False):
                 raise RuntimeError(
                     f"dashboard tools image {image} is not pulled; "

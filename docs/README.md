@@ -15,3 +15,4 @@
 - [Dependency update reports](dependency-updates.md)
 - [Dashboard tools image](../docker/README.md)
 - [ADR-0010: Screenshot vision lane](adr/ADR-0010-screenshot-vision-lane.md)
+- [ADR-0011: Docker-only launcher default](adr/ADR-0011-docker-only-launcher-default.md)

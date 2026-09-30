@@ -29,6 +29,12 @@ Emscripten, and Servo:
 uv run python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json --full
 ```
 
+The launcher accepts `DASHBOARD_LAUNCH_MODE=docker|host|auto` (default
+`docker`). Docker mode requires Docker and a resolvable tools image; if either
+is unavailable, set `DASHBOARD_LAUNCH_MODE=host` to run on the host. Auto mode
+retains Docker-when-available behavior. `prewarm` continues to pull the
+configured image independently of launch mode.
+
 The `dashboard-tools` image pins those tools and runs full gates in an internal
 Docker network without Internet egress. Its build downloads and checksum-verifies
 Servo and installs Playwright Chromium; the launcher creates or verifies the
