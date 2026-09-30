@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit
+from xml.sax.saxutils import escape
 
 from . import __version__
 from .contract import (
@@ -24,6 +25,14 @@ from .webmcp import definitions
 
 def _json(value: object) -> str:
     return json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+
+
+def manifest_file_hashes(output: Path) -> dict[str, str]:
+    return {
+        path.relative_to(output).as_posix(): sha256_file(path)
+        for path in sorted(output.rglob("*"))
+        if path.is_file() and path.name != "dash-manifest.json"
+    }
 
 
 def _protocol_header(contract: DashboardContract) -> str:
@@ -88,7 +97,7 @@ def build_config(contract: DashboardContract, contract_sha256: str) -> dict[str,
     }
 
 
-def _html(contract: DashboardContract) -> str:
+def _connect_sources(contract: DashboardContract, *, include_tauri_ipc: bool = False) -> str:
     connect_hosts = {"'self'"}
     for transport in contract.transports:
         url = (
@@ -102,7 +111,377 @@ def _html(contract: DashboardContract) -> str:
             parsed = urlsplit(url)
             if parsed.scheme in {"ws", "wss"} and parsed.netloc:
                 connect_hosts.add(f"{parsed.scheme}://{parsed.netloc}")
-    connect_policy = " ".join(sorted(connect_hosts))
+    if include_tauri_ipc:
+        connect_hosts.update({"ipc:", "http://ipc.localhost"})
+    return " ".join(sorted(connect_hosts))
+
+
+def _content_security_policy(
+    contract: DashboardContract, *, include_tauri_ipc: bool = False
+) -> str:
+    return (
+        "default-src 'self'; "
+        f"connect-src {_connect_sources(contract, include_tauri_ipc=include_tauri_ipc)}; "
+        "script-src 'self'; style-src 'self'; img-src 'self' data:; "
+        "object-src 'none'; base-uri 'none'"
+    )
+
+
+def _tauri_bridge(*, has_ble: bool, has_serial: bool) -> str:
+    lines: list[str] = []
+    if has_ble:
+        lines.extend(
+            [
+                "import {",
+                "  checkPermissions as checkBlePermissions,",
+                "  connect as connectBleDevice,",
+                "  disconnect as disconnectBle,",
+                "  send as sendBleData,",
+                "  startScan as startBleScan,",
+                "  stopScan as stopBleScan,",
+                "  subscribe as subscribeBle,",
+                "  unsubscribe as unsubscribeBle,",
+                '} from "@mnlphlp/plugin-blec";',
+                "",
+            ]
+        )
+    if has_serial:
+        lines.extend(
+            [
+                'import { SerialPort as SerialPluginPort } from "tauri-plugin-serialplugin-api";',
+                "",
+            ]
+        )
+    lines.extend(
+        [
+            "type TauriBleDevice = {",
+            "  address: string;",
+            "  name: string;",
+            "  services: string[];",
+            "};",
+            "",
+            "type TauriBleBackend = {",
+            "  checkPermissions(askIfDenied?: boolean): Promise<boolean>;",
+            "  startScan(",
+            "    handler: (devices: TauriBleDevice[]) => void,",
+            "    timeout: number,",
+            "  ): Promise<void>;",
+            "  stopScan(): Promise<void>;",
+            "  connect(address: string, onDisconnect: (() => void) | null): Promise<void>;",
+            "  disconnect(): Promise<void>;",
+            "  subscribe(",
+            "    characteristic: string,",
+            "    service: string | null,",
+            "    handler: (data: number[]) => void,",
+            "  ): Promise<void>;",
+            "  unsubscribe(characteristic: string, service?: string): Promise<void>;",
+            "  send(",
+            "    characteristic: string,",
+            "    data: number[],",
+            '    writeType?: "withResponse" | "withoutResponse",',
+            "    service?: string,",
+            "  ): Promise<void>;",
+            "};",
+            "",
+            "type TauriPortInfo = {",
+            "  path: string;",
+            "  manufacturer: string;",
+            "  pid: string;",
+            "  product: string;",
+            "  serial_number: string;",
+            "  type: string;",
+            "  vid: string;",
+            "};",
+            "",
+            "type TauriSerialPort = {",
+            "  open(): Promise<string>;",
+            "  watch(",
+            "    handlers: {",
+            "      onData: (data: string | Uint8Array) => void;",
+            "      onDisconnect?: (reason: string) => void;",
+            "      onError?: (message: string) => void;",
+            "    },",
+            "    options?: { decode?: boolean },",
+            "  ): Promise<{ unwatch(): Promise<void> }>;",
+            "  close(): Promise<void>;",
+            "  writeBinary(value: Uint8Array | number[]): Promise<number>;",
+            "};",
+            "",
+            "type TauriBackends = {",
+            "  ble?: TauriBleBackend;",
+            "  serial?: {",
+            "    SerialPort: {",
+            "      new(options: { path: string; baudRate: number }): TauriSerialPort;",
+            "      available_ports(): Promise<Record<string, TauriPortInfo>>;",
+            "    };",
+            "  };",
+            "};",
+            "",
+            "declare global {",
+            "  var __TAURI_BACKENDS__: TauriBackends | undefined;",
+            "}",
+            "",
+            "const backends: TauriBackends = {};",
+        ]
+    )
+    if has_ble:
+        lines.extend(
+            [
+                "",
+                "backends.ble = {",
+                "  checkPermissions: checkBlePermissions,",
+                "  startScan: (handler, timeout) => startBleScan(handler, timeout),",
+                "  stopScan: stopBleScan,",
+                "  connect: connectBleDevice,",
+                "  disconnect: disconnectBle,",
+                "  subscribe: subscribeBle,",
+                "  unsubscribe: unsubscribeBle,",
+                "  send: sendBleData,",
+                "};",
+            ]
+        )
+    if has_serial:
+        lines.extend(
+            [
+                "",
+                "backends.serial = { SerialPort: SerialPluginPort };",
+            ]
+        )
+    lines.extend(["", "globalThis.__TAURI_BACKENDS__ = backends;", ""])
+    return "\n".join(lines)
+
+
+def _tauri_readme(contract: DashboardContract, *, has_serial: bool) -> str:
+    assert contract.shell is not None and contract.shell.tauri is not None
+    product_name = contract.shell.tauri.product_name
+    serial_notes = (
+        "\nFor Android serial, add your USB VID/PID to the app's `device_filter.xml` "
+        "and request USB permission at runtime before opening a port.\n"
+        if has_serial
+        else ""
+    )
+    return (
+        f"# {product_name}\n\n"
+        f"This Tauri v2 shell was generated for `{contract.name}`. "
+        "Regenerate it with `dashboard generate <contract>`.\n\n"
+        "## Prerequisites\n\n"
+        "Install Node.js 26 and Rust. Follow the "
+        "[official Tauri v2 prerequisites](https://v2.tauri.app/start/prerequisites/) "
+        "for the selected target:\n\n"
+        "- Windows: Microsoft C++ Build Tools and WebView2.\n"
+        "- macOS: Xcode for iOS targets; desktop-only development can use "
+        "Xcode Command Line Tools.\n"
+        "- Linux: the distribution's Tauri system packages, including WebKitGTK.\n"
+        "- Android: Android Studio, a Java JDK (`JAVA_HOME`), the Android "
+        "SDK/NDK, and the required Rust target.\n"
+        "- iOS: macOS and Xcode.\n\n"
+        "## Desktop\n\n"
+        "```bash\n"
+        "npm install\n"
+        "npx tauri dev\n"
+        "npx tauri build\n"
+        "```\n\n"
+        "This scaffold has no application icons. Before creating bundles, provide a square PNG "
+        "or SVG and run `npx tauri icon ./app-icon.png`. For a compile-only build, "
+        "`npx tauri build --debug --no-bundle` skips bundling.\n\n"
+        "## Mobile\n\n"
+        "```bash\n"
+        "npx tauri android init\n"
+        "npx tauri android build\n"
+        "npx tauri ios init\n"
+        "npx tauri ios build\n"
+        "```\n\n"
+        "Apple builds require macOS and Xcode.\n"
+        f"{serial_notes}\n"
+        "Signing, notarization, store submission, and TestFlight are out of scope.\n"
+    )
+
+
+def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
+    shell = contract.shell.tauri if contract.shell is not None else None
+    if shell is None:
+        return {}
+
+    transport_kinds = {transport.kind for transport in contract.transports}
+    has_ble = "tauri_ble" in transport_kinds
+    has_serial = "tauri_serial" in transport_kinds
+    dependencies: dict[str, str] = {"@tauri-apps/api": "2.11.1"}
+    if has_ble:
+        dependencies["@mnlphlp/plugin-blec"] = "0.17.0"
+    if has_serial:
+        dependencies["tauri-plugin-serialplugin-api"] = "3.0.7"
+    package = {
+        "name": contract.name,
+        "version": shell.version,
+        "private": True,
+        "type": "module",
+        "scripts": {
+            "build:web": "node scripts/prepare-web.mjs",
+            "tauri": "tauri",
+        },
+        "dependencies": dependencies,
+        "devDependencies": {
+            "@tauri-apps/cli": "2.11.5",
+            "esbuild": "0.28.2",
+        },
+    }
+    permissions = ["core:default"]
+    if has_ble:
+        permissions.append("blec:default")
+    if has_serial:
+        permissions.append("serialplugin:default")
+    cargo_dependencies = ['tauri = { version = "=2.11.6" }']
+    if has_ble:
+        cargo_dependencies.append('tauri-plugin-blec = { version = "=0.17.0" }')
+    if has_serial:
+        cargo_dependencies.append('tauri-plugin-serialplugin = { version = "=3.0.7" }')
+    crate_name = contract.name.replace("-", "_")
+    if not crate_name[0].isalpha():
+        crate_name = f"dashboard_{crate_name}"
+    library_name = f"{crate_name}_lib"
+    lib_lines = [
+        "#[cfg_attr(mobile, tauri::mobile_entry_point)]",
+        "pub fn run() {",
+        "    let builder = tauri::Builder::default()",
+    ]
+    plugins: list[str] = []
+    if has_ble:
+        plugins.append("        .plugin(tauri_plugin_blec::init())")
+    if has_serial:
+        plugins.append("        .plugin(tauri_plugin_serialplugin::init())")
+    if plugins:
+        lib_lines.extend(plugins)
+    lib_lines[-1] += ";"
+    lib_lines.extend(
+        [
+            "",
+            "    builder",
+            "        .run(tauri::generate_context!())",
+            '        .expect("error while running Tauri application");',
+            "}",
+            "",
+        ]
+    )
+    files: dict[str, bytes] = {
+        "README.md": _tauri_readme(contract, has_serial=has_serial).encode(),
+        "package.json": _json(package).encode(),
+        "src/bridge.ts": _tauri_bridge(has_ble=has_ble, has_serial=has_serial).encode(),
+        "scripts/prepare-web.mjs": b"""import { build } from "esbuild";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const source = resolve(root, "..");
+const dist = resolve(root, "dist");
+const files = [
+  "dashboard.config.json",
+  "dashboard.js",
+  "index.html",
+  "manifest.webmanifest",
+  "styles.css",
+];
+
+await mkdir(dist, { recursive: true });
+for (const file of files) {
+  await copyFile(resolve(source, file), resolve(dist, file));
+}
+await build({
+  entryPoints: [resolve(root, "src/bridge.ts")],
+  bundle: true,
+  format: "iife",
+  target: "es2022",
+  outfile: resolve(dist, "bridge.js"),
+});
+const indexPath = resolve(dist, "index.html");
+const html = await readFile(indexPath, "utf8");
+const dashboardTag = '<script type="module" src="dashboard.js"></script>';
+if (html.split(dashboardTag).length - 1 !== 1) {
+  throw new Error("expected exactly one dashboard module script tag");
+}
+await writeFile(
+  indexPath,
+  html.replace(dashboardTag, `<script src="bridge.js"></script>\\n${dashboardTag}`),
+);
+""",
+        "rust-toolchain.toml": b'[toolchain]\nchannel = "1.98.1"\n',
+        "src-tauri/Cargo.toml": (
+            "[package]\n"
+            f'name = "{contract.name}"\n'
+            f'version = "{shell.version}"\n'
+            'edition = "2021"\n'
+            'build = "build.rs"\n'
+            "\n"
+            "[lib]\n"
+            f'name = "{library_name}"\n'
+            'crate-type = ["staticlib", "cdylib", "rlib"]\n'
+            "\n"
+            "[build-dependencies]\n"
+            'tauri-build = { version = "=2.6.3" }\n'
+            "\n"
+            "[dependencies]\n" + "\n".join(cargo_dependencies) + "\n"
+        ).encode(),
+        "src-tauri/build.rs": b"fn main() {\n    tauri_build::build()\n}\n",
+        "src-tauri/src/main.rs": (
+            '#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]\n'
+            "\n"
+            "fn main() {\n"
+            f"    {library_name}::run();\n"
+            "}\n"
+        ).encode(),
+        "src-tauri/src/lib.rs": "\n".join(lib_lines).encode(),
+        "src-tauri/tauri.conf.json": _json(
+            {
+                "productName": shell.product_name,
+                "version": shell.version,
+                "identifier": shell.identifier,
+                "build": {
+                    "beforeBuildCommand": "npm run build:web",
+                    "beforeDevCommand": "npm run build:web",
+                    "frontendDist": "../dist",
+                },
+                "app": {
+                    "windows": [
+                        {
+                            "label": "main",
+                            "title": shell.product_name,
+                            "width": 1280,
+                            "height": 800,
+                        }
+                    ],
+                    "security": {"csp": _content_security_policy(contract, include_tauri_ipc=True)},
+                },
+                "bundle": {"active": True, "targets": "all"},
+            }
+        ).encode(),
+        "src-tauri/capabilities/default.json": _json(
+            {
+                "identifier": "default",
+                "description": "Default dashboard window permissions",
+                "windows": ["main"],
+                "permissions": permissions,
+            }
+        ).encode(),
+    }
+    if has_ble:
+        product_name = escape(shell.product_name)
+        files["src-tauri/Info.ios.plist"] = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" '
+            '"http://www.apple.com/DTDs/PropertyList-1.0.dtd">\n'
+            '<plist version="1.0">\n'
+            "<dict>\n"
+            "<key>NSBluetoothAlwaysUsageDescription</key>\n"
+            f"<string>{product_name} uses Bluetooth to connect to your device.</string>\n"
+            "</dict>\n"
+            "</plist>\n"
+        ).encode()
+    return files
+
+
+def _html(contract: DashboardContract) -> str:
+    has_tauri = contract.shell is not None and contract.shell.tauri is not None
+    content_security_policy = _content_security_policy(contract, include_tauri_ipc=has_tauri)
     token = (
         f'<meta http-equiv="origin-trial" content="{contract.webmcp.origin_trial_token}">\n'
         if contract.webmcp and contract.webmcp.origin_trial_token
@@ -112,9 +491,7 @@ def _html(contract: DashboardContract) -> str:
         "<!doctype html>\n"
         '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
-        f'<meta http-equiv="Content-Security-Policy" content="default-src \'self\'; '
-        f"connect-src {connect_policy}; script-src 'self'; style-src 'self'; "
-        "img-src 'self' data:; object-src 'none'; base-uri 'none'\">\n"
+        f'<meta http-equiv="Content-Security-Policy" content="{content_security_policy}">\n'
         f"{token}"
         f"<title>{contract.name}</title>\n"
         '<link rel="manifest" href="manifest.webmanifest">\n'
@@ -135,6 +512,9 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     contract_sha = sha256_file(contract_path)
     output = out_root.resolve() / contract.name
     output.mkdir(parents=True, exist_ok=True)
+    tauri_directory = output / "tauri"
+    if tauri_directory.exists():
+        shutil.rmtree(tauri_directory)
     source_root = Path(__file__).resolve().parents[2]
     artifacts: dict[str, bytes] = {
         "index.html": _html(contract).encode(),
@@ -178,8 +558,13 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
         "dash_codec.c": (source_root / "runtime/c/dash_codec.c").read_bytes(),
         "dash_codec.h": (source_root / "runtime/c/dash_codec.h").read_bytes(),
     }
+    artifacts.update(
+        {f"tauri/{name}": content for name, content in build_tauri_scaffold(contract).items()}
+    )
     for name, content in artifacts.items():
-        (output / name).write_bytes(content)
+        artifact_path = output / name
+        artifact_path.parent.mkdir(parents=True, exist_ok=True)
+        artifact_path.write_bytes(content)
     esbuild = source_root / "runtime/node_modules/.bin/esbuild"
     command = str(esbuild) if esbuild.is_file() else shutil.which("esbuild")
     if command is None:
@@ -202,11 +587,7 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     )
     if result.returncode:
         raise RuntimeError((result.stdout + result.stderr).strip() or "esbuild failed")
-    files: dict[str, str] = {
-        path.name: sha256_file(path)
-        for path in sorted(output.iterdir())
-        if path.is_file() and path.name != "dash-manifest.json"
-    }
+    files = manifest_file_hashes(output)
     manifest: dict[str, Any] = {
         "contract_sha256": contract_sha,
         "generator_version": __version__,

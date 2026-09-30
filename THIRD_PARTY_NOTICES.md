@@ -27,3 +27,21 @@ includes or invokes the following third-party software:
 Container package copyright and license texts are provided by Debian under
 `/usr/share/doc`. Chromium's licenses are installed with the Playwright browser
 cache.
+
+## Optional generated Tauri scaffold dependencies
+
+These packages are emitted only in a generated `out/<name>/tauri/` project;
+they are not bundled in this repository. BLE and serial packages are included
+only when the matching transport is declared.
+
+| Component | Pin | License / use |
+| --- | --- | --- |
+| `@tauri-apps/api` | 2.11.1 | Apache-2.0 OR MIT; generated scaffold only |
+| `@tauri-apps/cli` | 2.11.5 | Apache-2.0 OR MIT; generated scaffold only |
+| `esbuild` | 0.28.2 | MIT; generated scaffold only |
+| `@mnlphlp/plugin-blec` | 0.17.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
+| `tauri-plugin-serialplugin-api` | 3.0.7 | Apache-2.0 OR MIT; generated scaffold only, serial |
+| Rust crate `tauri` | 2.11.6 | Apache-2.0 OR MIT; generated scaffold only |
+| Rust crate `tauri-build` | 2.6.3 | Apache-2.0 OR MIT; generated scaffold only |
+| Rust crate `tauri-plugin-blec` | 0.17.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
+| Rust crate `tauri-plugin-serialplugin` | 3.0.7 | Apache-2.0 OR MIT; generated scaffold only, serial |

@@ -26,6 +26,23 @@ WebKitGTK build.
 
 Native transport selection belongs in an accessible in-page picker. Scan or
 list devices first, then connect only after an explicit user click. Never add
-device-selection or connection tools to WebMCP. PR A carries route and
-transport declarations into runtime configuration, but does not generate a
-Tauri app scaffold or add runtime npm dependencies.
+device-selection or connection tools to WebMCP. The browser runtime remains
+dependency-free; the optional generated shell injects its native plugin
+backends separately.
+
+## Generate and run the optional scaffold
+
+When `shell.tauri` is present, `dashboard generate <contract>` writes a
+standalone project to `out/<name>/tauri/`. Install its pinned dependencies and
+run it with:
+
+```bash
+cd out/<name>/tauri
+npm install
+npx tauri dev
+```
+
+The generated README documents desktop and mobile build commands and links to
+the official Tauri v2 OS prerequisites. The scaffold includes only the BLE
+and serial plugins used by the contract; signing and store distribution remain
+out of scope.
