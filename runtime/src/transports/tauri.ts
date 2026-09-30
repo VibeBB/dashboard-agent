@@ -7,6 +7,7 @@ export interface TauriBleDevice {
 }
 
 export interface TauriBleBackend {
+  checkPermissions(askIfDenied?: boolean): Promise<boolean>;
   startScan(handler: (devices: TauriBleDevice[]) => void, timeout: number): Promise<void>;
   stopScan(): Promise<void>;
   connect(address: string, onDisconnect: (() => void) | null): Promise<void>;
@@ -117,10 +118,9 @@ function matchesUsbId(actual: string, expected: number | null | undefined): bool
   if (expected === null || expected === undefined) return true;
   if (!actual || actual === "Unknown") return false;
   const value = actual.trim().toLowerCase();
-  const withoutPrefix = value.startsWith("0x") ? value.slice(2) : value;
-  const decimal = Number(value);
-  const hexadecimal = Number.parseInt(withoutPrefix, 16);
-  return decimal === expected || hexadecimal === expected;
+  if (/^(0|[1-9]\d*)$/.test(value)) return Number(value) === expected;
+  if (/^0x[0-9a-f]{4}$/.test(value)) return Number.parseInt(value.slice(2), 16) === expected;
+  return false;
 }
 
 export function filterTauriSerialPorts(
