@@ -9,3 +9,4 @@
 - [ADR-0004: Dashboard tools image and pins](adr/ADR-0004-tools-image-and-pins.md)
 - [ADR-0005: Servo and Emscripten roles](adr/ADR-0005-servo-and-emscripten.md)
 - [ADR-0006: WebMCP tools](adr/ADR-0006-webmcp.md)
+- [ADR-0007: Tauri v2 native shell](adr/ADR-0007-tauri-v2.md)

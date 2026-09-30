@@ -14,9 +14,10 @@ from urllib.parse import urlsplit
 from pydantic import BaseModel, ConfigDict, ValidationError
 
 from .contract import (
+    REVERSE_DNS,
     WIRE_TYPES,
+    BleTransportBase,
     DashboardContract,
-    WebBluetoothTransport,
     WebRtcTransport,
     WebSocketTransport,
     load_contract,
@@ -161,7 +162,7 @@ def check_contract(contract: DashboardContract, contract_path: Path) -> list[Che
                 for ice_url in ice_server.urls:
                     if urlsplit(ice_url).scheme not in {"stun", "turn", "turns"}:
                         url_problems.append(f"{transport.id}: invalid ICE URL {ice_url}")
-        elif isinstance(transport, WebBluetoothTransport):
+        elif isinstance(transport, BleTransportBase):
             for value in (
                 transport.service_uuid,
                 transport.rx_characteristic,
@@ -236,6 +237,98 @@ def check_contract(contract: DashboardContract, contract_path: Path) -> list[Che
     checks.append(_check("platform.route-known", route_problems))
     checks.append(_check("platform.caveats-acknowledged", caveat_problems))
     checks.append(_check("platform.unsupported-reason", unsupported_problems))
+
+    tauri_shell = contract.shell.tauri if contract.shell is not None else None
+    has_tauri_transport = any(
+        transport.kind in {"tauri_ble", "tauri_serial"} for transport in transports
+    )
+    if tauri_shell is None and not has_tauri_transport:
+        checks.extend(
+            Check(
+                id=check_id,
+                status="not_applicable",
+                detail="contract declares no Tauri shell or transports",
+            )
+            for check_id in (
+                "tauri.identifier",
+                "tauri.targets-routes",
+                "tauri.transport-requires-shell",
+            )
+        )
+    else:
+        if tauri_shell is None:
+            checks.append(
+                Check(
+                    id="tauri.identifier",
+                    status="not_applicable",
+                    detail="contract declares no Tauri shell",
+                )
+            )
+            checks.append(
+                Check(
+                    id="tauri.targets-routes",
+                    status="not_applicable",
+                    detail="contract declares no Tauri shell",
+                )
+            )
+        else:
+            identifier_problems = (
+                []
+                if re.fullmatch(REVERSE_DNS, tauri_shell.identifier)
+                else [f"invalid reverse-DNS identifier: {tauri_shell.identifier}"]
+            )
+            checks.append(_check("tauri.identifier", identifier_problems))
+
+            targets = set(tauri_shell.targets)
+            target_route_problems: list[str] = []
+            for target in tauri_shell.targets:
+                if target == "ios":
+                    declarations = [
+                        platform
+                        for platform in contract.platforms
+                        if platform.os in {"ios", "ipados"} and platform.status == "supported"
+                    ]
+                    if not declarations:
+                        target_route_problems.append(
+                            "ios: shell target requires a supported iOS or iPadOS declaration"
+                        )
+                    for platform in declarations:
+                        if not any(route.browser == "tauri" for route in platform.routes):
+                            target_route_problems.append(
+                                f"{platform.os}: supported declaration needs a tauri route"
+                            )
+                else:
+                    platform = next(
+                        (
+                            item
+                            for item in contract.platforms
+                            if item.os == target and item.status == "supported"
+                        ),
+                        None,
+                    )
+                    if platform is None or not any(
+                        route.browser == "tauri" for route in platform.routes
+                    ):
+                        target_route_problems.append(
+                            f"{target}: shell target needs a supported tauri route"
+                        )
+            for platform in contract.platforms:
+                if platform.status != "supported":
+                    continue
+                if any(route.browser == "tauri" for route in platform.routes):
+                    target = "ios" if platform.os == "ipados" else platform.os
+                    if target not in targets:
+                        target_route_problems.append(
+                            f"{platform.os}: tauri route requires shell target {target}"
+                        )
+            checks.append(_check("tauri.targets-routes", target_route_problems))
+
+        shell_problems = (
+            ["tauri_ble or tauri_serial transports require shell.tauri"]
+            if has_tauri_transport and tauri_shell is None
+            else []
+        )
+        checks.append(_check("tauri.transport-requires-shell", shell_problems))
 
     widget_problems: list[str] = []
     refs_seen: list[str] = []

@@ -8,6 +8,14 @@
     "firmware_contract": "firmware/smart-kettle.fw.json",
     "firmware_sha256": "97a7e2b34da3356129d46997d84947c595e8a5ab0a338d77b3add18093cfc8ca"
   },
+  "shell": {
+    "tauri": {
+      "identifier": "com.vibebb.smartkettle",
+      "product_name": "Smart Kettle",
+      "version": "1.0.0",
+      "targets": ["windows", "macos", "linux", "android", "ios"]
+    }
+  },
   "protocol": {
     "framing": "cobs-crc16",
     "max_frame_bytes": 128,
@@ -48,7 +56,16 @@
       "tx_characteristic": "12345678-1234-5678-1234-56789abcdef2",
       "name_prefix": "Kettle"
     },
+    {
+      "id": "kettle-tauri-ble",
+      "kind": "tauri_ble",
+      "service_uuid": "12345678-1234-5678-1234-56789abcdef0",
+      "rx_characteristic": "12345678-1234-5678-1234-56789abcdef1",
+      "tx_characteristic": "12345678-1234-5678-1234-56789abcdef2",
+      "name_prefix": "Kettle"
+    },
     { "id": "kettle-serial", "kind": "web_serial", "baud_rate": 115200 },
+    { "id": "kettle-tauri-serial", "kind": "tauri_serial", "baud_rate": 115200 },
     { "id": "kettle-ws", "kind": "websocket", "url": "wss://kettle.local/ws" }
   ],
   "platforms": [
@@ -58,7 +75,10 @@
       "routes": [
         { "browser": "chrome", "transport": "kettle-ble" },
         { "browser": "chrome", "transport": "kettle-serial" },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "tauri", "transport": "kettle-tauri-ble" },
+        { "browser": "tauri", "transport": "kettle-tauri-serial" },
+        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
       ]
     },
     {
@@ -67,7 +87,10 @@
       "routes": [
         { "browser": "chrome", "transport": "kettle-ble" },
         { "browser": "chrome", "transport": "kettle-serial" },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "tauri", "transport": "kettle-tauri-ble" },
+        { "browser": "tauri", "transport": "kettle-tauri-serial" },
+        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
       ]
     },
     {
@@ -97,7 +120,10 @@
           "acknowledged_caveats": ["linux-web-bluetooth-flag"]
         },
         { "browser": "chrome", "transport": "kettle-serial" },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "tauri", "transport": "kettle-tauri-ble" },
+        { "browser": "tauri", "transport": "kettle-tauri-serial" },
+        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
       ]
     },
     {
@@ -111,7 +137,10 @@
           "acknowledged_caveats": ["android-web-serial-limited"]
         },
         { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "samsung_internet", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        { "browser": "samsung_internet", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "tauri", "transport": "kettle-tauri-ble" },
+        { "browser": "tauri", "transport": "kettle-tauri-serial" },
+        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
       ]
     },
     {
@@ -124,7 +153,9 @@
           "acknowledged_caveats": ["bluefy-notifications"]
         },
         { "browser": "bluefy", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "tauri", "transport": "kettle-tauri-ble" },
+        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
       ]
     },
     {
@@ -137,7 +168,9 @@
           "acknowledged_caveats": ["bluefy-notifications"]
         },
         { "browser": "bluefy", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
+        { "browser": "tauri", "transport": "kettle-tauri-ble" },
+        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
       ]
     }
   ],

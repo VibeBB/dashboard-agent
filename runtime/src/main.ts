@@ -1,8 +1,17 @@
 import { detectEnvironment, selectRoutes, type RouteSelection } from "./capabilities.ts";
 import { DashboardSession } from "./session.ts";
 import type { DashboardConfig, TransportConfig } from "./types.ts";
+import {
+  filterTauriBleDevices,
+  filterTauriSerialPorts,
+  getTauriBackends,
+  registerInjectedTauriBackends,
+  type TauriBleDevice,
+} from "./transports/tauri.ts";
 import { element as make, renderTelemetry as updateTelemetry, setControlsEnabled } from "./ui.ts";
 import { registerWebMcp } from "./webmcp.ts";
+
+registerInjectedTauriBackends();
 
 declare global {
   interface Window {
@@ -41,6 +50,23 @@ const platform = selection.os;
 const platformConfig = config.contract.platforms.find((item) => item.os === platform);
 const platformRoutes = config.routes.filter((route) => route.os === platform && route.browser === environment.browser);
 let unregisterWebMcp = (): void => undefined;
+type PickerOption = { value: string; label: string };
+type PickerState = {
+  options: PickerOption[];
+  selected: string;
+  loading: boolean;
+  error: string | null;
+};
+const pickerStates = new Map<string, PickerState>();
+
+function pickerState(transportId: string): PickerState {
+  let state = pickerStates.get(transportId);
+  if (!state) {
+    state = { options: [], selected: "", loading: false, error: null };
+    pickerStates.set(transportId, state);
+  }
+  return state;
+}
 
 function renderCaveats(): void {
   const seen = new Set<string>();
@@ -55,6 +81,109 @@ function renderCaveats(): void {
   }
 }
 
+function renderTauriPicker(
+  transport: Extract<TransportConfig, { kind: "tauri_ble" | "tauri_serial" }>,
+  disabled: boolean,
+): void {
+  const state = pickerState(transport.id);
+  const ble = transport.kind === "tauri_ble";
+  const labelText = ble ? "Bluetooth device" : "Serial port";
+  const select = make("select");
+  const selectId = `tauri-picker-${transport.id}`;
+  const label = make("label", labelText);
+  label.htmlFor = selectId;
+  select.id = selectId;
+  select.required = true;
+  select.disabled = disabled || state.options.length === 0;
+  const placeholder = make("option", ble ? "Scan for devices first" : "List ports first");
+  placeholder.value = "";
+  placeholder.disabled = true;
+  select.append(placeholder);
+  const connect = make("button", `Connect via ${transport.kind.replaceAll("_", " ")}`);
+  connect.type = "button";
+  connect.dataset.transport = transport.id;
+  connect.disabled = disabled || !state.selected;
+  for (const item of state.options) {
+    const option = make("option", item.label);
+    option.value = item.value;
+    select.append(option);
+  }
+  select.value = state.selected;
+  select.addEventListener("change", () => {
+    state.selected = select.value;
+    connect.disabled = disabled || !state.selected;
+  });
+
+  const scan = make(
+    "button",
+    state.loading ? (ble ? "Scanning…" : "Listing ports…") : (ble ? "Scan for Bluetooth devices" : "List serial ports"),
+  );
+  scan.type = "button";
+  scan.disabled = disabled || state.loading;
+  scan.addEventListener("click", async () => {
+    state.loading = true;
+    state.error = null;
+    renderConnection();
+    try {
+      if (transport.kind === "tauri_ble") {
+        const backend = getTauriBackends().ble;
+        if (!backend) throw new Error("Tauri BLE backend is unavailable");
+        const devices = new Map<string, TauriBleDevice>();
+        try {
+          await backend.startScan((found) => {
+            for (const device of found) devices.set(device.address, device);
+          }, 5000);
+        } finally {
+          await backend.stopScan().catch(() => undefined);
+        }
+        state.options = filterTauriBleDevices([...devices.values()], transport).map((device) => ({
+          value: device.address,
+          label: `${device.name || "Bluetooth device"} (${device.address})`,
+        }));
+      } else {
+        const backend = getTauriBackends().serial;
+        if (!backend) throw new Error("Tauri serial backend is unavailable");
+        const ports = await backend.SerialPort.available_ports();
+        state.options = filterTauriSerialPorts(ports, transport).map((port) => ({
+          value: port.path,
+          label: `${port.path} · ${port.manufacturer} ${port.product} (VID ${port.vid}, PID ${port.pid})`,
+        }));
+      }
+      state.selected = "";
+      if (!state.options.length) state.error = `No matching ${ble ? "Bluetooth devices" : "serial ports"} found.`;
+    } catch (error) {
+      state.error = error instanceof Error ? error.message : String(error);
+    } finally {
+      state.loading = false;
+      renderConnection();
+    }
+  });
+
+  connect.addEventListener("click", async () => {
+    connect.disabled = true;
+    try {
+      await session.connect(
+        transport,
+        ble ? { address: state.selected } : { path: state.selected },
+      );
+    } catch (error) {
+      state.error = error instanceof Error ? error.message : String(error);
+    } finally {
+      renderConnection();
+      renderDiagnostics();
+    }
+  });
+
+  const picker = make("div", undefined, "tauri-picker");
+  picker.append(label, select, scan, connect);
+  if (state.error) {
+    const error = make("p", state.error, "notice");
+    error.setAttribute("role", "alert");
+    picker.append(error);
+  }
+  connectionPanel.append(picker);
+}
+
 function renderConnection(): void {
   connectionPanel.replaceChildren();
   const status = make("p", `Connection: ${session.state}`, "connection-state");
@@ -64,6 +193,10 @@ function renderConnection(): void {
   for (const route of selection.usable) {
     const transport = config.contract.transports.find((item) => item.id === route.transport);
     if (!transport) continue;
+    if (transport.kind === "tauri_ble" || transport.kind === "tauri_serial") {
+      renderTauriPicker(transport, disabled);
+      continue;
+    }
     const label = transport.kind.replaceAll("_", " ");
     const connect = make("button", `Connect via ${label} (${route.browser})`);
     connect.type = "button";

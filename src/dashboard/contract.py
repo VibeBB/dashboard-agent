@@ -20,6 +20,16 @@ SLUG = r"^[a-z0-9][a-z0-9-]{0,62}$"
 SNAKE = r"^[a-z][a-z0-9_]*$"
 UUID_PATTERN = r"^(?:0x[0-9a-f]{4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
 SHA256 = r"^[0-9a-f]{64}$"
+SEMVER = (
+    r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+    r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
+    r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?"
+    r"(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
+)
+REVERSE_DNS = (
+    r"^(?=.{1,253}$)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+"
+    r"[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?$"
+)
 
 U8_MAX = 255
 WIRE_TYPES: dict[str, tuple[int, float, float]] = {
@@ -54,8 +64,19 @@ BAUD_RATES = frozenset(
 Name = Annotated[str, StringConstraints(pattern=SLUG)]
 SnakeName = Annotated[str, StringConstraints(pattern=SNAKE)]
 OSName = Literal["windows", "macos", "linux", "bsd", "chromeos", "android", "ios", "ipados"]
-BrowserName = Literal["chrome", "edge", "opera", "samsung_internet", "firefox", "safari", "bluefy"]
-TransportKind = Literal["web_bluetooth", "webusb", "web_serial", "websocket", "webrtc"]
+BrowserName = Literal[
+    "chrome", "edge", "opera", "samsung_internet", "firefox", "safari", "bluefy", "tauri"
+]
+TransportKind = Literal[
+    "web_bluetooth",
+    "webusb",
+    "web_serial",
+    "websocket",
+    "webrtc",
+    "tauri_ble",
+    "tauri_serial",
+]
+TauriTarget = Literal["windows", "macos", "linux", "android", "ios"]
 
 
 class StrictModel(BaseModel):
@@ -95,8 +116,7 @@ class TransportBase(StrictModel):
     id: Name
 
 
-class WebBluetoothTransport(TransportBase):
-    kind: Literal["web_bluetooth"]
+class BleTransportBase(TransportBase):
     service_uuid: str
     rx_characteristic: str
     tx_characteristic: str
@@ -110,6 +130,14 @@ class WebBluetoothTransport(TransportBase):
         return value
 
 
+class WebBluetoothTransport(BleTransportBase):
+    kind: Literal["web_bluetooth"]
+
+
+class TauriBleTransport(BleTransportBase):
+    kind: Literal["tauri_ble"]
+
+
 class WebUsbTransport(TransportBase):
     kind: Literal["webusb"]
     vendor_id: int = Field(strict=True, ge=0, le=0xFFFF)
@@ -120,8 +148,7 @@ class WebUsbTransport(TransportBase):
     endpoint_out: int = Field(strict=True, ge=1, le=0xFF)
 
 
-class WebSerialTransport(TransportBase):
-    kind: Literal["web_serial"]
+class SerialTransportBase(TransportBase):
     baud_rate: int = Field(strict=True, ge=9600, le=3000000)
     usb_vendor_id: int | None = Field(default=None, strict=True, ge=0, le=0xFFFF)
     usb_product_id: int | None = Field(default=None, strict=True, ge=0, le=0xFFFF)
@@ -133,6 +160,14 @@ class WebSerialTransport(TransportBase):
         if value not in BAUD_RATES:
             raise ValueError("baud_rate must be a standard supported rate")
         return value
+
+
+class WebSerialTransport(SerialTransportBase):
+    kind: Literal["web_serial"]
+
+
+class TauriSerialTransport(SerialTransportBase):
+    kind: Literal["tauri_serial"]
 
 
 class WebSocketTransport(TransportBase):
@@ -155,8 +190,10 @@ class WebRtcTransport(TransportBase):
 
 Transport = Annotated[
     WebBluetoothTransport
+    | TauriBleTransport
     | WebUsbTransport
     | WebSerialTransport
+    | TauriSerialTransport
     | WebSocketTransport
     | WebRtcTransport,
     Field(discriminator="kind"),
@@ -228,6 +265,23 @@ class WebMcpConfig(StrictModel):
     origin_trial_token: str | None = None
 
 
+class TauriShellConfig(StrictModel):
+    identifier: str = Field(min_length=1)
+    product_name: str = Field(min_length=1)
+    version: str = Field(pattern=SEMVER)
+    targets: list[TauriTarget] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_targets_unique(self) -> TauriShellConfig:
+        if len(self.targets) != len(set(self.targets)):
+            raise ValueError("Tauri targets must be unique")
+        return self
+
+
+class ShellConfig(StrictModel):
+    tauri: TauriShellConfig | None = None
+
+
 class Device(StrictModel):
     firmware_contract: str | None = None
     firmware_sha256: str | None = Field(default=None, pattern=SHA256)
@@ -251,6 +305,7 @@ class DashboardContract(StrictModel):
     platforms: list[PlatformDecl] = Field(min_length=1)
     widgets: list[Widget] = Field(min_length=1)
     session: SessionConfig = Field(default_factory=SessionConfig)
+    shell: ShellConfig | None = None
     wasm: WasmConfig | None = None
     webmcp: WebMcpConfig | None = None
     imports: list[ImportRef] = Field(default_factory=list[ImportRef])

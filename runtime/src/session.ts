@@ -5,7 +5,7 @@ import type {
   TelemetryValues,
   TransportConfig,
 } from "./types.ts";
-import { createTransport } from "./transports/index.ts";
+import { createTransport, type TauriTransportSelection } from "./transports/index.ts";
 import type { Transport } from "./transports/transport.ts";
 
 export type SessionState = "idle" | "connecting" | "connected" | "reconnecting" | "failed";
@@ -30,7 +30,10 @@ export interface SessionStatus {
 }
 
 export interface SessionOptions {
-  createTransport?: (config: TransportConfig) => Transport;
+  createTransport?: (
+    config: TransportConfig,
+    selection?: TauriTransportSelection,
+  ) => Transport;
   sleep?: (ms: number, signal: AbortSignal) => Promise<void>;
 }
 
@@ -63,13 +66,17 @@ export class DashboardSession extends EventTarget {
   #state: SessionState = "idle";
   #transport: Transport | null = null;
   #transportConfig: TransportConfig | null = null;
+  #transportSelection: TauriTransportSelection | null = null;
   #controller: AbortController | null = null;
   #seq = 0;
   #pendingAcks = new Map<number, PendingAck>();
   #telemetry: TelemetryValues = {};
   #lastSeen: Record<string, number> = {};
   #reconnecting = false;
-  readonly #createTransport: (config: TransportConfig) => Transport;
+  readonly #createTransport: (
+    config: TransportConfig,
+    selection?: TauriTransportSelection,
+  ) => Transport;
   readonly #sleep: (ms: number, signal: AbortSignal) => Promise<void>;
 
   constructor(config: DashboardConfig, options: SessionOptions = {}) {
@@ -107,13 +114,17 @@ export class DashboardSession extends EventTarget {
     };
   }
 
-  async connect(transportConfig: TransportConfig): Promise<void> {
+  async connect(
+    transportConfig: TransportConfig,
+    selection?: TauriTransportSelection,
+  ): Promise<void> {
     await this.close();
     this.#transportConfig = transportConfig;
+    this.#transportSelection = selection ?? null;
     this.#controller = new AbortController();
     this.#state = "connecting";
     this.#emitState();
-    const transport = this.#createTransport(transportConfig);
+    const transport = this.#createTransport(transportConfig, selection);
     this.#wire(transport);
     this.#transport = transport;
     const timeout = this.config.contract.session.connect_timeout_ms;
@@ -258,7 +269,7 @@ export class DashboardSession extends EventTarget {
     for (let attempt = 0; attempt < maxAttempts && this.#controller && !this.#controller.signal.aborted; attempt += 1) {
       try {
         await this.#sleep(backoff * (attempt + 1), this.#controller.signal);
-        const next = this.#createTransport(this.#transportConfig);
+        const next = this.#createTransport(this.#transportConfig, this.#transportSelection ?? undefined);
         this.#wire(next);
         this.#transport = next;
         await next.open(this.#controller.signal);

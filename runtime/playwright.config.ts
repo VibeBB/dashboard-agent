@@ -20,7 +20,7 @@ export default defineConfig({
   projects: [
     {
       name: "chromium",
-      testMatch: ["dashboard.spec.ts", "webmcp-disabled.spec.ts"],
+      testMatch: ["dashboard.spec.ts", "webmcp-disabled.spec.ts", "tauri.spec.ts"],
     },
     {
       name: "chromium-webmcp",

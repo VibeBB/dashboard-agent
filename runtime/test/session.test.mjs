@@ -111,3 +111,31 @@ test('unexpected transport closure reconnects with configured backoff', async ()
   assert.equal(transports.length, 2);
   assert.equal(session.state, 'connected');
 });
+
+test('Tauri device selection is retained when the session reconnects', async () => {
+  const transports = [];
+  const selections = [];
+  const transport = {
+    id: 'native-ble',
+    kind: 'tauri_ble',
+    service_uuid: '12345678-1234-5678-1234-56789abcdef0',
+    rx_characteristic: '12345678-1234-5678-1234-56789abcdef1',
+    tx_characteristic: '12345678-1234-5678-1234-56789abcdef2',
+  };
+  const selection = { address: 'kettle-1' };
+  const session = new DashboardSession(config, {
+    createTransport: (_config, selected) => {
+      selections.push(selected);
+      const instance = new FakeTransport();
+      transports.push(instance);
+      return instance;
+    },
+    sleep: async () => {},
+  });
+
+  await session.connect(transport, selection);
+  transports[0].disconnect();
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(selections, [selection, selection]);
+  await session.close();
+});

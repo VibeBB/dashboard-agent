@@ -28,6 +28,9 @@ CAVEATS: dict[str, str] = {
         "is unverified. Hardware routes are not offered; WebMCP requires "
         "Chromium's testing/origin-trial API."
     ),
+    "webkitgtk-webrtc": (
+        "WebRTC availability in the Tauri Linux WebKitGTK webview depends on the distro build."
+    ),
     "local-network-access": (
         "The browser may require permission to access devices on the local network."
     ),
@@ -69,6 +72,18 @@ for _os in ("windows", "macos", "linux", "android"):
         SUPPORT[(_os, "firefox", _kind)] = ("yes", None)
 for _kind in ("websocket", "webrtc"):
     SUPPORT[("macos", "safari", _kind)] = ("yes", None)
+_tauri_targets = ("windows", "macos", "linux", "android", "ios")
+for _os in _tauri_targets:
+    SUPPORT[(_os, "tauri", "tauri_ble")] = ("yes", None)
+    SUPPORT[(_os, "tauri", "websocket")] = ("yes", None)
+    SUPPORT[(_os, "tauri", "webrtc")] = (
+        ("caveat", "webkitgtk-webrtc") if _os == "linux" else ("yes", None)
+    )
+    if _os != "ios":
+        SUPPORT[(_os, "tauri", "tauri_serial")] = ("yes", None)
+SUPPORT[("ipados", "tauri", "tauri_ble")] = ("yes", None)
+SUPPORT[("ipados", "tauri", "websocket")] = ("yes", None)
+SUPPORT[("ipados", "tauri", "webrtc")] = ("yes", None)
 for _browser in ("chrome", "firefox"):
     for _kind in ("websocket", "webrtc"):
         SUPPORT[("bsd", _browser, _kind)] = ("yes", None)
@@ -112,6 +127,8 @@ def route_caveats(
     caveats = [support[1]] if support and support[0] == "caveat" and support[1] else []
     if kind == "webusb":
         caveats.append("webusb-claimed-interface")
+    if os_name == "linux" and browser == "tauri" and kind == "webrtc":
+        caveats.append("webkitgtk-webrtc")
     if os_name == "chromeos" and kind in ("web_bluetooth", "webusb", "web_serial"):
         caveats.append("chromeos-managed-device-apis")
     if kind in ("websocket", "webrtc") and url:

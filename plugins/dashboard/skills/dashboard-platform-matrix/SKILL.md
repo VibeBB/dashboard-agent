@@ -31,3 +31,10 @@ WebUSB or Web Serial routes. BSD Chromium ports offer only WebSocket and
 WebRTC. BSD Chromium disables Web Bluetooth, omits Web Serial, and has fake-only
 or unverified WebUSB backends; do not offer hardware routes. See
 `docs/research/bsd-chromium.md`.
+
+Tauri v2 is an explicit `tauri` shell route, separate from browser hardware
+APIs. It supports native BLE on Windows, macOS, Linux, Android, iOS, and
+iPadOS; native serial is available on Windows, macOS, Linux, and Android.
+Tauri's iOS target covers iPadOS. Linux WebRTC depends on the WebKitGTK build.
+Require a user gesture to connect, and never expose device selection through
+WebMCP. See the `dashboard-tauri` skill for contract and gate details.
