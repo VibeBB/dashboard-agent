@@ -19,11 +19,12 @@ PLUGIN = ROOT / "plugins/dashboard"
 
 def test_launcher_resolves_checkout_source_and_supports_host_and_image_commands(
     monkeypatch: MonkeyPatch,
+    tmp_path: Path,
 ) -> None:
     monkeypatch.delenv("DASHBOARD_TOOLS_IMAGE", raising=False)
 
     assert resolve_source(PLUGIN) == ROOT / "src"
-    assert image_ref(PLUGIN) is None
+    assert image_ref(_null_plugin_root(tmp_path)) is None
     assert _inner_args(["doctor"], "python3.12") == [
         "python3.12",
         "-m",
@@ -35,6 +36,22 @@ def test_launcher_resolves_checkout_source_and_supports_host_and_image_commands(
         "-m",
         "dashboard.mcp_server",
     ]
+
+
+def _null_plugin_root(tmp_path: Path) -> Path:
+    plugin_root = tmp_path / "plugins/dashboard"
+    plugin_root.mkdir(parents=True)
+    pin = '{\n  "image": "ghcr.io/vibebb/dashboard-tools",\n  "digest": null,\n  "tag": null\n}\n'
+    (plugin_root / "tools-image.json").write_text(pin, encoding="utf-8")
+    lock_root = tmp_path / "docker"
+    lock_root.mkdir()
+    (lock_root / "image-digests.json").write_text(
+        '{\n  "dashboard_tools": {\n'
+        '    "image": "ghcr.io/vibebb/dashboard-tools",\n'
+        '    "digest": null,\n    "tag": null\n  }\n}\n',
+        encoding="utf-8",
+    )
+    return plugin_root
 
 
 def test_container_invocation_mounts_source_and_uses_internal_network() -> None:

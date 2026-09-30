@@ -1,0 +1,25 @@
+{
+  "deferrals": [
+    {
+      "surface": "npm",
+      "name": "@types/node",
+      "latest": "26.6.3",
+      "review_by": "2026-10-07",
+      "reason": "Defer the settled @types/node 26.6.3 update for the planned review window."
+    },
+    {
+      "surface": "npm",
+      "name": "typescript",
+      "latest": "7.1.0-dev.20260930.*",
+      "review_by": "2026-10-07",
+      "reason": "Defer the TypeScript 7.1.0-dev.20260930 nightly until its scheduled review."
+    },
+    {
+      "surface": "tauri-scaffold",
+      "name": "*tauri*",
+      "latest": "*",
+      "review_by": "2026-10-07",
+      "reason": "Recheck API/CLI 2.12.1, tauri/runtime/runtime-wry 2.12.1, and tauri-macros/build 2.7.1 on 2026-10-07."
+    }
+  ]
+}

@@ -1,0 +1,81 @@
+name: Locked image check
+
+on:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "40 0 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: locked-image-check
+  cancel-in-progress: false
+
+jobs:
+  check-lock:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      pinned: ${{ steps.lock.outputs.pinned }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - id: lock
+        run: |
+          digest=$(python3 -c 'import json; print(json.load(open("docker/image-digests.json", encoding="utf-8"))["dashboard_tools"].get("digest") or "")')
+          if [[ "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then echo "pinned=true" >> "$GITHUB_OUTPUT"; else echo "pinned=false" >> "$GITHUB_OUTPUT"; fi
+  check:
+    needs: check-lock
+    if: needs.check-lock.outputs.pinned == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.12"
+          cache-suffix: locked-dashboard-image
+      - run: uv sync --locked
+      - id: image
+        run: echo "ref=$(uv run python scripts/print_locked_image.py --entry dashboard_tools)" >> "$GITHUB_OUTPUT"
+      - name: Pull locked dashboard image
+        run: uv run python scripts/pull_locked_image.py --entry dashboard_tools
+      - name: Full gates through launcher
+        env:
+          DASHBOARD_TOOLS_IMAGE: ${{ steps.image.outputs.ref }}
+          DASHBOARD_SRC: ${{ github.workspace }}/src
+          OPENHANDS_PROJECT_DIR: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          launcher=plugins/dashboard/scripts/dashboard_launcher.py
+          python3 "$launcher" doctor > doctor.json
+          for contract in examples/smart-kettle/smart-kettle.dash.json examples/bench-meter/bench-meter.dash.json; do
+            design=$(basename "$contract" .dash.json)
+            out="examples/$design/out"
+            mkdir -p "$out"
+            python3 "$launcher" generate "$contract"
+            python3 "$launcher" gates "$contract" > "$out/$design.stdout.json"
+            python3 - "$out/$design.dash-report.json" <<'PY'
+          import json, sys
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          for check in report["checks"]:
+              print(f"{check['id']:26} {check['status']:16} {check['detail'][:180]}")
+          sys.exit(0 if report["verdict"] == "pass" else 1)
+          PY
+          done
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dashboard-locked-image-reports
+          path: |
+            examples/*/out/*.dash-report.*
+            examples/*/out/*.stdout.json
+            doctor.json
+          if-no-files-found: warn
