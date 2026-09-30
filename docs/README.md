@@ -3,6 +3,7 @@
 - [Operations and verification](operations.md)
 - [Browser hardware API research](research/browser-hardware-apis.md)
 - [BSD Chromium port research](research/bsd-chromium.md)
+- [Dependency upgrade review, October 2026](research/dependency-upgrades-2026-10.md)
 - [ADR-0001: Python core and JSON contracts](adr/ADR-0001-python-core-json-contracts.md)
 - [ADR-0002: Platform declarations and support matrix](adr/ADR-0002-platform-matrix.md)
 - [ADR-0003: Transports and protocol framing](adr/ADR-0003-transports-and-framing.md)
@@ -10,3 +11,4 @@
 - [ADR-0005: Servo and Emscripten roles](adr/ADR-0005-servo-and-emscripten.md)
 - [ADR-0006: WebMCP tools](adr/ADR-0006-webmcp.md)
 - [ADR-0007: Tauri v2 native shell](adr/ADR-0007-tauri-v2.md)
+- [ADR-0010: Screenshot vision lane](adr/ADR-0010-screenshot-vision-lane.md)

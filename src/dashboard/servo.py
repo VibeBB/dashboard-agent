@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import os
 import shutil
@@ -19,12 +20,15 @@ from urllib.request import Request, urlopen
 
 from pydantic import BaseModel, ConfigDict
 
+_SCREENSHOT_TIMEOUT_S = 30
+
 
 class SmokeResult(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     ok: bool
     detail: str
+    screenshot: Path | None = None
 
 
 class _Handler(SimpleHTTPRequestHandler):
@@ -38,7 +42,13 @@ def _free_port() -> int:
         return int(listener.getsockname()[1])
 
 
-def _request(url: str, *, method: str = "GET", payload: object | None = None) -> object:
+def _request(
+    url: str,
+    *,
+    method: str = "GET",
+    payload: object | None = None,
+    timeout: float = 5,
+) -> object:
     data = None if payload is None else json.dumps(payload).encode()
     request = Request(
         url,
@@ -46,7 +56,7 @@ def _request(url: str, *, method: str = "GET", payload: object | None = None) ->
         method=method,
         headers={"Content-Type": "application/json"},
     )
-    with urlopen(request, timeout=5) as response:
+    with urlopen(request, timeout=timeout) as response:
         raw = response.read()
     return json.loads(raw) if raw else {}
 
@@ -77,6 +87,22 @@ def _webdriver_value(payload: object) -> object:
 def _has_route_kind(value: object, kind: str) -> bool:
     route = _as_object(value)
     return route is not None and route.get("kind") == kind
+
+
+def save_screenshot(base: str, app: Path) -> tuple[Path | None, str | None]:
+    try:
+        value = _webdriver_value(_request(f"{base}/screenshot", timeout=_SCREENSHOT_TIMEOUT_S))
+        if not isinstance(value, str):
+            raise RuntimeError("Servo screenshot response did not contain base64 data")
+        image = base64.b64decode(value, validate=True)
+        if not image.startswith(b"\x89PNG\r\n\x1a\n"):
+            raise RuntimeError("Servo screenshot response is not a PNG")
+        path = app.parent / f"{app.name}.screens" / "servo.png"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(image)
+        return path, None
+    except Exception as exc:
+        return None, str(exc)
 
 
 def smoke(generated_dir: Path) -> SmokeResult:
@@ -233,13 +259,20 @@ def smoke(generated_dir: Path) -> SmokeResult:
                 for label in buttons
             ):
                 raise RuntimeError("Servo dashboard UI exposed an unavailable hardware route")
+            screenshot, screenshot_error = save_screenshot(base, app)
+            screenshot_detail = (
+                f"servo screenshot: {screenshot}"
+                if screenshot is not None
+                else f"servo screenshot unavailable: {screenshot_error}"
+            )
             return SmokeResult(
                 ok=True,
                 detail=(
                     f"Servo rendered {app.name}; hardware APIs unavailable; "
                     "WebSocket route available; diagnostics initialized; "
-                    f"log: {log_path}"
+                    f"log: {log_path}; {screenshot_detail}"
                 ),
+                screenshot=screenshot,
             )
         except (OSError, RuntimeError, URLError, TimeoutError, ValueError) as exc:
             return SmokeResult(ok=False, detail=f"{exc}; log: {log_path}")
