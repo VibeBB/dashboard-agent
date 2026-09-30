@@ -11,6 +11,7 @@ import sys
 from pathlib import Path
 
 _MODULES = {"mcp_server": "dashboard.mcp_server"}
+ISOLATED_NETWORK = "dashboard-isolated"
 
 
 def _plugin_root() -> Path:
@@ -69,6 +70,40 @@ def image_ref(plugin_root: Path) -> str | None:
     return plugin_lock or _lock_ref(plugin_root.parent.parent / "docker" / "image-digests.json")
 
 
+def ensure_isolated_network(docker: str) -> None:
+    inspect_command = [
+        docker,
+        "network",
+        "inspect",
+        "--format",
+        "{{.Internal}}",
+        ISOLATED_NETWORK,
+    ]
+    inspected = subprocess.run(inspect_command, capture_output=True, text=True, check=False)
+    if inspected.returncode == 0:
+        if inspected.stdout.strip().lower() != "true":
+            raise RuntimeError(f"Docker network {ISOLATED_NETWORK} exists but is not internal")
+        return
+
+    created = subprocess.run(
+        [docker, "network", "create", "--internal", ISOLATED_NETWORK],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if created.returncode == 0:
+        return
+
+    inspected = subprocess.run(inspect_command, capture_output=True, text=True, check=False)
+    if inspected.returncode == 0:
+        if inspected.stdout.strip().lower() == "true":
+            return
+        raise RuntimeError(f"Docker network {ISOLATED_NETWORK} exists but is not internal")
+
+    detail = created.stderr.strip() or inspected.stderr.strip()
+    raise RuntimeError(f"could not create internal Docker network {ISOLATED_NETWORK}: {detail}")
+
+
 def _docker(image: str, source: Path | None, command: list[str]) -> list[str]:
     workspace = Path(os.environ.get("OPENHANDS_PROJECT_DIR") or Path.cwd()).resolve()
     cwd = Path.cwd().resolve()
@@ -79,7 +114,7 @@ def _docker(image: str, source: Path | None, command: list[str]) -> list[str]:
         "--rm",
         "-i",
         "--network",
-        "none",
+        ISOLATED_NETWORK,
         "--user",
         f"{os.getuid()}:{os.getgid()}",
         "-v",
@@ -146,6 +181,7 @@ def main() -> int:
                     f"dashboard tools image {image} is not pulled; "
                     "run dashboard_launcher.py prewarm"
                 )
+            ensure_isolated_network(docker)
             argv = _docker(image, source, _inner_args(arguments, "python"))
         else:
             if source is None:

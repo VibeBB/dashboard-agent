@@ -29,9 +29,10 @@ Emscripten, and Servo:
 uv run python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json --full
 ```
 
-The `dashboard-tools` image pins those tools and runs full gates without
-network access. Its build downloads and checksum-verifies Servo and installs
-Playwright Chromium; the gate run itself uses `--network none`.
+The `dashboard-tools` image pins those tools and runs full gates in an internal
+Docker network without Internet egress. Its build downloads and checksum-verifies
+Servo and installs Playwright Chromium; the launcher creates or verifies the
+internal network before each container run.
 
 ## Device and WebMCP safety
 

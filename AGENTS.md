@@ -35,4 +35,5 @@ cd runtime && npm ci && npx tsc -p . && node --test test/
 ```
 
 The dashboard-tools image runs Chromium E2E, Emscripten parity, and Servo
-WebDriver smoke checks with network access disabled after build.
+WebDriver smoke checks in an internal Docker network without Internet egress
+after build.

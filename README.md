@@ -88,9 +88,17 @@ uv run --group sdk-check python scripts/check_plugin_load.py
 uv run python scripts/verify_docs.py
 cd runtime && npm ci && npx tsc -p . && node --test test/ && cd ..
 docker build -f docker/dashboard-tools.Dockerfile -t dashboard-tools:local .
-docker run --rm --network none dashboard-tools:local python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json --full
-docker run --rm --network none dashboard-tools:local python -m dashboard gates examples/bench-meter/bench-meter.dash.json --full
+export DASHBOARD_TOOLS_IMAGE=dashboard-tools:local
+export DASHBOARD_SRC="$PWD/src"
+export OPENHANDS_PROJECT_DIR="$PWD"
+launcher=plugins/dashboard/scripts/dashboard_launcher.py
+python3 "$launcher" generate examples/smart-kettle/smart-kettle.dash.json
+python3 "$launcher" gates examples/smart-kettle/smart-kettle.dash.json
+python3 "$launcher" generate examples/bench-meter/bench-meter.dash.json
+python3 "$launcher" gates examples/bench-meter/bench-meter.dash.json
 ```
+
+The launcher runs gates in an internal Docker network without Internet egress.
 
 ## License
 
@@ -149,7 +157,9 @@ WebMCP を利用できません。
 
 ## 検証
 
-検証方法は上記の Verification コマンドを参照してください。
+`dashboard-tools` イメージのゲートは、ランチャーがインターネットへ接続できない
+内部 Docker ネットワークで実行します。検証方法は上記の Verification コマンドを
+参照してください。
 
 ## ライセンス
 

@@ -91,7 +91,7 @@ jobs:
             fi
             sleep $((attempt * 30))
           done
-      - name: Full gates in the image (no network)
+      - name: Full gates in the image (internal Docker network, no Internet egress)
         shell: bash
         env:
           DASHBOARD_TOOLS_IMAGE: dashboard-tools:ci
