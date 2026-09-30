@@ -1,7 +1,10 @@
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./e2e",
+  outputDir: join(tmpdir(), "dashboard-playwright-results"),
   timeout: 90_000,
   expect: { timeout: 10_000 },
   fullyParallel: false,
