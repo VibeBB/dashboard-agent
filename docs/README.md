@@ -3,6 +3,7 @@
 - [Operations and verification](operations.md)
 - [Browser hardware API research](research/browser-hardware-apis.md)
 - [BSD Chromium port research](research/bsd-chromium.md)
+- [Dependency upgrade review, October 2026](research/dependency-upgrades-2026-10.md)
 - [ADR-0001: Python core and JSON contracts](adr/ADR-0001-python-core-json-contracts.md)
 - [ADR-0002: Platform declarations and support matrix](adr/ADR-0002-platform-matrix.md)
 - [ADR-0003: Transports and protocol framing](adr/ADR-0003-transports-and-framing.md)

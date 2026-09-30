@@ -6,7 +6,7 @@ from __future__ import annotations
 import json
 import shlex
 import sys
-from typing import Any
+from typing import cast
 
 PATH_KEYS = ("path", "file_path", "paths", "target_file", "new_path")
 PATCH_PREFIXES = ("*** Update File:", "*** Add File:", "*** Delete File:", "*** Move to:")
@@ -14,13 +14,15 @@ WRITE_TOOLS = {"file_editor", "apply_patch"}
 WRITE_ACTIONS = {"create", "str_replace", "insert", "edit", "write"}
 
 
-def _strings(value: Any) -> list[str]:
+def _strings(value: object) -> list[str]:
     if isinstance(value, str):
         return [value]
     if isinstance(value, dict):
-        return [item for child in value.values() for item in _strings(child)]
+        mapping = cast(dict[str, object], value)
+        return [item for child in mapping.values() for item in _strings(child)]
     if isinstance(value, list):
-        return [item for child in value for item in _strings(child)]
+        sequence = cast(list[object], value)
+        return [item for child in sequence for item in _strings(child)]
     return []
 
 
@@ -48,10 +50,12 @@ def is_protected(value: str) -> bool:
         or (name.endswith(".dash-protocol.h") or name.endswith(".dash-protocol.json"))
         or name.endswith(".dash-report.json")
         or name.endswith(".dash-report.md")
+        or (name.endswith(".jsonl") and parts[-3:-1] == ["observations", "dashboard"])
+        or parts[-3:] == ["intake", "attachments", "manifest.jsonl"]
     )
 
 
-def _paths(tool_input: dict[str, Any], tool_name: str) -> list[str]:
+def _paths(tool_input: dict[str, object], tool_name: str) -> list[str]:
     found = [value for key in PATH_KEYS for value in _strings(tool_input.get(key))]
     patch = tool_input.get("patch")
     if tool_name == "apply_patch" and isinstance(patch, str):
@@ -86,16 +90,18 @@ def _terminal_target(command: str) -> str | None:
 
 def main() -> int:
     try:
-        payload = json.load(sys.stdin)
+        payload: object = json.load(sys.stdin)
     except (json.JSONDecodeError, OSError) as exc:
         print(f"invalid hook input: {exc}", file=sys.stderr)
         return 2
     if not isinstance(payload, dict):
         return 0
+    payload = cast(dict[str, object], payload)
     name = payload.get("tool_name")
     tool_input = payload.get("tool_input")
     if not isinstance(tool_input, dict):
         return 0
+    tool_input = cast(dict[str, object], tool_input)
     paths = _paths(tool_input, str(name))
     if name in WRITE_TOOLS and any(is_protected(path) for path in paths):
         action = tool_input.get("command") or tool_input.get("action")
@@ -106,8 +112,9 @@ def main() -> int:
         ):
             print(f"generated dashboard artifact is read-only: {paths[0]}", file=sys.stderr)
             return 2
-    if name == "terminal" and isinstance(tool_input.get("command"), str):
-        target = _terminal_target(tool_input["command"])
+    command = tool_input.get("command")
+    if name == "terminal" and isinstance(command, str):
+        target = _terminal_target(command)
         if target:
             print(f"generated dashboard artifact is read-only: {target}", file=sys.stderr)
             return 2

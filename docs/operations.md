@@ -32,7 +32,9 @@ uv run python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json --
 The `dashboard-tools` image pins those tools and runs full gates in an internal
 Docker network without Internet egress. Its build downloads and checksum-verifies
 Servo and installs Playwright Chromium; the launcher creates or verifies the
-internal network before each container run.
+internal network before each container run. MCP contract and output paths are
+resolved under `OPENHANDS_PROJECT_DIR`; paths outside the workspace or through
+symlink components are rejected.
 
 ## Device and WebMCP safety
 

@@ -17,7 +17,13 @@ def test_plugin_assets_have_expected_manifest_and_entry_points() -> None:
 
     assert manifest["name"] == "dashboard"
     assert set(mcp["mcpServers"]) == {"dashboard"}
-    assert set(hooks) == {"session_start", "pre_tool_use", "stop"}
+    assert set(hooks) == {
+        "session_start",
+        "user_prompt_submit",
+        "pre_tool_use",
+        "post_tool_use",
+        "stop",
+    }
     assert {path.stem for path in (PLUGIN / "agents").glob("*.md")} == {
         "dashboard-architect",
         "dashboard-developer",
@@ -51,6 +57,9 @@ def test_generated_artifacts_are_protected() -> None:
         "examples/kettle/kettle.dash-protocol.h",
         "examples/kettle/kettle.dash-protocol.json",
         "examples/kettle/kettle.dash-report.json",
+        "observations/dashboard/image-observations.jsonl",
+        "observations/dashboard/vision-tool-events.jsonl",
+        "intake/attachments/manifest.jsonl",
     ):
         assert is_protected(path)
     assert not is_protected("examples/smart-kettle/smart-kettle.dash.json")

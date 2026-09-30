@@ -15,6 +15,7 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
 from . import __version__, service
+from .workspace import workspace_path
 
 server: Server = Server(f"dashboard-mcp/{__version__}")
 
@@ -114,7 +115,7 @@ def _path(arguments: dict[str, object], key: str) -> Path | None:
         return None
     if not isinstance(value, str) or not value:
         raise ValueError(f"{key} must be a non-empty path")
-    return Path(value)
+    return workspace_path(value)
 
 
 def _strings(arguments: dict[str, object], key: str) -> list[str]:
@@ -132,32 +133,32 @@ def dispatch(name: str, arguments: dict[str, object]) -> service.Json:
         "dashboard_doctor": service.doctor_payload,
         "dashboard_matrix": service.matrix_payload,
         "dashboard_validate": lambda: service.validate_payload(
-            Path(_string(arguments, "contract_path"))
+            workspace_path(_string(arguments, "contract_path"))
         ),
         "dashboard_generate": lambda: service.generate_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
         ),
         "dashboard_check": lambda: service.gates_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
             full=False,
         ),
         "dashboard_gates": lambda: service.gates_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
             full=True,
         ),
         "dashboard_smoke": lambda: service.smoke_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
         ),
         "dashboard_protocol_export": lambda: service.protocol_export_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
         ),
         "dashboard_request": lambda: service.request_payload(
-            Path(_string(arguments, "contract_path")),
+            workspace_path(_string(arguments, "contract_path")),
             _path(arguments, "out_dir"),
             target=_string(arguments, "target"),
             risk=_string(arguments, "risk"),
@@ -173,17 +174,26 @@ def dispatch(name: str, arguments: dict[str, object]) -> service.Json:
 
 
 @server.call_tool()
-async def call_tool(name: str, arguments: dict[str, object]) -> list[types.ContentBlock]:
+async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
+    is_error = name not in TOOLS
     try:
         payload = await asyncio.to_thread(dispatch, name, arguments or {})
     except Exception as exc:
-        payload = {"verdict": "fail", "detail": f"{name} error: {exc}"}
-    return [
-        types.TextContent(
-            type="text",
-            text=json.dumps(payload, ensure_ascii=False, indent=2),
-        )
-    ]
+        payload = {
+            "verdict": "fail",
+            "detail": f"{name} error: {exc}",
+            "error_type": type(exc).__name__,
+        }
+        is_error = True
+    return types.CallToolResult(
+        content=[
+            types.TextContent(
+                type="text",
+                text=json.dumps(payload, ensure_ascii=False, indent=2),
+            )
+        ],
+        isError=is_error,
+    )
 
 
 async def _run() -> None:
