@@ -34,7 +34,7 @@ hooks:
         - type: command
           name: record-vision-tool-event
           command: 'p=$(for c in "${DASHBOARD_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
-    - matcher: file_editor
+    - matcher: dashboard_screenshot|dashboard_gates|dashboard_smoke|file_editor
       hooks:
         - type: command
           name: record-image-observation
@@ -52,3 +52,6 @@ before changing runtime behavior.
 4. Keep command controls disabled unless connected. Hazardous commands require
    the same in-page confirmation through UI and WebMCP.
 5. Run focused Node tests and full browser gates in the dashboard-tools image.
+6. After changing layout, styles, or controls, run `dashboard_screenshot`
+   and look at the desktop and mobile renders before reporting; a
+   visual check is advisory and never replaces `dashboard_gates`.
