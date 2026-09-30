@@ -1,0 +1,158 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: Version bump kind
+        required: false
+        default: patch
+        type: choice
+        options: [patch, minor, major]
+      version:
+        description: Explicit X.Y.Z override
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+    outputs:
+      version: ${{ steps.bump.outputs.version }}
+      sha: ${{ steps.bump.outputs.sha }}
+    steps:
+      - name: Require main
+        env:
+          REF: ${{ github.ref }}
+        run: test "$REF" = "refs/heads/main"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+      - name: Bump version files
+        id: bump
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUMP: ${{ inputs.bump }}
+          SET_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          retry() {
+            local attempt
+            for attempt in 1 2 3 4 5; do
+              "$@" && return 0
+              sleep $((attempt * 10))
+            done
+            return 1
+          }
+          CURRENT=$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')
+          if [ -n "$SET_VERSION" ]; then
+            VERSION="${SET_VERSION#v}"
+            if [ "$VERSION" != "$CURRENT" ]; then
+              python3 scripts/bump_version.py --set "$VERSION" >/dev/null
+            fi
+          else
+            VERSION=$(python3 scripts/bump_version.py --bump "$BUMP")
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/v${VERSION}"; then
+            echo "::error::tag v${VERSION} already exists" >&2
+            exit 1
+          fi
+          if [ "$VERSION" = "$CURRENT" ]; then
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          branch="bot/release-bump-v${VERSION}-${GITHUB_RUN_ID}"
+          git switch -q -c "$branch"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add plugins/dashboard/.plugin/plugin.json pyproject.toml \
+            plugins/dashboard/skills/*/SKILL.md uv.lock
+          git commit -m "Release v${VERSION}: update version files"
+          retry git push origin "HEAD:refs/heads/${branch}"
+          body=$(printf '%s\n\n- version: v%s\n- workflow run: %s\n' \
+            "Automated dashboard-agent version bump." "$VERSION" \
+            "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")
+          pr_url=$(retry gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --title "Release v${VERSION}: update version files" --body "$body")
+          started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          retry gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
+          run_id=""
+          for _ in $(seq 1 30); do
+            sleep 10
+            run_id=$(retry gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+              --branch "$branch" --event workflow_dispatch --created ">=$started" \
+              --json databaseId --jq '.[0].databaseId // empty' || true)
+            [ -n "$run_id" ] && break
+          done
+          if [ -z "$run_id" ]; then
+            echo "CI dispatch for $branch was not observed; the version PR remains open." >&2
+            exit 1
+          fi
+          gh run watch --repo "$GITHUB_REPOSITORY" "$run_id" --interval 30 || true
+          conclusion=$(retry gh run view --repo "$GITHUB_REPOSITORY" "$run_id" \
+            --json conclusion --jq '.conclusion // empty' || true)
+          if [ "$conclusion" != success ]; then
+            echo "version-bump CI concluded '$conclusion'; the PR remains open." >&2
+            exit 1
+          fi
+          retry gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash --delete-branch "$pr_url"
+          merged=false
+          for _ in $(seq 1 40); do
+            merged_at=$(retry gh api "repos/$GITHUB_REPOSITORY/pulls/${pr_url##*/}" --jq '.merged_at // empty' || true)
+            [ -n "$merged_at" ] && { merged=true; break; }
+            sleep 15
+          done
+          if [ "$merged" != true ]; then
+            echo "version-bump PR did not merge; release was not created." >&2
+            exit 1
+          fi
+          git fetch -q origin main
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(git rev-parse origin/main)" >> "$GITHUB_OUTPUT"
+
+  verify:
+    needs: bump-version
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository] reusable release verification
+    with:
+      ref: ${{ needs.bump-version.outputs.sha }}
+
+  release:
+    needs: [bump-version, verify]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.bump-version.outputs.version }}
+      SHA: ${{ needs.bump-version.outputs.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+          persist-credentials: false
+      - name: Build release archives
+        run: |
+          set -euo pipefail
+          mkdir -p dist
+          (cd plugins && zip -r "$GITHUB_WORKSPACE/dist/dashboard-plugin-v${VERSION}.zip" dashboard)
+          zip -r "dist/dashboard-examples-v${VERSION}.zip" examples
+      - name: Create release and tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${VERSION}" --target "$SHA" \
+            --title "dashboard-agent v${VERSION}" --generate-notes dist/*.zip
