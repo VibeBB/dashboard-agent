@@ -105,6 +105,7 @@ jobs:
             design=$(basename "$contract" .dash.json)
             out="examples/$design/out"
             mkdir -p "$out"
+            python3 "$launcher" generate "$contract"
             python3 "$launcher" gates "$contract" > "$out/$design.stdout.json"
             python3 - "$out/$design.dash-report.json" <<'PY'
           import json, sys

@@ -69,6 +69,7 @@ COPY src ./src
 COPY runtime ./runtime
 COPY examples ./examples
 COPY scripts ./scripts
+COPY docker/dashboard-tools-entrypoint.sh /usr/local/bin/dashboard-entrypoint
 RUN uv python install 3.12 \
     && uv sync --locked --no-dev --no-group sdk-check \
     && cd runtime \
@@ -105,6 +106,7 @@ RUN chmod -R a+rX \
         /opt/emscripten-cache \
         /opt/playwright \
         /opt/servo \
-        /opt/uv-python
+        /opt/uv-python \
+    && chmod a+rx /usr/local/bin/dashboard-entrypoint
 
-ENTRYPOINT []
+ENTRYPOINT ["/usr/local/bin/dashboard-entrypoint"]
