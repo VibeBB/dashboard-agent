@@ -41,7 +41,7 @@ TOOLS: dict[str, tuple[str, dict[str, object], bool]] = {
         True,
     ),
     "dashboard_generate": (
-        "Generate a static application from a dashboard contract",
+        "Generate a dashboard application and optional Tauri scaffold from a contract",
         _schema({**_CONTRACT, **_OUT}, ["contract_path"]),
         False,
     ),

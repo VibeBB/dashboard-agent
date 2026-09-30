@@ -37,9 +37,17 @@ The `tauri` route uses native BLE on Windows, macOS, Linux, Android, iOS, and
 iPadOS; native serial is available on Windows, macOS, Linux, and Android.
 Tauri's iOS target covers iPadOS. Native routes use an in-page picker and
 require an explicit connection click. WebSocket and WebRTC remain webview
-routes. `shell.tauri` is validated and gated, but this release does not
-generate a Tauri app scaffold. WebMCP never exposes device selection or
-connection tools.
+routes. `dashboard generate` adds `out/<name>/tauri/` only when the contract
+declares `shell.tauri`. Run the generated app with:
+
+```bash
+cd examples/smart-kettle/out/smart-kettle/tauri
+npm install
+npx tauri dev
+```
+
+The scaffold README covers desktop and mobile builds and OS prerequisites.
+WebMCP never exposes device selection or connection tools.
 
 ## Transports
 
@@ -114,9 +122,18 @@ Tauri ルートでは Windows、macOS、Linux、Android、iOS、iPadOS でネイ
 BLE を利用できます。ネイティブ serial は Windows、macOS、Linux、Android
 のみ対応します。iPadOS は Tauri の iOS ターゲットを使います。デバイス選択
 には画面内のピッカーを使い、接続には明示的なクリックが必要です。WebSocket
-と WebRTC は WebView のルートです。`shell.tauri` は検証・ゲート対象ですが、
-この機能では Tauri アプリの雛形を生成しません。WebMCP はデバイス選択や
-接続ツールを公開しません。
+と WebRTC は WebView のルートです。`dashboard generate` は契約に
+`shell.tauri` がある場合だけ `out/<name>/tauri/` を生成します。生成した
+アプリは次の手順で起動できます。
+
+```bash
+cd examples/smart-kettle/out/smart-kettle/tauri
+npm install
+npx tauri dev
+```
+
+雛形の README にデスクトップ / モバイルのビルド方法と OS ごとの前提条件を記載
+しています。WebMCP はデバイス選択や接続ツールを公開しません。
 
 ## トランスポートと WebMCP
 

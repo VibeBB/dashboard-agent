@@ -13,7 +13,10 @@ uv run python -m dashboard check examples/smart-kettle/smart-kettle.dash.json
 
 The generator writes the application, normalized runtime config, protocol
 header and interchange JSON, WebMCP projection, and SHA-256 manifest into
-`examples/<name>/out/<name>/`.
+`examples/<name>/out/<name>/`. If the contract declares `shell.tauri`, it
+also writes a pinned Tauri v2 project to `out/<name>/tauri/`; otherwise no
+Tauri scaffold is generated. The generated README documents prerequisites and
+desktop/mobile commands.
 
 ## Local verification
 

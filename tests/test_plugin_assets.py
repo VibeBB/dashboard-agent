@@ -56,6 +56,16 @@ def test_generated_artifacts_are_protected() -> None:
     assert not is_protected("examples/smart-kettle/smart-kettle.dash.json")
 
 
+def test_tauri_generated_platform_projects_are_user_owned() -> None:
+    assert not is_protected(
+        "examples/smart-kettle/out/smart-kettle/tauri/src-tauri/gen/android/device_filter.xml"
+    )
+    assert is_protected("examples/smart-kettle/out/smart-kettle/tauri/src-tauri/Cargo.toml")
+    assert is_protected(
+        "examples/smart-kettle/out/smart-kettle/tauri/src-tauri/gen/../../Cargo.toml"
+    )
+
+
 def test_safety_rail_blocks_destructive_git_operations() -> None:
     assert evaluate("git reset --hard") is not None
     assert evaluate("git add .") is not None
