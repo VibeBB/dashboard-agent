@@ -34,6 +34,7 @@ def test_plugin_assets_have_expected_manifest_and_entry_points() -> None:
         "doctor",
         "gates",
         "generate",
+        "screenshot",
         "smoke",
     }
     assert {path.parent.name for path in (PLUGIN / "skills").glob("*/SKILL.md")} == {
@@ -53,6 +54,7 @@ def test_plugin_assets_have_expected_manifest_and_entry_points() -> None:
 def test_generated_artifacts_are_protected() -> None:
     for path in (
         "examples/smart-kettle/out/smart-kettle/index.html",
+        "out/smart-kettle.screens/desktop.png",
         "out/dashboard.config.json",
         "examples/kettle/kettle.dash-protocol.h",
         "examples/kettle/kettle.dash-protocol.json",

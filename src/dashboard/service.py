@@ -9,7 +9,7 @@ from pydantic import ValidationError
 
 from . import doctor
 from .contract import load_contract
-from .gates import FAIL, PASS, run_gates
+from .gates import FAIL, PASS, generated_freshness, run_gates
 from .generate import generate
 from .interchange import sha256_file
 from .matrix import CAVEATS, SUPPORT
@@ -68,6 +68,15 @@ def gates_payload(contract_path: Path, out_dir: Path | None = None, *, full: boo
     written = write_outputs(report, out)
     payload: Json = json.loads(report.model_dump_json())
     payload["written"] = [str(path) for path in written]
+    if full:
+        images = [
+            evidence
+            for check in report.checks
+            if check.id in {"visual.capture", "smoke.servo"}
+            for evidence in check.evidence
+            if evidence.lower().endswith((".png", ".jpg", ".jpeg")) and Path(evidence).is_file()
+        ]
+        payload["images"] = list(dict.fromkeys(images))
     return payload
 
 
@@ -107,6 +116,37 @@ def smoke_payload(contract_path: Path, out_dir: Path | None = None) -> Json:
         "verdict": PASS if result.ok else FAIL,
         "stage": "smoke",
         "detail": result.detail,
+        "images": [str(result.screenshot)] if result.screenshot else [],
+    }
+
+
+def screenshot_payload(contract_path: Path, out_dir: Path | None = None) -> Json:
+    try:
+        contract = load_contract(contract_path)
+        output = out_dir or _default_out(contract_path)
+        generated_dir = output.resolve() / contract.name
+        freshness = generated_freshness(contract_path, generated_dir)
+        if freshness:
+            return {
+                "verdict": FAIL,
+                "stage": "screenshot",
+                "design": contract.name,
+                "detail": "; ".join(freshness),
+                "images": [],
+            }
+        from .screenshots import capture
+
+        result = capture(generated_dir, output)
+    except (OSError, ValueError, RuntimeError, ValidationError) as exc:
+        return {"verdict": FAIL, "stage": "screenshot", "detail": str(exc), "images": []}
+    return {
+        "verdict": PASS if result.ok else FAIL,
+        "stage": "screenshot",
+        "design": contract.name,
+        "detail": result.detail,
+        "contract_sha256": sha256_file(contract_path),
+        "screens": [image.model_dump(mode="json") for image in result.images],
+        "images": [str(image.path) for image in result.images],
     }
 
 

@@ -475,22 +475,40 @@ def _run(command: list[str], cwd: Path, timeout: int = 900) -> tuple[bool, str]:
     return result.returncode == 0, output or f"exit code {result.returncode}"
 
 
-def _run_full(contract_path: Path, out_dir: Path, contract: DashboardContract) -> list[Check]:
-    root = Path(__file__).resolve().parents[2]
-    generated_dir = out_dir.resolve() / contract.name
+def generated_freshness(contract_path: Path, generated_dir: Path) -> list[str]:
     generated = generated_dir / "dash-manifest.json"
     freshness: list[str] = []
     try:
-        manifest = json.loads(generated.read_text(encoding="utf-8"))
-        if manifest.get("contract_sha256") != sha256_file(contract_path):
-            freshness.append("manifest contract_sha256 does not match the contract")
-        for name, expected in manifest.get("files", {}).items():
-            artifact = generated.parent / name
-            if not artifact.is_file() or sha256_file(artifact) != expected:
-                freshness.append(f"generated file missing or stale: {name}")
-    except (OSError, json.JSONDecodeError) as exc:
-        freshness.append(f"cannot load generation manifest: {exc}")
-    checks = [_check("generated.fresh", freshness)]
+        manifest_value: object = json.loads(generated.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        return [f"cannot load generation manifest: {exc}"]
+    if not isinstance(manifest_value, dict):
+        return ["generation manifest is not a JSON object"]
+    manifest = cast(dict[str, object], manifest_value)
+    if manifest.get("contract_sha256") != sha256_file(contract_path):
+        freshness.append("manifest contract_sha256 does not match the contract")
+    files = manifest.get("files")
+    if not isinstance(files, dict):
+        return [*freshness, "generation manifest files must be an object"]
+    for name, expected in cast(dict[object, object], files).items():
+        if not isinstance(name, str) or not isinstance(expected, str):
+            freshness.append("generation manifest contains an invalid file entry")
+            continue
+        artifact = generated_dir / name
+        try:
+            artifact.resolve().relative_to(generated_dir.resolve())
+        except (OSError, RuntimeError, ValueError):
+            freshness.append(f"generated file path escapes output: {name}")
+            continue
+        if not artifact.is_file() or sha256_file(artifact) != expected:
+            freshness.append(f"generated file missing or stale: {name}")
+    return freshness
+
+
+def _run_full(contract_path: Path, out_dir: Path, contract: DashboardContract) -> list[Check]:
+    root = Path(__file__).resolve().parents[2]
+    generated_dir = out_dir.resolve() / contract.name
+    checks = [_check("generated.fresh", generated_freshness(contract_path, generated_dir))]
 
     for check_id, command in (
         ("runtime.typecheck", ["runtime/node_modules/.bin/tsc", "-p", "runtime"]),
@@ -544,13 +562,31 @@ def _run_full(contract_path: Path, out_dir: Path, contract: DashboardContract) -
         )
         checks.append(_check("e2e.chromium", [] if ok else [output], [output] if output else []))
 
+    try:
+        from .screenshots import capture
+
+        result = capture(generated_dir, out_dir)
+        checks.append(
+            _check(
+                "visual.capture",
+                [] if result.ok else [result.detail],
+                [str(image.path) for image in result.images],
+            )
+        )
+    except (OSError, RuntimeError, TimeoutError, ValueError) as exc:
+        checks.append(_check("visual.capture", [str(exc)]))
+
     if any(transport.kind == "websocket" for transport in contract.transports):
         try:
             from .servo import smoke
 
-            result = smoke(generated.parent)
+            result = smoke(generated_dir)
             checks.append(
-                _check("smoke.servo", [] if result.ok else [result.detail], [result.detail])
+                _check(
+                    "smoke.servo",
+                    [] if result.ok else [result.detail],
+                    [str(result.screenshot)] if result.screenshot else [result.detail],
+                )
             )
         except (OSError, RuntimeError, TimeoutError) as exc:
             checks.append(_check("smoke.servo", [str(exc)]))

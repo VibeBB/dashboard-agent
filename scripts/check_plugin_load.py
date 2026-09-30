@@ -22,7 +22,7 @@ EXPECTED_SKILLS = {
     "dashboard-webmcp",
     "dashboard-workflow",
 }
-EXPECTED_COMMANDS = {"design", "doctor", "gates", "generate", "smoke"}
+EXPECTED_COMMANDS = {"design", "doctor", "gates", "generate", "screenshot", "smoke"}
 EXPECTED_HOOKS: dict[str, set[str]] = {
     "session_start": {"dashboard-doctor", "intake-attachments", "ensure-llm-profiles"},
     "user_prompt_submit": {"intake-attachments"},

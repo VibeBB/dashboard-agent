@@ -84,7 +84,7 @@
       ]
     },
     {
-      "matcher": "file_editor",
+      "matcher": "dashboard_screenshot|dashboard_gates|dashboard_smoke|file_editor",
       "hooks": [
         {
           "type": "command",

@@ -21,7 +21,7 @@ def _parser() -> argparse.ArgumentParser:
     sub.add_parser("doctor")
     sub.add_parser("matrix")
     sub.add_parser("validate").add_argument("contract", type=Path)
-    for name in ("generate", "check", "gates", "smoke", "protocol-export"):
+    for name in ("generate", "check", "gates", "smoke", "screenshot", "protocol-export"):
         command = sub.add_parser(name)
         command.add_argument("contract", type=Path)
         command.add_argument("--out", type=Path)
@@ -48,6 +48,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _emit(service.generate_payload(args.contract, args.out))
     if args.command == "smoke":
         return _emit(service.smoke_payload(args.contract, args.out))
+    if args.command == "screenshot":
+        return _emit(service.screenshot_payload(args.contract, args.out))
     if args.command == "protocol-export":
         return _emit(service.protocol_export_payload(args.contract, args.out))
     if args.command in {"check", "gates"}:

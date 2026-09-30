@@ -11,3 +11,4 @@
 - [ADR-0005: Servo and Emscripten roles](adr/ADR-0005-servo-and-emscripten.md)
 - [ADR-0006: WebMCP tools](adr/ADR-0006-webmcp.md)
 - [ADR-0007: Tauri v2 native shell](adr/ADR-0007-tauri-v2.md)
+- [ADR-0010: Screenshot vision lane](adr/ADR-0010-screenshot-vision-lane.md)

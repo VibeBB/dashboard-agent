@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import base64
+import hashlib
 import json
 from pathlib import Path
 from typing import cast
@@ -64,6 +66,98 @@ def test_service_failure_verdict_is_not_an_mcp_error(monkeypatch: MonkeyPatch) -
 
         assert result.isError is False
         assert _result_payload(result)["verdict"] == verdict
+
+
+def test_screenshot_tool_is_write_capable_and_inlines_image(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    image = tmp_path / "desktop.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\nsmall image")
+
+    def screenshot(_contract: Path, _out: Path | None) -> service.Json:
+        return {"verdict": "pass", "images": [str(image)]}
+
+    monkeypatch.setattr(
+        service,
+        "screenshot_payload",
+        screenshot,
+    )
+    tool = next(tool for tool in mcp_server.tool_specs() if tool.name == "dashboard_screenshot")
+
+    assert tool.annotations is not None
+    assert tool.annotations.readOnlyHint is False
+    result = asyncio.run(_call_tool("dashboard_screenshot", {"contract_path": "contract.json"}))
+    payload = _result_payload(result)
+
+    assert result.isError is False
+    assert payload["inline_images"] == [
+        {
+            "path": str(image),
+            "sha256": hashlib.sha256(image.read_bytes()).hexdigest(),
+            "attached": True,
+            "reason": None,
+        }
+    ]
+    assert len(result.content) == 2
+    block = result.content[1]
+    assert isinstance(block, types.ImageContent)
+    assert block.mimeType == "image/png"
+    assert base64.b64decode(block.data) == image.read_bytes()
+
+
+def test_inline_image_count_and_size_caps_are_reported(tmp_path: Path) -> None:
+    oversized = tmp_path / "oversized.png"
+    oversized.write_bytes(b"x" * (4 * 1024 * 1024 + 1))
+    paths = [oversized]
+    for index in range(9):
+        image = tmp_path / f"small-{index}.png"
+        image.write_bytes(b"\x89PNG\r\n\x1a\nsmall")
+        paths.append(image)
+
+    blocks = mcp_server.render_content({"verdict": "pass", "images": [str(path) for path in paths]})
+    payload = cast(dict[str, object], json.loads(cast(types.TextContent, blocks[0]).text))
+    entries = cast(list[dict[str, object]], payload["inline_images"])
+    attached = [block for block in blocks if isinstance(block, types.ImageContent)]
+
+    assert len(attached) == 8
+    assert entries[0]["reason"] == "over_4_mib"
+    assert entries[-1]["reason"] == "image_limit_reached"
+    assert sum(entry["attached"] is True for entry in entries) == 8
+
+
+def test_gates_and_smoke_tools_inline_generated_images(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    image = tmp_path / "dashboard.png"
+    image.write_bytes(b"\x89PNG\r\n\x1a\nimage")
+    payload: service.Json = {"verdict": "pass", "images": [str(image)]}
+
+    def gates(
+        _contract: Path,
+        _out: Path | None,
+        *,
+        full: bool,
+    ) -> service.Json:
+        return payload if full else {"verdict": "pass"}
+
+    def smoke(_contract: Path, _out: Path | None) -> service.Json:
+        return payload
+
+    monkeypatch.setattr(service, "gates_payload", gates)
+    monkeypatch.setattr(service, "smoke_payload", smoke)
+
+    for tool_name in ("dashboard_gates", "dashboard_smoke"):
+        result = asyncio.run(_call_tool(tool_name, {"contract_path": "contract.json"}))
+
+        assert len(result.content) == 2
+        assert isinstance(result.content[1], types.ImageContent)
+        inline_images = cast(
+            list[dict[str, object]],
+            _result_payload(result)["inline_images"],
+        )
+        assert inline_images[0]["attached"] is True
 
 
 def test_workspace_path_accepts_relative_and_absolute_inside_paths(

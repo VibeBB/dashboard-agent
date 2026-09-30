@@ -1,9 +1,17 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+from pytest import MonkeyPatch
+
+from dashboard import gates as gates_module
+from dashboard import screenshots, servo
 from dashboard.contract import PlatformDecl, Route, load_contract
 from dashboard.gates import Check, check_contract, run_gates
+from dashboard.interchange import sha256_file
+from dashboard.servo import SmokeResult
+from dashboard.wasm import WasmResult
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -19,6 +27,88 @@ def test_example_contracts_pass_static_gates() -> None:
     ):
         report = run_gates(path, path.parent / "out", full=False)
         assert report.verdict == "pass", report.model_dump_json(indent=2)
+
+
+def test_full_gates_capture_visuals_after_browser_e2e(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    contract_path = ROOT / "examples/smart-kettle/smart-kettle.dash.json"
+    contract = load_contract(contract_path)
+    out_dir = tmp_path / "out"
+    generated = out_dir / contract.name
+    generated.mkdir(parents=True)
+    (generated / "dash-manifest.json").write_text(
+        json.dumps({"contract_sha256": sha256_file(contract_path), "files": {}}),
+        encoding="utf-8",
+    )
+    root = ROOT.resolve()
+    playwright = root / "runtime/node_modules/.bin/playwright"
+    original_is_file = Path.is_file
+
+    def is_file(path: Path) -> bool:
+        return True if path == playwright else original_is_file(path)
+
+    monkeypatch.setattr(Path, "is_file", is_file)
+
+    def which(_tool: str) -> str:
+        return "/usr/bin/tool"
+
+    monkeypatch.setattr(gates_module.shutil, "which", which)
+    events: list[str] = []
+
+    def run(command: list[str], _cwd: Path, timeout: int = 900) -> tuple[bool, str]:
+        del timeout
+        events.append("e2e" if "playwright" in command[0] else "runtime")
+        return True, "passed"
+
+    monkeypatch.setattr(gates_module, "_run", run)
+
+    def codec_parity(_root: Path, _output: Path) -> WasmResult:
+        return WasmResult(ok=True, detail="parity passed")
+
+    def build_module(
+        _root: Path,
+        _output: Path,
+        _sources: list[Path],
+        _exports: list[str],
+    ) -> WasmResult:
+        return WasmResult(ok=True, detail="module passed")
+
+    monkeypatch.setattr(gates_module, "build_codec_parity", codec_parity)
+    monkeypatch.setattr(gates_module, "build_module", build_module)
+    desktop = out_dir / f"{contract.name}.screens" / "desktop.png"
+
+    def capture(_generated: Path, _output: Path) -> screenshots.CaptureResult:
+        events.append("visual")
+        return screenshots.CaptureResult(
+            ok=True,
+            detail="captured",
+            images=[
+                screenshots.ScreenImage(
+                    name="desktop",
+                    path=desktop,
+                    width=1280,
+                    height=800,
+                    sha256="a" * 64,
+                    bytes=100,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(screenshots, "capture", capture)
+
+    def smoke(_generated: Path) -> SmokeResult:
+        return SmokeResult(ok=True, detail="servo passed")
+
+    monkeypatch.setattr(servo, "smoke", smoke)
+
+    report = run_gates(contract_path, out_dir, full=True)
+    visual = _check_by_id(report.checks, "visual.capture")
+
+    assert visual.status == "pass"
+    assert visual.evidence == [str(desktop)]
+    assert events.index("e2e") < events.index("visual")
 
 
 def test_gate_reports_duplicate_protocol_ids() -> None:

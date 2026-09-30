@@ -155,6 +155,29 @@ def test_record_image_observation_logs_file_editor_view(tmp_path: Path) -> None:
     assert records[0]["actor"] == {"action_id": "act-8", "subagent_type": "dashboard-review"}
 
 
+def test_record_image_observation_logs_screenshot_tool_images(tmp_path: Path) -> None:
+    image = tmp_path / "out" / "kettle.screens" / "desktop.png"
+    image.parent.mkdir(parents=True)
+    image.write_bytes(_PNG)
+
+    result = _run(
+        OBSERVATION_SCRIPT,
+        {
+            "working_dir": str(tmp_path),
+            "session_id": "session-1",
+            "tool_name": "dashboard_screenshot",
+            "tool_input": {"contract_path": "smart-kettle.dash.json"},
+            "tool_response": {"images": [str(image)]},
+        },
+    )
+
+    assert result.returncode == 0
+    records = _image_observations(tmp_path)
+    assert len(records) == 1
+    assert records[0]["image_path"] == str(image)
+    assert records[0]["tool_name"] == "dashboard_screenshot"
+
+
 def test_record_image_observation_skips_non_views_and_errors(tmp_path: Path) -> None:
     image = tmp_path / "capture.png"
     image.write_bytes(_PNG)
@@ -323,7 +346,16 @@ def test_plugin_and_agent_vision_hooks_are_declared() -> None:
     for event, names in expected.items():
         actual = {hook["name"] for group in hooks[event] for hook in group["hooks"]}
         assert actual == names
+    image_group = next(
+        group
+        for group in hooks["post_tool_use"]
+        if any(hook["name"] == "record-image-observation" for hook in group["hooks"])
+    )
+    assert image_group["matcher"] == (
+        "dashboard_screenshot|dashboard_gates|dashboard_smoke|file_editor"
+    )
     for name in ("dashboard-architect", "dashboard-developer", "dashboard-review"):
         text = (plugin_root / "agents" / f"{name}.md").read_text(encoding="utf-8")
         assert "name: record-image-observation" in text
         assert "name: record-vision-tool-event" in text
+        assert "matcher: dashboard_screenshot|dashboard_gates|dashboard_smoke|file_editor" in text

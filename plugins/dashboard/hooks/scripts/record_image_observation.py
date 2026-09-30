@@ -1,8 +1,9 @@
 """Record images the conversation actually viewed, without blocking.
 
 Companion to record_vision_tool_event.py: that hook logs delegated
-inspect_image_with_vision calls; this one logs direct image observations —
-`file_editor` `view` commands on image files. Each observation is appended to
+inspect_image_with_vision calls; this one logs image outputs from dashboard
+screenshot, gates, and smoke tools, plus `file_editor` `view` commands. Each
+observation is appended to
 `observations/dashboard/image-observations.jsonl` as
 {sequence, event_id, tool_name, image_path, image_sha256, recorded_at,
 session_id, actor, tool_call_id} so every image the model saw has a
@@ -33,7 +34,12 @@ from _provenance import (
 
 EVENTS_ENV = "DASHBOARD_IMAGE_OBSERVATIONS"
 EVENTS_RELATIVE_PATH = Path("observations/dashboard/image-observations.jsonl")
-OBSERVED_TOOLS = {"file_editor"}
+OBSERVED_TOOLS = {
+    "dashboard_screenshot",
+    "dashboard_gates",
+    "dashboard_smoke",
+    "file_editor",
+}
 
 _IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg"}
 _IMAGE_PATH = re.compile(r"[^\s\"'<>]+?\.(?:png|jpe?g)", re.IGNORECASE)

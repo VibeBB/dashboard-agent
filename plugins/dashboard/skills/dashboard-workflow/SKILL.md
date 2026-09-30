@@ -21,7 +21,9 @@ files and reports under `out/` are protected projections.
 4. Generate the application and protocol artifacts with `dashboard generate`.
 5. Run full gates in the pinned dashboard-tools image, including real Chromium
    WebRTC loopback and the Servo WebDriver smoke test.
-6. Export the protocol to firmware-agent or write a `<name>.dash-request.json`
+6. After layout changes, use `dashboard screenshot <contract>` to capture
+   desktop and mobile renders for advisory visual review.
+7. Export the protocol to firmware-agent or write a `<name>.dash-request.json`
    for a sibling when a contract change is needed.
 
 Hazardous commands require confirmation. Never expose device selection through
