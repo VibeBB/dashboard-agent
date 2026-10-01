@@ -7,8 +7,11 @@ on:
       - CI
       - Publish dashboard images
       - Locked image check
+      - Digest lock PR sweep
       - Dependency update check
       - Release
+      - PR branch cleanup
+      - Workflow lint
     types: [completed]
     branches: [main]
 
@@ -21,10 +24,10 @@ concurrency:
 
 jobs:
   report:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
-      actions: read
+      actions: read # reads the completed run's jobs
       contents: read
       issues: write
     steps:
@@ -41,10 +44,14 @@ jobs:
           issue=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label ci-main-failure \
             --json number --jq '.[0].number // empty')
           if [ "$CONCLUSION" = success ]; then
-            if [ -n "$issue" ]; then gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Back to green: $RUN_URL"; fi
+            if [ -n "$issue" ]; then
+              gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Back to green: $RUN_URL"
+            fi
             exit 0
           fi
-          if [ "$CONCLUSION" = cancelled ] || [ "$CONCLUSION" = skipped ]; then exit 0; fi
+          if [ "$CONCLUSION" = cancelled ] || [ "$CONCLUSION" = skipped ]; then
+            exit 0
+          fi
           jobs=$(gh run view "$RUN_ID" --repo "$GITHUB_REPOSITORY" --json jobs \
             --jq '[.jobs[] | select(.conclusion=="failure") | .name] | join(", ")')
           body=$(printf '%s\n\n- run: %s\n- failed jobs: %s\n' "main CI failed." "$RUN_URL" "${jobs:-unknown}")

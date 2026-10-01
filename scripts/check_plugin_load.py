@@ -49,17 +49,17 @@ def _registered_tools() -> set[str]:
     return set(list_registered_tools()) | set(BUILT_IN_TOOL_CLASSES)
 
 
-def check_plugin() -> list[str]:
+def check_plugin(plugin_path: Path = PLUGIN) -> list[str]:
     from openhands.sdk.plugin import (
         Plugin,  # pyright: ignore[reportMissingImports,reportMissingModuleSource]
     )
 
     try:
-        plugin = Plugin.load(PLUGIN)
+        plugin = Plugin.load(plugin_path)
     except Exception as exc:
         return [f"Plugin.load failed: {exc}"]
     reasons: list[str] = []
-    manifest = json.loads((PLUGIN / ".plugin" / "plugin.json").read_text(encoding="utf-8"))
+    manifest = json.loads((plugin_path / ".plugin" / "plugin.json").read_text(encoding="utf-8"))
     if plugin.manifest.version != manifest.get("version"):
         reasons.append(
             f"manifest version {plugin.manifest.version!r} != "

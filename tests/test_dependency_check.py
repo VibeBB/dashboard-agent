@@ -1,14 +1,18 @@
 from __future__ import annotations
 
+import json
 from datetime import date
 from pathlib import Path
 
+import pytest
+import scripts.check_dependency_updates as check_dependency_updates_module
 from scripts.check_dependency_updates import (
     DependencyDeferral,
     DependencyStatus,
     apply_deferrals,
     check_dependency_updates,
     load_deferrals,
+    main,
     render_markdown,
 )
 
@@ -155,3 +159,28 @@ def test_markdown_report_includes_surface_and_status() -> None:
     assert "## npm" in report
     assert "playwright" in report
     assert "update available" in report
+
+
+def test_json_report_counts_fetch_failures(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    def failed_fetch(_root: Path) -> list[DependencyStatus]:
+        return [
+            DependencyStatus(
+                "pypi",
+                "example",
+                "1.0.0",
+                "?",
+                "pyproject.toml",
+                False,
+                fetch_failed=True,
+            )
+        ]
+
+    def no_deferrals(_root: Path) -> list[DependencyDeferral]:
+        return []
+
+    monkeypatch.setattr(check_dependency_updates_module, "check_dependency_updates", failed_fetch)
+    monkeypatch.setattr(check_dependency_updates_module, "load_deferrals", no_deferrals)
+    report = tmp_path / "report.json"
+
+    assert main(["--repo-root", str(tmp_path), "--json", str(report)]) == 0
+    assert json.loads(report.read_text(encoding="utf-8"))["unknown_count"] == 1

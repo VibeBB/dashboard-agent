@@ -23,7 +23,7 @@ concurrency:
 
 jobs:
   bump-version:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 45
     permissions:
       actions: write
@@ -88,27 +88,34 @@ jobs:
             "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")
           pr_url=$(retry gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
             --title "Release v${VERSION}: update version files" --body "$body")
-          started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          retry gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
-          run_id=""
-          for _ in $(seq 1 30); do
-            sleep 10
-            run_id=$(retry gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
-              --branch "$branch" --event workflow_dispatch --created ">=$started" \
-              --json databaseId --jq '.[0].databaseId // empty' || true)
-            [ -n "$run_id" ] && break
-          done
-          if [ -z "$run_id" ]; then
-            echo "CI dispatch for $branch was not observed; the version PR remains open." >&2
-            exit 1
-          fi
-          gh run watch --repo "$GITHUB_REPOSITORY" "$run_id" --interval 30 || true
-          conclusion=$(retry gh run view --repo "$GITHUB_REPOSITORY" "$run_id" \
-            --json conclusion --jq '.conclusion // empty' || true)
-          if [ "$conclusion" != success ]; then
-            echo "version-bump CI concluded '$conclusion'; the PR remains open." >&2
-            exit 1
-          fi
+              started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+              retry gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
+              retry gh workflow run workflow-lint.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
+              failed=0
+              for wf in ci.yml workflow-lint.yml; do
+                run_id=""
+                for _ in $(seq 1 30); do
+                  sleep 10
+                  run_id=$(retry gh run list --repo "$GITHUB_REPOSITORY" --workflow "$wf" \
+                    --branch "$branch" --event workflow_dispatch --created ">=$started" \
+                    --json databaseId --jq '.[0].databaseId // empty' || true)
+                  [ -n "$run_id" ] && break
+                done
+                if [ -z "$run_id" ]; then
+                  echo "$wf dispatch for $branch was not observed; the version PR remains open." >&2
+                  exit 1
+                fi
+                gh run watch --repo "$GITHUB_REPOSITORY" "$run_id" --interval 30 || true
+                conclusion=$(retry gh run view --repo "$GITHUB_REPOSITORY" "$run_id" \
+                  --json conclusion --jq '.conclusion // empty' || true)
+                if [ "$conclusion" != success ]; then
+                  echo "$wf concluded '$conclusion'; the version PR remains open." >&2
+                  failed=1
+                fi
+              done
+              if [ "$failed" -ne 0 ]; then
+                exit 1
+              fi
           retry gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash --delete-branch "$pr_url"
           merged=false
           for _ in $(seq 1 40); do
@@ -130,9 +137,31 @@ jobs:
     with:
       ref: ${{ needs.bump-version.outputs.sha }}
 
+  install-smoke:
+    needs: bump-version
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.bump-version.outputs.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@c18668ad3cf93ea998bef934396af7bb5c839dc7 # v10.2.0
+        with:
+          python-version: "3.12"
+          cache-suffix: release-install-smoke
+      - name: Sync dependencies
+        run: uv sync --locked --group sdk-check
+      - name: Smoke-test remote install
+        env:
+          REF: ${{ needs.bump-version.outputs.sha }}
+        run: >
+          uv run --group sdk-check python scripts/smoke_install_plugin.py
+          --repo VibeBB/dashboard-agent --ref "$REF" --repo-path plugins/dashboard
+
   release:
-    needs: [bump-version, verify]
-    runs-on: ubuntu-24.04
+    needs: [bump-version, verify, install-smoke]
+    runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
       contents: write

@@ -35,6 +35,8 @@ jobs:
       contents: write
       packages: write
       pull-requests: write
+      id-token: write # OIDC for build-provenance attestation
+      attestations: write # stores the attestation
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -65,6 +67,13 @@ jobs:
             ghcr.io/${{ steps.owner.outputs.name }}/dashboard-tools:latest
           cache-from: type=gha,scope=dashboard-tools
           cache-to: type=gha,mode=max,scope=dashboard-tools,ignore-error=true
+      - name: Attest dashboard tools image provenance
+        id: attest
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-name: ghcr.io/vibebb/dashboard-tools
+          subject-digest: ${{ steps.tools.outputs.digest }}
+          push-to-registry: true
       - id: image
         env:
           IMAGE_OWNER: ${{ steps.owner.outputs.name }}
@@ -72,9 +81,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$BUILT_DIGEST" in sha256:*) ;; *) echo "invalid image digest: $BUILT_DIGEST" >&2; exit 1 ;; esac
-          echo "ref=ghcr.io/${IMAGE_OWNER}/dashboard-tools@${BUILT_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "tag=${GITHUB_SHA}-tools" >> "$GITHUB_OUTPUT"
-          echo "digest=${BUILT_DIGEST}" >> "$GITHUB_OUTPUT"
+          {
+            echo "ref=ghcr.io/${IMAGE_OWNER}/dashboard-tools@${BUILT_DIGEST}"
+            echo "tag=${GITHUB_SHA}-tools"
+            echo "digest=${BUILT_DIGEST}"
+          } >> "$GITHUB_OUTPUT"
       - name: Measure published tools
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
@@ -161,6 +172,7 @@ jobs:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
           IMAGE_TAG: ${{ steps.image.outputs.tag }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+          ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
         run: |
           set -euo pipefail
           retry() {
@@ -187,6 +199,7 @@ jobs:
             --published-at "$published_at" \
             --workflow-run "$workflow_run" \
             --dockerfile docker/dashboard-tools.Dockerfile \
+            --attestation "$ATTESTATION_URL" \
             --tools-json "$RUNNER_TEMP/dashboard-tools.json"
           python3 - <<'PY'
           import json

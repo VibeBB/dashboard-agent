@@ -92,6 +92,10 @@ image resolve. The local commands below build and select `dashboard-tools:local`
 set `DASHBOARD_LAUNCH_MODE=host` to run on the host, or `auto` to retain the
 previous Docker-when-available behavior.
 
+CI workflows use `ubuntu-26.04`; workflow lint runs actionlint and zizmor.
+Releases wait for CI and workflow lint on the version-bump branch and verify a
+remote plugin install before publishing release archives.
+
 ```bash
 uv sync --locked
 uv run ruff check . && uv run ruff format --check .

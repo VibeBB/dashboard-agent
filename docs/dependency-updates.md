@@ -5,6 +5,12 @@ to the `dependency-updates` tracking issue. It does not modify dependency pins.
 Review candidates in their source manifests and update the related
 `THIRD_PARTY_NOTICES.md` entries when tool versions change.
 
+Workflow reports are written under the runner's temporary directory and
+include the run URL in both the issue and step summary. The workflow exposes
+outdated and unknown counts; an issue remains open while either count is
+nonzero. Dependabot applies a seven-day cooldown to all ecosystems and groups
+GitHub Actions updates.
+
 The checker covers:
 
 - Direct Python package pins, transitive drift from `uv lock --upgrade
