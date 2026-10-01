@@ -33,7 +33,7 @@ def test_ci_is_dispatchable_and_reusable_with_a_ref() -> None:
     assert "  workflow_dispatch:" in ci
     assert "  workflow_call:" in ci
     assert "      ref:" in ci
-    assert ci.count("ref: ${{ inputs.ref || github.sha }}") == 3
+    assert ci.count("ref: ${{ inputs.ref || github.sha }}") == 4
 
 
 def test_publisher_builds_the_locked_dashboard_image() -> None:

@@ -1,3 +1,19 @@
+## SBOM attestations
+
+`publish-dashboard-images.yml` generates and attests an SPDX-2.3 SBOM for the
+published tools digest and uploads it for 30 days. The lock stores the
+returned `sbom_attestation` URL, which `locked-image-check.yml` verifies when
+present; an absent URL warns and continues.
+## Launcher-side verification
+
+`DASHBOARD_VERIFY_ATTESTATION` accepts `auto` (the default), `require`, or
+`off`. Before pulling a lock-provided image, and on every `prewarm`, the
+launcher uses `gh attestation verify` with the lock entry and publisher
+workflow. `auto` prints one note and skips for an image override, missing
+attestation, missing `gh`, or failed `gh auth status`; once verification
+starts, failure or timeout prevents the pull. `require` makes skip conditions
+errors, while `off` never verifies. Ordinary invocations do not re-verify a
+locally present image, and `--warn` doctor paths never verify.
 # Operations
 
 ## Author and validate
@@ -59,3 +75,7 @@ runtime does not expose device-selection operations through WebMCP. Hazardous
 commands require browser confirmation and ACK-enabled commands wait for the
 matching command ID and sequence number. Keep untrusted telemetry visibly
 separate from control state.
+
+## CI runner network auditing
+
+CI and image-publishing jobs use `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
