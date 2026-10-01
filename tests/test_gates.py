@@ -99,15 +99,23 @@ def test_full_gates_capture_visuals_after_browser_e2e(
     monkeypatch.setattr(gates_module, "capture", capture)
 
     def smoke(_generated: Path) -> SmokeResult:
-        return SmokeResult(ok=True, detail="servo passed")
+        return SmokeResult(
+            ok=True,
+            detail="attempts=2; Servo log tail: last line",
+            attempts=2,
+        )
 
     monkeypatch.setattr(servo, "smoke", smoke)
 
     report = run_gates(contract_path, out_dir, full=True)
     visual = _check_by_id(report.checks, "visual.capture")
+    servo_check = _check_by_id(report.checks, "smoke.servo")
 
     assert visual.status == "pass"
     assert visual.evidence == [str(desktop)]
+    assert servo_check.status == "pass"
+    assert "attempts=2" in servo_check.detail
+    assert "last line" in servo_check.detail
     assert events.index("e2e") < events.index("visual")
 
 

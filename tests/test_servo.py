@@ -4,10 +4,33 @@ import base64
 import subprocess
 from pathlib import Path
 from typing import cast
+from urllib.error import URLError
 
 from pytest import MonkeyPatch
 
 from dashboard import servo
+
+
+def _stub_smoke_attempts(
+    monkeypatch: MonkeyPatch,
+    outcomes: list[servo.SmokeResult],
+) -> list[int]:
+    calls: list[int] = []
+
+    def smoke_once(
+        _generated_dir: Path,
+        _log_path: Path,
+        attempt: int,
+    ) -> servo.SmokeResult:
+        calls.append(attempt)
+        return outcomes[attempt - 1]
+
+    def log_tail(_path: Path) -> str:
+        return "last Servo log line"
+
+    monkeypatch.setattr(servo, "_smoke_once", smoke_once)
+    monkeypatch.setattr(servo, "_servo_log_tail", log_tail)
+    return calls
 
 
 def test_servo_screenshot_failure_does_not_change_smoke_verdict(
@@ -147,3 +170,95 @@ def test_servo_screenshot_uses_long_request_timeout(
     assert error is None
     assert path is not None
     assert timeouts == [30]
+
+
+def test_servo_smoke_retries_once_after_timeout(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls = _stub_smoke_attempts(
+        monkeypatch,
+        [
+            servo.SmokeResult(ok=False, detail="WebDriver timed out", timed_out=True),
+            servo.SmokeResult(ok=True, detail="Servo rendered dashboard"),
+        ],
+    )
+
+    result = servo.smoke(tmp_path / "smart-kettle")
+
+    assert result.ok is True
+    assert result.attempts == 2
+    assert calls == [1, 2]
+    assert "attempt 1 timed out" in result.detail
+    assert "attempt 2 passed" in result.detail
+    assert "last Servo log line" in result.detail
+
+
+def test_servo_smoke_fails_after_second_timeout(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls = _stub_smoke_attempts(
+        monkeypatch,
+        [
+            servo.SmokeResult(ok=False, detail="timed out", timed_out=True),
+            servo.SmokeResult(ok=False, detail="timed out again", timed_out=True),
+        ],
+    )
+
+    result = servo.smoke(tmp_path / "smart-kettle")
+
+    assert result.ok is False
+    assert result.attempts == 2
+    assert calls == [1, 2]
+    assert "attempt 1 timed out" in result.detail
+    assert "attempt 2 timed out" in result.detail
+
+
+def test_servo_smoke_does_not_retry_non_timeout_failure(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls = _stub_smoke_attempts(
+        monkeypatch,
+        [servo.SmokeResult(ok=False, detail="Servo exited with code 1")],
+    )
+
+    result = servo.smoke(tmp_path / "smart-kettle")
+
+    assert result.ok is False
+    assert result.attempts == 1
+    assert calls == [1]
+    assert "attempt 1 failed" in result.detail
+    assert "last Servo log line" in result.detail
+
+
+def test_servo_smoke_retries_wrapped_url_timeout(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls: list[int] = []
+
+    def smoke_once(
+        _generated_dir: Path,
+        _log_path: Path,
+        attempt: int,
+    ) -> servo.SmokeResult:
+        calls.append(attempt)
+        if attempt == 1:
+            raise URLError(TimeoutError("timed out"))
+        return servo.SmokeResult(ok=True, detail="Servo rendered dashboard")
+
+    def log_tail(_path: Path) -> str:
+        return "last Servo log line"
+
+    monkeypatch.setattr(servo, "_smoke_once", smoke_once)
+    monkeypatch.setattr(servo, "_servo_log_tail", log_tail)
+
+    result = servo.smoke(tmp_path / "smart-kettle")
+
+    assert result.ok is True
+    assert result.attempts == 2
+    assert calls == [1, 2]
+    assert "attempt 1 timed out" in result.detail
+    assert "attempt 2 passed" in result.detail
