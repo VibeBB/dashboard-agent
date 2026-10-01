@@ -60,13 +60,17 @@ def test_checker_covers_required_dependency_surfaces() -> None:
 def test_current_dependency_deferrals_have_review_dates() -> None:
     deferrals = load_deferrals(ROOT)
 
-    assert len(deferrals) == 3
-    assert {item.review_by for item in deferrals} == {date(2026, 10, 7)}
+    assert len(deferrals) == 4
+    assert {item.review_by for item in deferrals} == {date(2026, 10, 7), date(2027, 4, 1)}
     assert {item.name for item in deferrals} == {
         "@types/node",
         "typescript",
         "*tauri*",
+        "mcp",
     }
+    mcp = next(item for item in deferrals if item.name == "mcp")
+    assert mcp.latest == "2.2.0"
+    assert "fastmcp>=3.2.0,<4" in mcp.reason
 
 
 def test_deferrals_expire_back_into_update_candidates() -> None:

@@ -11,7 +11,7 @@ includes or invokes the following third-party software:
 | uv | 0.12.21, index digest `sha256:a7aed3216253ee804de3e2d8afa5073baa1a177335345d43845cd4165e43b711` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |
 | MCP Python SDK | `mcp>=1.29,<2` | MIT |
-| OpenHands SDK and tools | 1.50.0 (development plugin check) | MIT |
+| OpenHands SDK and tools | 1.50.1 (development plugin check) | MIT |
 | TypeScript | 7.1.0-dev.20260922.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
 | Playwright | 1.63.0 | Apache-2.0 |

@@ -17,3 +17,7 @@
 - [ADR-0010: Screenshot vision lane](adr/ADR-0010-screenshot-vision-lane.md)
 - [ADR-0011: Docker-only launcher default](adr/ADR-0011-docker-only-launcher-default.md)
 - [ADR-0012: Attest published tools images](adr/ADR-0012-attest-published-tools-images.md)
+
+## Research
+
+- [SDK v1.50.1 feature evaluation](research/sdk-v1.50.1-feature-evaluation.md) — OpenHands SDK/tools adoption decisions
