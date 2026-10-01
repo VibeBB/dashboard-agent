@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict
 
@@ -19,6 +20,8 @@ class ToolCheck(BaseModel):
 
 
 def _probe(name: str, argv: list[str], *, required: bool, expected: str | None = None) -> ToolCheck:
+    if expected == "":
+        return ToolCheck(name=name, status="fail" if required else "warn")
     candidate = Path(argv[0])
     executable = (
         str(candidate)
@@ -47,16 +50,50 @@ def _probe(name: str, argv: list[str], *, required: bool, expected: str | None =
     )
 
 
+def _runtime_version(root: Path, package_name: str) -> str:
+    try:
+        package_data = json.loads((root / "runtime" / "package.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return ""
+    if not isinstance(package_data, dict):
+        return ""
+    package = cast(dict[str, object], package_data)
+    for section in ("devDependencies", "dependencies"):
+        dependencies = package.get(section)
+        if not isinstance(dependencies, dict):
+            continue
+        dependency_map = cast(dict[str, object], dependencies)
+        version = dependency_map.get(package_name)
+        if isinstance(version, str) and version:
+            return version
+    return ""
+
+
 def checks() -> list[ToolCheck]:
     root = Path(__file__).resolve().parents[2]
     runtime_bin = root / "runtime" / "node_modules" / ".bin"
     servo = shutil.which("servoshell") or "servoshell"
+    runtime_versions = {
+        "typescript": _runtime_version(root, "typescript"),
+        "esbuild": _runtime_version(root, "esbuild"),
+        "playwright": _runtime_version(root, "@playwright/test"),
+    }
     probes = (
         ("uv", ["uv", "--version"], True, "0.12.21"),
         ("node", ["node", "--version"], True, "v26."),
-        ("typescript", [str(runtime_bin / "tsc"), "--version"], True, "7.1.0-dev.20260922.1"),
-        ("esbuild", [str(runtime_bin / "esbuild"), "--version"], True, "0.28.2"),
-        ("playwright", [str(runtime_bin / "playwright"), "--version"], True, "1.63.0"),
+        (
+            "typescript",
+            [str(runtime_bin / "tsc"), "--version"],
+            True,
+            runtime_versions["typescript"],
+        ),
+        ("esbuild", [str(runtime_bin / "esbuild"), "--version"], True, runtime_versions["esbuild"]),
+        (
+            "playwright",
+            [str(runtime_bin / "playwright"), "--version"],
+            True,
+            runtime_versions["playwright"],
+        ),
         ("emcc", ["emcc", "--version"], True, "6.0.10"),
         ("servo", [servo, "--version"], True, "0.6.0"),
     )

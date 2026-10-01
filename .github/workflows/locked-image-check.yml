@@ -198,7 +198,17 @@ jobs:
           set -euo pipefail
           launcher=plugins/dashboard/scripts/dashboard_launcher.py
           python3 "$launcher" prewarm
-          python3 "$launcher" doctor > doctor.json
+          doctor_status=0
+          if python3 "$launcher" doctor > doctor.json; then
+            :
+          else
+            doctor_status=$?
+          fi
+          python3 -m json.tool doctor.json
+          if [ "$doctor_status" -ne 0 ]; then
+            echo "Dashboard doctor failed (exit=$doctor_status)" >&2
+            exit "$doctor_status"
+          fi
           for contract in examples/smart-kettle/smart-kettle.dash.json examples/bench-meter/bench-meter.dash.json; do
             design=$(basename "$contract" .dash.json)
             out="examples/$design/out"
