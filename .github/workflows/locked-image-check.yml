@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   check-lock:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 10
     outputs:
       pinned: ${{ steps.lock.outputs.pinned }}
@@ -31,7 +31,7 @@ jobs:
   check:
     needs: check-lock
     if: needs.check-lock.outputs.pinned == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -60,14 +60,41 @@ jobs:
             out="examples/$design/out"
             mkdir -p "$out"
             python3 "$launcher" generate "$contract"
+            set +e
             python3 "$launcher" gates "$contract" > "$out/$design.stdout.json"
-            python3 - "$out/$design.dash-report.json" <<'PY'
-          import json, sys
-          report = json.load(open(sys.argv[1], encoding="utf-8"))
-          for check in report["checks"]:
-              print(f"{check['id']:26} {check['status']:16} {check['detail'][:180]}")
-          sys.exit(0 if report["verdict"] == "pass" else 1)
+            status=$?
+            set -e
+            report="$out/$design.dash-report.json"
+            stdout="$out/$design.stdout.json"
+            if python3 - "$report" "$stdout" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          report_path, stdout_path = map(Path, sys.argv[1:])
+          if report_path.is_file():
+              report = json.loads(report_path.read_text(encoding="utf-8"))
+              for check in report["checks"]:
+                  print(f"{check['id']:26} {check['status']:16} {check['detail'][:180]}")
+              verdict = report["verdict"]
+          elif stdout_path.is_file():
+              output = stdout_path.read_text(encoding="utf-8")
+              print(output, end="")
+              verdict = json.loads(output)["verdict"]
+          else:
+              print(f"missing diagnostics: {report_path} and {stdout_path}", file=sys.stderr)
+              sys.exit(1)
+          sys.exit(0 if verdict == "pass" else 1)
           PY
+            then
+              diagnostics_status=0
+            else
+              diagnostics_status=$?
+            fi
+            if [ "$status" -ne 0 ] || [ "$diagnostics_status" -ne 0 ]; then
+              echo "$design gates failed (exit=$status, diagnostics=$diagnostics_status)" >&2
+              exit 1
+            fi
           done
       - name: Upload reports
         if: always()
@@ -75,7 +102,9 @@ jobs:
         with:
           name: dashboard-locked-image-reports
           path: |
-            examples/*/out/*.dash-report.*
+            examples/*/out/*.dash-report.json
             examples/*/out/*.stdout.json
+            examples/*/out/*.servo-smoke.log
+            examples/*/out/*.screens/**
             doctor.json
           if-no-files-found: warn

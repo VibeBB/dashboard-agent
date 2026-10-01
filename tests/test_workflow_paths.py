@@ -43,3 +43,27 @@ def test_publisher_builds_the_locked_dashboard_image() -> None:
     assert "IMAGE_REVISION" in text
     assert "dashboard_tools" in text
     assert "plugins/dashboard/tools-image.json" in text
+
+
+def test_publisher_retriggers_when_its_workflow_changes() -> None:
+    publish = ROOT / ".github/workflows/publish-dashboard-images.yml"
+    text = publish.read_text(encoding="utf-8")
+    assert '".github/workflows/publish-dashboard-images.yml"' in text
+
+
+def test_image_smokes_use_ci_runners_and_upload_diagnostics() -> None:
+    publish = (ROOT / ".github/workflows/publish-dashboard-images.yml").read_text(encoding="utf-8")
+    locked = (ROOT / ".github/workflows/locked-image-check.yml").read_text(encoding="utf-8")
+
+    assert publish.count("runs-on: ubuntu-26.04") == 1
+    assert locked.count("runs-on: ubuntu-26.04") == 2
+    for workflow in (publish, locked):
+        assert "set +e" in workflow
+        assert "status=$?" in workflow
+        assert "diagnostics_status" in workflow
+        assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
+        assert "if: always()" in workflow
+        assert "examples/*/out/*.dash-report.json" in workflow
+        assert "examples/*/out/*.stdout.json" in workflow
+        assert "examples/*/out/*.servo-smoke.log" in workflow
+        assert "examples/*/out/*.screens/**" in workflow
