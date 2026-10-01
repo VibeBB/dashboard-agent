@@ -1,6 +1,13 @@
 {
   "deferrals": [
     {
+      "surface": "pypi",
+      "name": "mcp",
+      "latest": "2.2.0",
+      "review_by": "2027-04-01",
+      "reason": "openhands-sdk 1.50.1 requires fastmcp>=3.2.0,<4, which requires mcp<2.0. Defer MCP 2.x until a supported SDK/fastmcp release removes that constraint."
+    },
+    {
       "surface": "npm",
       "name": "@types/node",
       "latest": "26.6.3",
