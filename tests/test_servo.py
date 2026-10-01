@@ -33,7 +33,7 @@ def _stub_smoke_attempts(
     return calls
 
 
-def test_servo_screenshot_failure_does_not_change_smoke_verdict(
+def test_servo_smoke_navigation_timeout_and_private_xdg_environment(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -46,6 +46,7 @@ def test_servo_screenshot_failure_does_not_change_smoke_verdict(
         return None
 
     monkeypatch.setattr(servo.shutil, "which", missing_servo)
+    popen_environments: list[dict[str, str]] = []
 
     class FakeProcess:
         pid = 999_999_999
@@ -65,11 +66,22 @@ def test_servo_screenshot_failure_does_not_change_smoke_verdict(
         stdout: object,
         stderr: int,
         start_new_session: bool,
+        env: dict[str, str],
     ) -> FakeProcess:
         del stdout, stderr, start_new_session
+        popen_environments.append(env)
+        runtime_dir = Path(env["XDG_RUNTIME_DIR"])
+        cache_dir = Path(env["XDG_CACHE_HOME"])
+        assert runtime_dir.stat().st_mode & 0o777 == 0o700
+        assert cache_dir.is_dir()
+        (cache_dir / "write-test").write_text("writable", encoding="utf-8")
         return FakeProcess()
 
     monkeypatch.setattr(subprocess, "Popen", popen)
+
+    navigation_timeouts: list[float] = []
+    heading_timeouts: list[float] = []
+    controls_timeouts: list[float] = []
 
     def request(
         url: str,
@@ -79,12 +91,14 @@ def test_servo_screenshot_failure_does_not_change_smoke_verdict(
         timeout: float = 5,
         **_kwargs: object,
     ) -> object:
-        del timeout
         if url.endswith("/status"):
             return {}
         if url.endswith("/session") and method == "POST":
             return {"value": {"sessionId": "session-1"}}
         if url.endswith("/url"):
+            navigation_timeouts.append(timeout)
+            if len(navigation_timeouts) == 1:
+                raise TimeoutError("timed out")
             return {"value": None}
         if url.endswith("/screenshot"):
             raise OSError("screenshots are unsupported")
@@ -92,6 +106,8 @@ def test_servo_screenshot_failure_does_not_change_smoke_verdict(
             return {}
         if url.endswith("/execute/sync"):
             script = cast(dict[str, object], payload)["script"]
+            if "button[data-transport]" in cast(str, script):
+                controls_timeouts.append(timeout)
             if "window.__dashboard" in cast(str, script):
                 return {
                     "value": {
@@ -111,6 +127,7 @@ def test_servo_screenshot_failure_does_not_change_smoke_verdict(
                     }
                 }
             if "querySelector('h1')" in cast(str, script):
+                heading_timeouts.append(timeout)
                 return {"value": "smart-kettle"}
             return {"value": ["WebSocket"]}
         raise AssertionError(f"unexpected WebDriver request: {method} {url}")
@@ -125,8 +142,24 @@ def test_servo_screenshot_failure_does_not_change_smoke_verdict(
     result = servo.smoke(generated)
 
     assert result.ok is True
+    assert result.attempts == 2
     assert result.screenshot is None
-    assert "servo screenshot unavailable: screenshots are unsupported" in result.detail
+    assert "attempt 1 timed out: navigate timed out after 30s: timed out" in result.detail
+    assert (
+        "servo screenshot unavailable: screenshot failed: screenshots are unsupported"
+        in result.detail
+    )
+    assert navigation_timeouts == [30, 30]
+    assert heading_timeouts == [30]
+    assert controls_timeouts == [30]
+    assert len(popen_environments) == 2
+    assert len({env["XDG_RUNTIME_DIR"] for env in popen_environments}) == 2
+    assert len({env["XDG_CACHE_HOME"] for env in popen_environments}) == 2
+    for env in popen_environments:
+        assert "XDG_RUNTIME_DIR" in env
+        assert "XDG_CACHE_HOME" in env
+        assert not Path(env["XDG_RUNTIME_DIR"]).exists()
+        assert not Path(env["XDG_CACHE_HOME"]).exists()
 
 
 def test_servo_screenshot_decodes_webdriver_png(
