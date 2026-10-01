@@ -168,14 +168,44 @@ jobs:
             out="examples/$design/out"
             mkdir -p "$out"
             python3 "$launcher" generate "$contract"
-            python3 "$launcher" gates "$contract" > "$out/$design.stdout.json"
-            python3 - "$out/$design.dash-report.json" <<'PY'
+            gate_status=0
+            if python3 "$launcher" gates "$contract" > "$out/$design.stdout.json"; then
+              :
+            else
+              gate_status=$?
+            fi
+            report_status=0
+            if [ -s "$out/$design.dash-report.json" ]; then
+              if python3 - "$out/$design.dash-report.json" <<'PY'
           import json, sys
-          report = json.load(open(sys.argv[1], encoding="utf-8"))
-          for check in report["checks"]:
-              print(f"{check['id']:26} {check['status']:16} {check['detail'][:180]}")
-          sys.exit(0 if report["verdict"] == "pass" else 1)
+          try:
+              with open(sys.argv[1], encoding="utf-8") as report_file:
+                  report = json.load(report_file)
+              for check in report["checks"]:
+                  detail = check["detail"]
+                  if check["id"] != "smoke.servo":
+                      detail = detail[:180]
+                  print(f"{check['id']:26} {check['status']:16} {detail}")
+              sys.exit(0 if report["verdict"] == "pass" else 1)
+          except (KeyError, OSError, TypeError, ValueError) as exc:
+              print(f"Dashboard gate report unavailable: {exc}")
+              sys.exit(1)
           PY
+              then
+                :
+              else
+                report_status=$?
+              fi
+            else
+              echo "Dashboard gate report unavailable: $out/$design.dash-report.json" >&2
+              report_status=1
+            fi
+            if [ "$gate_status" -ne 0 ]; then
+              exit "$gate_status"
+            fi
+            if [ "$report_status" -ne 0 ]; then
+              exit "$report_status"
+            fi
           done
       - name: Upload reports
         if: always()

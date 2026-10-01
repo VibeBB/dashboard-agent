@@ -580,11 +580,15 @@ def _run_full(contract_path: Path, out_dir: Path, contract: DashboardContract) -
             from .servo import smoke
 
             result = smoke(generated_dir)
+            detail = result.detail
+            if not detail.startswith("attempts="):
+                detail = f"attempts={result.attempts}; {detail}"
             checks.append(
-                _check(
-                    "smoke.servo",
-                    [] if result.ok else [result.detail],
-                    [str(result.screenshot)] if result.screenshot else [result.detail],
+                Check(
+                    id="smoke.servo",
+                    status=PASS if result.ok else FAIL,
+                    detail=detail,
+                    evidence=[str(result.screenshot)] if result.screenshot else [detail],
                 )
             )
         except (OSError, RuntimeError, TimeoutError) as exc:

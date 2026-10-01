@@ -21,6 +21,9 @@ from urllib.request import Request, urlopen
 from pydantic import BaseModel, ConfigDict
 
 _SCREENSHOT_TIMEOUT_S = 30
+_WEBDRIVER_READY_TIMEOUT_S = 40
+_DASHBOARD_INIT_TIMEOUT_S = 30
+_LOG_TAIL_LINES = 20
 
 
 class SmokeResult(BaseModel):
@@ -29,6 +32,8 @@ class SmokeResult(BaseModel):
     ok: bool
     detail: str
     screenshot: Path | None = None
+    attempts: int = 1
+    timed_out: bool = False
 
 
 class _Handler(SimpleHTTPRequestHandler):
@@ -89,6 +94,26 @@ def _has_route_kind(value: object, kind: str) -> bool:
     return route is not None and route.get("kind") == kind
 
 
+def _is_timeout(exc: BaseException) -> bool:
+    if isinstance(exc, (TimeoutError, subprocess.TimeoutExpired)):
+        return True
+    if isinstance(exc, URLError):
+        reason = exc.reason
+        return isinstance(reason, (TimeoutError, subprocess.TimeoutExpired)) or (
+            "timed out" in str(reason).lower()
+        )
+    message = str(exc).lower()
+    return "timed out" in message or ("webdriver error" in message and "timeout" in message)
+
+
+def _servo_log_tail(path: Path) -> str:
+    try:
+        lines = path.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return "(log unavailable)"
+    return "\n".join(lines[-_LOG_TAIL_LINES:]) if lines else "(log empty)"
+
+
 def save_screenshot(base: str, app: Path) -> tuple[Path | None, str | None]:
     try:
         value = _webdriver_value(_request(f"{base}/screenshot", timeout=_SCREENSHOT_TIMEOUT_S))
@@ -105,14 +130,13 @@ def save_screenshot(base: str, app: Path) -> tuple[Path | None, str | None]:
         return None, str(exc)
 
 
-def smoke(generated_dir: Path) -> SmokeResult:
+def _smoke_once(generated_dir: Path, log_path: Path, attempt: int) -> SmokeResult:
     binary = os.environ.get("SERVO_BIN") or shutil.which("servoshell") or shutil.which("servo")
     if not binary:
         return SmokeResult(ok=False, detail="required tool not found: servo")
     app = generated_dir.resolve()
     if not (app / "index.html").is_file():
         return SmokeResult(ok=False, detail=f"generated dashboard not found: {app / 'index.html'}")
-    log_path = app.parent / f"{app.name}.servo-smoke.log"
     webdriver_port = _free_port()
 
     def make_handler(
@@ -126,7 +150,9 @@ def smoke(generated_dir: Path) -> SmokeResult:
     http_server.daemon_threads = True
     page_url = f"http://127.0.0.1:{http_server.server_port}/"
     threading.Thread(target=http_server.serve_forever, daemon=True).start()
-    with log_path.open("w", encoding="utf-8") as log:
+    with log_path.open("w" if attempt == 1 else "a", encoding="utf-8") as log:
+        log.write(f"--- Servo attempt {attempt} ---\n")
+        log.flush()
         process: subprocess.Popen[bytes] | None = None
         session_id: str | None = None
         try:
@@ -144,7 +170,7 @@ def smoke(generated_dir: Path) -> SmokeResult:
                 start_new_session=True,
             )
             webdriver = f"http://127.0.0.1:{webdriver_port}"
-            deadline = time.monotonic() + 40
+            deadline = time.monotonic() + _WEBDRIVER_READY_TIMEOUT_S
             while time.monotonic() < deadline:
                 if process.poll() is not None:
                     return SmokeResult(
@@ -157,9 +183,9 @@ def smoke(generated_dir: Path) -> SmokeResult:
                 except (OSError, URLError, TimeoutError, ValueError):
                     time.sleep(0.25)
             else:
-                return SmokeResult(
-                    ok=False,
-                    detail=f"Servo WebDriver did not become ready; log: {log_path}",
+                raise TimeoutError(
+                    f"Servo WebDriver did not become ready within "
+                    f"{_WEBDRIVER_READY_TIMEOUT_S} seconds"
                 )
 
             created = _request(
@@ -175,7 +201,7 @@ def smoke(generated_dir: Path) -> SmokeResult:
             session_id = session_id_value
             base = f"{webdriver}/session/{session_id}"
             _request(f"{base}/url", method="POST", payload={"url": page_url})
-            deadline = time.monotonic() + 30
+            deadline = time.monotonic() + _DASHBOARD_INIT_TIMEOUT_S
             diagnostics: dict[str, object] | None = None
             while time.monotonic() < deadline:
                 try:
@@ -197,7 +223,10 @@ def smoke(generated_dir: Path) -> SmokeResult:
                     pass
                 time.sleep(0.25)
             if diagnostics is None:
-                raise RuntimeError("generated dashboard did not initialize in Servo")
+                raise TimeoutError(
+                    f"generated dashboard did not initialize in Servo within "
+                    f"{_DASHBOARD_INIT_TIMEOUT_S} seconds"
+                )
             rendered = _webdriver_value(
                 _request(
                     f"{base}/execute/sync",
@@ -275,7 +304,11 @@ def smoke(generated_dir: Path) -> SmokeResult:
                 screenshot=screenshot,
             )
         except (OSError, RuntimeError, URLError, TimeoutError, ValueError) as exc:
-            return SmokeResult(ok=False, detail=f"{exc}; log: {log_path}")
+            return SmokeResult(
+                ok=False,
+                detail=f"{exc}; log: {log_path}",
+                timed_out=_is_timeout(exc),
+            )
         finally:
             if session_id:
                 with suppress(OSError, URLError, TimeoutError, ValueError):
@@ -295,4 +328,39 @@ def smoke(generated_dir: Path) -> SmokeResult:
                     process.wait(timeout=5)
                 except OSError:
                     pass
-    http_server.server_close()
+            http_server.server_close()
+
+
+def smoke(generated_dir: Path) -> SmokeResult:
+    app = generated_dir.resolve()
+    log_path = app.parent / f"{app.name}.servo-smoke.log"
+    results: list[SmokeResult] = []
+    for attempt in (1, 2):
+        try:
+            result = _smoke_once(app, log_path, attempt)
+        except (
+            OSError,
+            RuntimeError,
+            URLError,
+            TimeoutError,
+            ValueError,
+            subprocess.TimeoutExpired,
+        ) as exc:
+            result = SmokeResult(
+                ok=False,
+                detail=str(exc),
+                timed_out=_is_timeout(exc),
+            )
+        results.append(result)
+        if result.ok or not result.timed_out:
+            break
+
+    summaries: list[str] = []
+    for number, result in enumerate(results, start=1):
+        outcome = "passed" if result.ok else "timed out" if result.timed_out else "failed"
+        summaries.append(f"attempt {number} {outcome}: {result.detail}")
+    detail = (
+        f"attempts={len(results)}; {'; '.join(summaries)}; "
+        f"Servo log tail ({log_path}):\n{_servo_log_tail(log_path)}"
+    )
+    return results[-1].model_copy(update={"attempts": len(results), "detail": detail})

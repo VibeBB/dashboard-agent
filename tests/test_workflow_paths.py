@@ -88,3 +88,18 @@ def test_image_smokes_use_ci_runners_and_upload_diagnostics() -> None:
         assert "examples/*/out/*.stdout.json" in workflow
         assert "examples/*/out/*.servo-smoke.log" in workflow
         assert "examples/*/out/*.screens/**" in workflow
+
+
+def test_ci_prints_gate_report_before_enforcing_gate_status() -> None:
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+    start = ci.index("- name: Full gates in the image")
+    end = ci.index("- name: Upload reports", start)
+    step = ci[start:end]
+
+    assert 'if python3 "$launcher" gates "$contract"' in step
+    assert "gate_status=$?" in step
+    assert 'python3 - "$out/$design.dash-report.json"' in step
+    assert "Dashboard gate report unavailable" in step
+    assert step.index('python3 - "$out/$design.dash-report.json"') < step.index(
+        'if [ "$gate_status" -ne 0 ]'
+    )
