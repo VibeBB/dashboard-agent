@@ -8,6 +8,7 @@ from pathlib import Path
 from plugins.dashboard.scripts import dashboard_launcher as launcher
 from plugins.dashboard.scripts.dashboard_launcher import (
     ISOLATED_NETWORK,
+    ImagePin,
     _docker,  # pyright: ignore[reportPrivateUsage]
     _image_ready,  # pyright: ignore[reportPrivateUsage]
     _inner_args,  # pyright: ignore[reportPrivateUsage]
@@ -30,15 +31,26 @@ def _no_docker(_name: str) -> None:
     return None
 
 
-def _no_image(_plugin_root: Path) -> None:
+def _no_image(_plugin_root: Path) -> ImagePin | None:
     return None
 
 
-def _test_image(_plugin_root: Path) -> str:
-    return "dashboard-tools:test"
+def _test_image(_plugin_root: Path) -> ImagePin:
+    return {
+        "ref": "dashboard-tools:test",
+        "image": None,
+        "digest": None,
+        "attestation": None,
+    }
 
 
-def _image_is_ready(_image: str, *, pull: bool) -> bool:
+def _image_is_ready(
+    _image: ImagePin | str,
+    *,
+    pull: bool,
+    prewarm: bool = False,
+    override: bool = False,
+) -> bool:
     assert not pull
     return True
 
@@ -303,7 +315,7 @@ def test_default_docker_without_image_fails_closed(
 ) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
-    monkeypatch.setattr(launcher, "image_ref", _no_image)
+    monkeypatch.setattr(launcher, "image_pin", _no_image)
     commands = _capture_subprocess(monkeypatch)
 
     assert _run_launcher(monkeypatch, "doctor") == 1
@@ -318,7 +330,7 @@ def test_default_docker_without_binary_fails_closed(
 ) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _no_docker)
-    monkeypatch.setattr(launcher, "image_ref", _test_image)
+    monkeypatch.setattr(launcher, "image_pin", _test_image)
     commands = _capture_subprocess(monkeypatch)
 
     assert _run_launcher(monkeypatch, "doctor") == 1
@@ -333,7 +345,7 @@ def test_default_docker_warn_emits_existing_json(
 ) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
-    monkeypatch.setattr(launcher, "image_ref", _no_image)
+    monkeypatch.setattr(launcher, "image_pin", _no_image)
     commands = _capture_subprocess(monkeypatch)
 
     assert _run_launcher(monkeypatch, "doctor", "--warn") == 0
@@ -350,7 +362,7 @@ def test_host_mode_runs_on_host_when_image_exists(monkeypatch: MonkeyPatch) -> N
     _clear_launch_environment(monkeypatch)
     monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "host")
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
-    monkeypatch.setattr(launcher, "image_ref", _test_image)
+    monkeypatch.setattr(launcher, "image_pin", _test_image)
     commands = _capture_subprocess(monkeypatch, returncode=17)
 
     assert _run_launcher(monkeypatch, "doctor") == 17
@@ -361,7 +373,7 @@ def test_auto_mode_without_image_falls_back_to_host(monkeypatch: MonkeyPatch) ->
     _clear_launch_environment(monkeypatch)
     monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "auto")
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
-    monkeypatch.setattr(launcher, "image_ref", _no_image)
+    monkeypatch.setattr(launcher, "image_pin", _no_image)
     commands = _capture_subprocess(monkeypatch)
 
     assert _run_launcher(monkeypatch, "doctor") == 0
@@ -385,7 +397,7 @@ def test_invalid_mode_exits_two_with_usage(
 def test_default_docker_runs_image_when_available(monkeypatch: MonkeyPatch) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
-    monkeypatch.setattr(launcher, "image_ref", _test_image)
+    monkeypatch.setattr(launcher, "image_pin", _test_image)
     monkeypatch.setattr(
         "plugins.dashboard.scripts.dashboard_launcher._image_ready",
         _image_is_ready,
@@ -403,7 +415,7 @@ def test_auto_mode_with_image_runs_docker(monkeypatch: MonkeyPatch) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "auto")
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
-    monkeypatch.setattr(launcher, "image_ref", _test_image)
+    monkeypatch.setattr(launcher, "image_pin", _test_image)
     monkeypatch.setattr(
         "plugins.dashboard.scripts.dashboard_launcher._image_ready",
         _image_is_ready,

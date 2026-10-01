@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Resolve the dashboard package and tools image, then execute an entry point."""
+"""Resolve the dashboard package and tools image, then execute an entry point.
+
+Launcher-side verification uses DASHBOARD_VERIFY_ATTESTATION=auto|require|off.
+It verifies lock provenance before pulls and on every prewarm; normal use
+does not re-verify an image that is already present locally.
+"""
 
 from __future__ import annotations
 
@@ -9,13 +14,25 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 _MODULES = {"mcp_server": "dashboard.mcp_server"}
 ISOLATED_NETWORK = "dashboard-isolated"
 _INSPECT_TIMEOUT_S = 30
 _PULL_TIMEOUT_S = 900
 _NETWORK_TIMEOUT_S = 30
+_ATTEST_TIMEOUT_S = 120
+_GH_AUTH_TIMEOUT_S = 15
+_VERIFY_ENV = "DASHBOARD_VERIFY_ATTESTATION"
+_REPOSITORY = "VibeBB/dashboard-agent"
+_PUBLISH_FILE = ".github/workflows/publish-dashboard-images.yml"
+
+
+class ImagePin(TypedDict):
+    ref: str
+    image: str | None
+    digest: str | None
+    attestation: str | None
 
 
 def _plugin_root() -> Path:
@@ -52,7 +69,7 @@ def resolve_source(plugin_root: Path) -> Path | None:
     return None
 
 
-def _lock_ref(lock_path: Path) -> str | None:
+def _lock_ref(lock_path: Path) -> ImagePin | None:
     try:
         data: object = json.loads(lock_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
@@ -68,20 +85,31 @@ def _lock_ref(lock_path: Path) -> str | None:
     if not isinstance(image, str) or not image:
         return None
     digest = entry.get("digest")
-    if isinstance(digest, str) and digest:
-        return f"{image}@{digest}"
+    digest = digest if isinstance(digest, str) and digest else None
     tag = entry.get("tag")
-    if isinstance(tag, str) and tag:
-        return f"{image}:{tag}"
-    return None
+    tag = tag if isinstance(tag, str) and tag else None
+    if digest is None and tag is None:
+        return None
+    attestation = entry.get("attestation")
+    return {
+        "ref": f"{image}@{digest}" if digest else f"{image}:{tag}",
+        "image": image,
+        "digest": digest,
+        "attestation": attestation if isinstance(attestation, str) and attestation else None,
+    }
+
+
+def image_pin(plugin_root: Path) -> ImagePin | None:
+    explicit = os.environ.get("DASHBOARD_TOOLS_IMAGE")
+    if explicit:
+        return {"ref": explicit, "image": None, "digest": None, "attestation": None}
+    plugin_lock = _lock_ref(plugin_root / "tools-image.json")
+    return plugin_lock or _lock_ref(plugin_root.parent.parent / "docker" / "image-digests.json")
 
 
 def image_ref(plugin_root: Path) -> str | None:
-    explicit = os.environ.get("DASHBOARD_TOOLS_IMAGE")
-    if explicit:
-        return explicit
-    plugin_lock = _lock_ref(plugin_root / "tools-image.json")
-    return plugin_lock or _lock_ref(plugin_root.parent.parent / "docker" / "image-digests.json")
+    pin = image_pin(plugin_root)
+    return pin["ref"] if pin is not None else None
 
 
 def ensure_isolated_network(docker: str) -> None:
@@ -185,12 +213,93 @@ def _run_timed(
         raise RuntimeError(f"{operation} timed out after {timeout}s") from exc
 
 
-def _image_ready(image: str, *, pull: bool) -> bool:
+def _attestation_mode() -> str:
+    mode = os.environ.get(_VERIFY_ENV, "auto")
+    if mode not in {"auto", "require", "off"}:
+        raise ValueError(
+            f"{_VERIFY_ENV} must be auto, require, or off (got {mode!r}); "
+            f"usage: {_VERIFY_ENV}=auto|require|off"
+        )
+    return mode
+
+
+def _verify_attestation(pin: ImagePin, *, override: bool) -> None:
+    mode = _attestation_mode()
+    if mode == "off":
+        return
+    reason: str | None = None
+    gh = shutil.which("gh")
+    if override:
+        reason = "tools image override has no lock attestation context"
+    elif not pin["attestation"]:
+        reason = "lock entry has no attestation"
+    elif not pin["image"] or not pin["digest"]:
+        reason = "lock entry has no digest"
+    elif gh is None:
+        reason = "gh is not on PATH"
+    else:
+        try:
+            auth = _run_timed(
+                [gh, "auth", "status"],
+                "gh auth status",
+                _GH_AUTH_TIMEOUT_S,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+        except (OSError, RuntimeError):
+            reason = "gh auth status failed"
+        else:
+            if auth.returncode != 0:
+                reason = "gh auth status failed"
+    if reason is not None:
+        if mode == "require":
+            raise RuntimeError(f"attestation verification required but {reason}")
+        print(f"dashboard_launcher: attestation verification skipped: {reason}", file=sys.stderr)
+        return
+    assert gh is not None
+    assert pin["image"] is not None and pin["digest"] is not None
+    result = _run_timed(
+        [
+            gh,
+            "attestation",
+            "verify",
+            f"oci://{pin['image']}@{pin['digest']}",
+            "--repo",
+            _REPOSITORY,
+            "--signer-workflow",
+            f"{_REPOSITORY}/{_PUBLISH_FILE}",
+        ],
+        "gh attestation verify",
+        _ATTEST_TIMEOUT_S,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"attestation verification failed for {pin['image']}@{pin['digest']}")
+
+
+def _image_ready(
+    image: ImagePin | str,
+    *,
+    pull: bool,
+    prewarm: bool = False,
+    override: bool = False,
+) -> bool:
+    if isinstance(image, str):
+        pin: ImagePin = {"ref": image, "image": None, "digest": None, "attestation": None}
+        override = True
+    else:
+        pin = image
+    ref = pin["ref"]
     docker = shutil.which("docker")
     if docker is None:
         raise RuntimeError("docker is not on PATH")
+    if prewarm:
+        _verify_attestation(pin, override=override)
     inspected = _run_timed(
-        [docker, "image", "inspect", image],
+        [docker, "image", "inspect", ref],
         "docker image inspect",
         _INSPECT_TIMEOUT_S,
         stdout=subprocess.DEVNULL,
@@ -201,9 +310,11 @@ def _image_ready(image: str, *, pull: bool) -> bool:
         return True
     if not pull:
         return False
+    if not prewarm:
+        _verify_attestation(pin, override=override)
     return (
         _run_timed(
-            [docker, "pull", image],
+            [docker, "pull", ref],
             "docker pull",
             _PULL_TIMEOUT_S,
             check=False,
@@ -219,16 +330,27 @@ def main() -> int:
             "usage: dashboard_launcher.py {mcp_server|prewarm|<dashboard command>}", file=sys.stderr
         )
         return 2
+    try:
+        _attestation_mode()
+    except ValueError as exc:
+        print(f"dashboard_launcher: {exc}", file=sys.stderr)
+        return 2
     warn = "--warn" in arguments
     arguments = [argument for argument in arguments if argument != "--warn"]
     plugin_root = _plugin_root()
     source = resolve_source(plugin_root)
-    image = image_ref(plugin_root)
+    pin = image_pin(plugin_root)
+    image = pin["ref"] if pin is not None else None
     try:
         if arguments[0] == "prewarm":
-            if image is None:
+            if pin is None:
                 raise RuntimeError("no dashboard tools image is configured")
-            if not _image_ready(image, pull=True):
+            if not _image_ready(
+                pin,
+                pull=True,
+                prewarm=True,
+                override=bool(os.environ.get("DASHBOARD_TOOLS_IMAGE")),
+            ):
                 raise RuntimeError(f"could not pull dashboard tools image {image}")
             return 0
         mode = os.environ.get("DASHBOARD_LAUNCH_MODE", "docker")
@@ -255,7 +377,11 @@ def main() -> int:
                 raise RuntimeError(
                     f"{'; '.join(missing)}. Set DASHBOARD_LAUNCH_MODE=host to run on the host."
                 )
-            if not _image_ready(image, pull=False):
+            if pin is None or not _image_ready(
+                pin,
+                pull=False,
+                override=bool(os.environ.get("DASHBOARD_TOOLS_IMAGE")),
+            ):
                 raise RuntimeError(
                     f"dashboard tools image {image} is not pulled; "
                     "run dashboard_launcher.py prewarm"

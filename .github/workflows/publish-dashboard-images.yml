@@ -38,6 +38,9 @@ jobs:
       id-token: write # OIDC for build-provenance attestation
       attestations: write # stores the attestation
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: true
@@ -86,6 +89,39 @@ jobs:
             echo "tag=${GITHUB_SHA}-tools"
             echo "digest=${BUILT_DIGEST}"
           } >> "$GITHUB_OUTPUT"
+      - name: Generate tools SPDX SBOM
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ steps.image.outputs.ref }}
+          format: spdx-json
+          output-file: ${{ runner.temp }}/dashboard-tools.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+      - name: Validate tools SPDX SBOM
+        run: |
+          python3 - "${{ runner.temp }}/dashboard-tools.spdx.json" <<'PY'
+          import json
+          import sys
+          from pathlib import Path
+
+          sbom = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+          if sbom.get("spdxVersion") != "SPDX-2.3":
+              raise SystemExit("tools SBOM must use SPDX-2.3")
+          PY
+      - name: Attest tools SBOM
+        id: attest_sbom
+        uses: actions/attest-sbom@c604332985a26aa8cf1bdc465b92731239ec6b9e # v4.1.0
+        with:
+          subject-name: ghcr.io/vibebb/dashboard-tools
+          subject-digest: ${{ steps.tools.outputs.digest }}
+          sbom-path: ${{ runner.temp }}/dashboard-tools.spdx.json
+          push-to-registry: true
+      - name: Upload tools SPDX SBOM
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: dashboard-tools-spdx-sbom
+          path: ${{ runner.temp }}/dashboard-tools.spdx.json
+          retention-days: 30
       - name: Measure published tools
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
@@ -173,6 +209,7 @@ jobs:
           IMAGE_TAG: ${{ steps.image.outputs.tag }}
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
           ATTESTATION_URL: ${{ steps.attest.outputs.attestation-url }}
+          SBOM_ATTESTATION_URL: ${{ steps.attest_sbom.outputs.attestation-url }}
         run: |
           set -euo pipefail
           retry() {
@@ -200,6 +237,7 @@ jobs:
             --workflow-run "$workflow_run" \
             --dockerfile docker/dashboard-tools.Dockerfile \
             --attestation "$ATTESTATION_URL" \
+            --sbom-attestation "$SBOM_ATTESTATION_URL" \
             --tools-json "$RUNNER_TEMP/dashboard-tools.json"
           python3 - <<'PY'
           import json
@@ -231,25 +269,31 @@ jobs:
           done
           pr_url=$(retry gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
             --title "Update dashboard image digest lock" --body "$body")
-          started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-          retry gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
-          run_id=""
-          for _ in $(seq 1 30); do
-            sleep 10
-            run_id=$(retry gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
-              --branch "$branch" --event workflow_dispatch --created ">=$started" \
-              --json databaseId --jq '.[0].databaseId // empty' || true)
-            [ -n "$run_id" ] && break
+          failed=0
+          for workflow in ci.yml workflow-lint.yml; do
+            started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+            retry gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$branch"
+            run_id=""
+            for _ in $(seq 1 30); do
+              sleep 10
+              run_id=$(retry gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" \
+                --branch "$branch" --event workflow_dispatch --created ">=$started" \
+                --json databaseId --jq '.[0].databaseId // empty' || true)
+              [ -n "$run_id" ] && break
+            done
+            if [ -z "$run_id" ]; then
+              echo "$workflow dispatch for the digest-lock branch was not observed; the PR remains open." >&2
+              exit 1
+            fi
+            gh run watch --repo "$GITHUB_REPOSITORY" "$run_id" --interval 30 || true
+            conclusion=$(retry gh run view --repo "$GITHUB_REPOSITORY" "$run_id" \
+              --json conclusion --jq '.conclusion // empty' || true)
+            if [ "$conclusion" != success ]; then
+              echo "$workflow concluded '$conclusion'; the PR remains open." >&2
+              failed=1
+            fi
           done
-          if [ -z "$run_id" ]; then
-            echo "CI dispatch for the digest-lock branch was not observed; the PR remains open." >&2
-            exit 1
-          fi
-          gh run watch --repo "$GITHUB_REPOSITORY" "$run_id" --interval 30 || true
-          conclusion=$(retry gh run view --repo "$GITHUB_REPOSITORY" "$run_id" \
-            --json conclusion --jq '.conclusion // empty' || true)
-          if [ "$conclusion" != success ]; then
-            echo "digest-lock CI concluded '$conclusion'; the PR remains open." >&2
+          if [ "$failed" -ne 0 ]; then
             exit 1
           fi
           retry gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash --delete-branch "$pr_url"

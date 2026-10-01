@@ -40,3 +40,5 @@ cd runtime && npm ci && npx tsc -p . && node --test test/
 The dashboard-tools image runs Chromium E2E, Emscripten parity, and Servo
 WebDriver smoke checks in an internal Docker network without Internet egress
 after build.
+
+Shared workflows are canonical across the family; change all 11 copies together and update `EXPECTED` in `scripts/check_shared_workflows.py`.
