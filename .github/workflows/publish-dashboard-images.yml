@@ -15,6 +15,7 @@ on:
       - "uv.lock"
       - ".github/workflows/publish-dashboard-images.yml"
       - "scripts/publish_image_pin_pr.sh"
+      - "scripts/package_level_sbom.py"
       - "!docker/image-digests.json"
       - "!plugins/dashboard/tools-image.json"
       - "!docker/README.md"
@@ -99,9 +100,14 @@ jobs:
         with:
           image: ${{ steps.image.outputs.ref }}
           format: spdx-json
-          output-file: ${{ runner.temp }}/dashboard-tools.spdx.json
+          output-file: ${{ runner.temp }}/dashboard-tools.full.spdx.json
           upload-artifact: false
           upload-release-assets: false
+      - name: Package tools SPDX SBOM
+        run: |
+          python3 scripts/package_level_sbom.py \
+            "$RUNNER_TEMP/dashboard-tools.full.spdx.json" \
+            "$RUNNER_TEMP/dashboard-tools.spdx.json"
       - name: Guard tools SPDX SBOM size
         env:
           SBOM_PATH: ${{ runner.temp }}/dashboard-tools.spdx.json
@@ -134,12 +140,13 @@ jobs:
           subject-digest: ${{ steps.tools.outputs.digest }}
           sbom-path: ${{ runner.temp }}/dashboard-tools.spdx.json
           push-to-registry: true
-      - name: Upload tools SPDX SBOM
+      - name: Upload full tools SPDX SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-tools-spdx-sbom
-          path: ${{ runner.temp }}/dashboard-tools.spdx.json
-          retention-days: 30
+          path: ${{ runner.temp }}/dashboard-tools.full.spdx.json
+          retention-days: 90
+          if-no-files-found: error
       - name: Measure published tools
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
