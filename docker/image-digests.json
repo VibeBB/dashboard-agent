@@ -1,12 +1,12 @@
 {
   "dashboard_tools": {
-    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/51976516",
-    "digest": "sha256:af7b858d0fff79a54310e2e760ca42f564ffcb4274af9a04fabb42596abae6ca",
+    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/51991638",
+    "digest": "sha256:6fc2c76170a660be067c69495bab2bfb24a20a5c519979adcc0b286e33324bfe",
     "dockerfile": "docker/dashboard-tools.Dockerfile",
     "image": "ghcr.io/vibebb/dashboard-tools",
-    "published_at": "2026-10-01T22:14:10Z",
-    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/51976846",
-    "tag": "e30ad044333cb0ba11f9fe0eee0b574ba46a5640-tools",
+    "published_at": "2026-10-01T23:22:09Z",
+    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/51991836",
+    "tag": "82cc1f415d85df3aac10d49188bec1c961a8b28f-tools",
     "tools": {
       "chromium": "153.0.8010.12",
       "dashboard_agent": "0.1.0",
@@ -14,11 +14,11 @@
       "node": "v26.10.0",
       "npm": "11.19.1",
       "playwright": "1.63.0",
-      "python": "Python 3.12.14\nUnable to find image 'ghcr.io/vibebb/dashboard-tools@sha256:af7b858d0fff79a54310e2e760ca42f564ffcb4274af9a04fabb42596abae6ca' locally\nghcr.io/vibebb/dashboard-tools@sha256:af7b858d0fff79a54310e2e760ca42f564ffcb4274af9a04fabb42596abae6ca: Pulling from vibebb/dashboard-tools\nf44c9d26c18b: Pulling fs layer\n0bfe53c3abfc: Pulling fs layer\n6b37362b3da7: Pulling fs layer\n52eba3dccd7f: Pulling fs layer\n647efcf33428: Pulling fs layer\n211cdf369d60: Pulling fs layer\n0c2504d4bacb: Pulling fs layer\ne5b2f32f9c3d: Pulling fs layer\n011465d35d4a: Pulling fs layer\ncd0346d754ed: Pulling fs layer\n94f83851447d: Pulling fs layer\n443a411c9b58: Pulling fs layer\ncbd1a5f6074e: Pulling fs layer\ne2072e2af94f: Pulling fs layer\nf4e116e98a84: Pulling fs layer\n62952a74c195: Pulling fs layer\ne640fcccce44: Pulling fs layer\n5e06322b2807: Pulling fs layer\n647efcf33428: Download complete\n5e06322b2807: Download complete\n0c2504d4bacb: Download complete\n40c051043fc1: Download complete\n443a411c9b58: Download complete\n52eba3dccd7f: Download complete\ncd0346d754ed: Download complete\n44136fa355b3: Already exists\nf44c9d26c18b: Download complete\ncbd1a5f6074e: Download complete\n211cdf369d60: Download complete\n94f83851447d: Download complete\n0bfe53c3abfc: Download complete\n6b37362b3da7: Download complete\n011465d35d4a: Download complete\ne640fcccce44: Download complete\ne2072e2af94f: Download complete\nf4e116e98a84: Download complete\n211cdf369d60: Pull complete\n6b37362b3da7: Pull complete\n011465d35d4a: Pull complete\n443a411c9b58: Pull complete\ne5b2f32f9c3d: Download complete\ne2072e2af94f: Pull complete\n62952a74c195: Download complete\n62952a74c195: Pull complete\nf4e116e98a84: Pull complete\n5e06322b2807: Pull complete\n52eba3dccd7f: Pull complete\ncd0346d754ed: Pull complete\ncbd1a5f6074e: Pull complete\n0bfe53c3abfc: Pull complete\ne640fcccce44: Pull complete\n647efcf33428: Pull complete\n0c2504d4bacb: Pull complete\ne5b2f32f9c3d: Pull complete\n94f83851447d: Pull complete\nf44c9d26c18b: Pull complete\nDigest: sha256:af7b858d0fff79a54310e2e760ca42f564ffcb4274af9a04fabb42596abae6ca\nStatus: Downloaded newer image for ghcr.io/vibebb/dashboard-tools@sha256:af7b858d0fff79a54310e2e760ca42f564ffcb4274af9a04fabb42596abae6ca",
+      "python": "Python 3.12.14\nUnable to find image 'ghcr.io/vibebb/dashboard-tools@sha256:6fc2c76170a660be067c69495bab2bfb24a20a5c519979adcc0b286e33324bfe' locally\nghcr.io/vibebb/dashboard-tools@sha256:6fc2c76170a660be067c69495bab2bfb24a20a5c519979adcc0b286e33324bfe: Pulling from vibebb/dashboard-tools\n84073cf3ea3c: Pulling fs layer\naae8b5a4eea0: Pulling fs layer\n59a2bf887b2d: Pulling fs layer\n6b37362b3da7: Pulling fs layer\nee2a25c2490f: Pulling fs layer\n62952a74c195: Pulling fs layer\n728f56f5884b: Pulling fs layer\n1c4559de77cb: Pulling fs layer\n2c4ba9b7bb11: Pulling fs layer\n211cdf369d60: Pulling fs layer\nc1f14eb98fcf: Pulling fs layer\n011465d35d4a: Pulling fs layer\ne2072e2af94f: Pulling fs layer\n009ff39314f4: Pulling fs layer\n5707c3a3a38d: Pulling fs layer\n5cfb2d427cab: Pulling fs layer\n443a411c9b58: Pulling fs layer\ndbc57d487302: Pulling fs layer\n44136fa355b3: Already exists\n2c4ba9b7bb11: Download complete\n5707c3a3a38d: Download complete\naae8b5a4eea0: Download complete\n59a2bf887b2d: Download complete\nee2a25c2490f: Download complete\n443a411c9b58: Download complete\n0165eccf7209: Download complete\n84073cf3ea3c: Download complete\n5cfb2d427cab: Download complete\n211cdf369d60: Download complete\nc1f14eb98fcf: Download complete\n009ff39314f4: Download complete\n6b37362b3da7: Download complete\ne2072e2af94f: Download complete\n011465d35d4a: Download complete\ndbc57d487302: Download complete\n6b37362b3da7: Pull complete\n728f56f5884b: Download complete\n211cdf369d60: Pull complete\n011465d35d4a: Pull complete\n443a411c9b58: Pull complete\ne2072e2af94f: Pull complete\n1c4559de77cb: Download complete\n62952a74c195: Download complete\n62952a74c195: Pull complete\n728f56f5884b: Pull complete\ndbc57d487302: Pull complete\n84073cf3ea3c: Pull complete\n009ff39314f4: Pull complete\n5707c3a3a38d: Pull complete\naae8b5a4eea0: Pull complete\n59a2bf887b2d: Pull complete\nee2a25c2490f: Pull complete\n5cfb2d427cab: Pull complete\n1c4559de77cb: Pull complete\nc1f14eb98fcf: Pull complete\n2c4ba9b7bb11: Pull complete\nDigest: sha256:6fc2c76170a660be067c69495bab2bfb24a20a5c519979adcc0b286e33324bfe\nStatus: Downloaded newer image for ghcr.io/vibebb/dashboard-tools@sha256:6fc2c76170a660be067c69495bab2bfb24a20a5c519979adcc0b286e33324bfe",
       "servoshell": "Version: Servo 0.6.0-c78d2c206",
       "typescript": "Version 7.1.0-dev.20260923.1",
       "uv": "uv 0.12.21 (x86_64-unknown-linux-musl)"
     },
-    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/36932928413"
+    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/36939767710"
   }
 }
