@@ -12,7 +12,7 @@ includes or invokes the following third-party software:
 | Pydantic | `pydantic>=2` | MIT |
 | MCP Python SDK | `mcp>=1.29,<2` | MIT |
 | OpenHands SDK and tools | 1.50.1 (development plugin check) | MIT |
-| TypeScript | 7.1.0-dev.20260922.1 | Apache-2.0 |
+| TypeScript | 7.1.0-dev.20260923.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
 | Playwright | 1.63.0 | Apache-2.0 |
 | Chromium | Playwright 1.63.0 browser build | BSD-3-Clause and bundled notices |

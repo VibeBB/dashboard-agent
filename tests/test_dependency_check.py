@@ -101,7 +101,7 @@ def test_nightly_deferral_matches_settled_build_series() -> None:
     status = DependencyStatus(
         "npm",
         "typescript",
-        "7.1.0-dev.20260922.1",
+        "7.1.0-dev.20260923.1",
         "7.1.0-dev.20260930.4",
         "runtime/package.json",
         True,
