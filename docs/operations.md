@@ -42,6 +42,16 @@ internal network before each container run. MCP contract and output paths are
 resolved under `OPENHANDS_PROJECT_DIR`; paths outside the workspace or through
 symlink components are rejected.
 
+## CI and image provenance
+
+Workflow lint runs actionlint and zizmor on workflow changes and during weekly
+scheduled checks. Release automation dispatches and waits for CI and workflow
+lint on the version-bump branch, then validates the remotely installed plugin.
+The dashboard image publisher attaches GitHub build provenance and records the
+attestation URL in new digest locks. Locked-image checks verify present
+attestations against this repository's publisher workflow; existing pins
+without metadata continue with a warning until the next publish.
+
 ## Device and WebMCP safety
 
 Browser transport selection occurs only from an explicit user click. The

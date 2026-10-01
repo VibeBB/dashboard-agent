@@ -41,3 +41,8 @@ uv run python scripts/measure_image_tools.py \
   --image-ref dashboard-tools:local \
   --out /tmp/dashboard-tools-measurement.json
 ```
+
+Each published image receives GitHub build provenance. The digest lock records
+its attestation URL, and locked-image checks verify it against this repository's
+publisher workflow when present. Existing pins without attestation metadata
+continue with a warning until the next publish.

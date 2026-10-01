@@ -89,6 +89,28 @@ def test_update_lock_populates_literal_null_fixture(tmp_path: Path) -> None:
     )
 
 
+def test_update_lock_records_optional_attestation(tmp_path: Path) -> None:
+    lock = tmp_path / "image-digests.json"
+    _write_null_lock(lock)
+    attestation = "https://github.com/VibeBB/dashboard-agent/attestations/1"
+
+    assert update_lock(
+        lock,
+        entry="dashboard_tools",
+        image=IMAGE,
+        tag="abc123-tools",
+        digest=f"sha256:{'b' * 64}",
+        published_at="2026-10-01T12:00:00Z",
+        workflow_run="https://github.com/VibeBB/dashboard-agent/actions/runs/1",
+        dockerfile="docker/dashboard-tools.Dockerfile",
+        tools={"node": "v26.10.0"},
+        attestation=attestation,
+    )
+    data = json.loads(lock.read_text(encoding="utf-8"))
+    assert data["dashboard_tools"]["attestation"] == attestation
+    assert locked_image(lock, "dashboard_tools") == f"{IMAGE}@sha256:{'b' * 64}"
+
+
 def test_update_lock_rejects_invalid_digest(tmp_path: Path) -> None:
     lock = tmp_path / "image-digests.json"
     _write_null_lock(lock)

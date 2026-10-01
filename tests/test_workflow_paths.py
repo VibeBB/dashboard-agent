@@ -51,6 +51,27 @@ def test_publisher_retriggers_when_its_workflow_changes() -> None:
     assert '".github/workflows/publish-dashboard-images.yml"' in text
 
 
+def test_all_workflows_use_dashboard_runner_label() -> None:
+    assert all("ubuntu-24.04" not in path.read_text(encoding="utf-8") for path in WORKFLOWS)
+
+
+def test_release_lints_version_bump_and_install_smokes_plugin() -> None:
+    release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
+    assert "workflow-lint.yml" in release
+    assert "install-smoke:" in release
+    assert "needs: [bump-version, verify, install-smoke]" in release
+    assert "--repo VibeBB/dashboard-agent" in release
+    assert "--repo-path plugins/dashboard" in release
+
+
+def test_main_failure_report_tracks_default_branch_workflows() -> None:
+    workflow = (ROOT / ".github/workflows/main-ci-failure-issue.yml").read_text(encoding="utf-8")
+    assert "- Digest lock PR sweep" in workflow
+    assert "- Workflow lint" in workflow
+    assert "- PR branch cleanup" in workflow
+    assert "actions: read # reads the completed run's jobs" in workflow
+
+
 def test_image_smokes_use_ci_runners_and_upload_diagnostics() -> None:
     publish = (ROOT / ".github/workflows/publish-dashboard-images.yml").read_text(encoding="utf-8")
     locked = (ROOT / ".github/workflows/locked-image-check.yml").read_text(encoding="utf-8")

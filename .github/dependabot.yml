@@ -4,17 +4,26 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      github-actions:
+        patterns: ["*"]
     commit-message:
       prefix: "deps"
   - package-ecosystem: npm
     directory: "/runtime"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "deps"
   - package-ecosystem: docker
     directory: "/docker"
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 7
     commit-message:
       prefix: "deps"
