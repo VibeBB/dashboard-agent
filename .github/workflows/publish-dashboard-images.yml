@@ -81,9 +81,11 @@ jobs:
         run: |
           set -euo pipefail
           case "$BUILT_DIGEST" in sha256:*) ;; *) echo "invalid image digest: $BUILT_DIGEST" >&2; exit 1 ;; esac
-          echo "ref=ghcr.io/${IMAGE_OWNER}/dashboard-tools@${BUILT_DIGEST}" >> "$GITHUB_OUTPUT"
-          echo "tag=${GITHUB_SHA}-tools" >> "$GITHUB_OUTPUT"
-          echo "digest=${BUILT_DIGEST}" >> "$GITHUB_OUTPUT"
+          {
+            echo "ref=ghcr.io/${IMAGE_OWNER}/dashboard-tools@${BUILT_DIGEST}"
+            echo "tag=${GITHUB_SHA}-tools"
+            echo "digest=${BUILT_DIGEST}"
+          } >> "$GITHUB_OUTPUT"
       - name: Measure published tools
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
