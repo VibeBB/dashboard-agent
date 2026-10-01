@@ -14,6 +14,8 @@ on:
       - "pyproject.toml"
       - "uv.lock"
       - ".github/workflows/publish-dashboard-images.yml"
+      - "scripts/publish_image_pin_pr.sh"
+      - "scripts/package_level_sbom.py"
       - "!docker/image-digests.json"
       - "!plugins/dashboard/tools-image.json"
       - "!docker/README.md"
@@ -91,12 +93,34 @@ jobs:
           } >> "$GITHUB_OUTPUT"
       - name: Generate tools SPDX SBOM
         uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        env:
+          SYFT_SOURCE_IMAGE_DEFAULT_PULL_SOURCE: registry
+          TMPDIR: ${{ runner.temp }}
+          SYFT_FILE_METADATA_SELECTION: none
         with:
           image: ${{ steps.image.outputs.ref }}
           format: spdx-json
-          output-file: ${{ runner.temp }}/dashboard-tools.spdx.json
+          output-file: ${{ runner.temp }}/dashboard-tools.full.spdx.json
           upload-artifact: false
           upload-release-assets: false
+      - name: Package tools SPDX SBOM
+        run: |
+          python3 scripts/package_level_sbom.py \
+            "$RUNNER_TEMP/dashboard-tools.full.spdx.json" \
+            "$RUNNER_TEMP/dashboard-tools.spdx.json"
+      - name: Guard tools SPDX SBOM size
+        env:
+          SBOM_PATH: ${{ runner.temp }}/dashboard-tools.spdx.json
+        run: |
+          set -euo pipefail
+          df -h /tmp "$RUNNER_TEMP"
+          size=$(stat -c%s "$SBOM_PATH")
+          echo "SBOM size: ${size} bytes"
+          if [ "$size" -gt 16777216 ]; then
+            echo "::error::SBOM exceeds 16777216 bytes: ${size} bytes"
+            exit 1
+          fi
+
       - name: Validate tools SPDX SBOM
         run: |
           python3 - "${{ runner.temp }}/dashboard-tools.spdx.json" <<'PY'
@@ -116,12 +140,13 @@ jobs:
           subject-digest: ${{ steps.tools.outputs.digest }}
           sbom-path: ${{ runner.temp }}/dashboard-tools.spdx.json
           push-to-registry: true
-      - name: Upload tools SPDX SBOM
+      - name: Upload full tools SPDX SBOM
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-tools-spdx-sbom
-          path: ${{ runner.temp }}/dashboard-tools.spdx.json
-          retention-days: 30
+          path: ${{ runner.temp }}/dashboard-tools.full.spdx.json
+          retention-days: 90
+          if-no-files-found: error
       - name: Measure published tools
         env:
           IMAGE_REF: ${{ steps.image.outputs.ref }}
@@ -269,45 +294,5 @@ jobs:
           done
           pr_url=$(retry gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
             --title "Update dashboard image digest lock" --body "$body")
-          failed=0
-          for workflow in ci.yml workflow-lint.yml; do
-            started=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-            retry gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$branch"
-            run_id=""
-            for _ in $(seq 1 30); do
-              sleep 10
-              run_id=$(retry gh run list --repo "$GITHUB_REPOSITORY" --workflow "$workflow" \
-                --branch "$branch" --event workflow_dispatch --created ">=$started" \
-                --json databaseId --jq '.[0].databaseId // empty' || true)
-              [ -n "$run_id" ] && break
-            done
-            if [ -z "$run_id" ]; then
-              echo "$workflow dispatch for the digest-lock branch was not observed; the PR remains open." >&2
-              exit 1
-            fi
-            gh run watch --repo "$GITHUB_REPOSITORY" "$run_id" --interval 30 || true
-            conclusion=$(retry gh run view --repo "$GITHUB_REPOSITORY" "$run_id" \
-              --json conclusion --jq '.conclusion // empty' || true)
-            if [ "$conclusion" != success ]; then
-              echo "$workflow concluded '$conclusion'; the PR remains open." >&2
-              failed=1
-            fi
-          done
-          if [ "$failed" -ne 0 ]; then
-            exit 1
-          fi
-          retry gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash --delete-branch "$pr_url"
-          merged=false
-          for _ in $(seq 1 36); do
-            merged_at=$(retry gh api "repos/$GITHUB_REPOSITORY/pulls/${pr_url##*/}" --jq '.merged_at // empty' || true)
-            [ -n "$merged_at" ] && { merged=true; break; }
-            sleep 10
-          done
-          if [ "$merged" != true ]; then
-            echo "digest-lock auto-merge remains armed; post-merge checks were not dispatched yet." >> "$GITHUB_STEP_SUMMARY"
-            exit 0
-          fi
-          for workflow in ci.yml locked-image-check.yml; do
-            retry gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main || true
-          done
-          echo "::notice::post-merge verification for ${pr_url} was dispatched"
+          echo "pin PR: $pr_url" >> "$GITHUB_STEP_SUMMARY"
+          bash scripts/publish_image_pin_pr.sh "$pr_url" "$branch" "" "ci.yml locked-image-check.yml"
