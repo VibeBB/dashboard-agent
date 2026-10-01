@@ -87,6 +87,11 @@ cooperate through copied contracts and JSON artifacts, never code imports.
 
 ## Verification
 
+The launcher defaults to Docker and fails closed unless Docker and a tools
+image resolve. The local commands below build and select `dashboard-tools:local`;
+set `DASHBOARD_LAUNCH_MODE=host` to run on the host, or `auto` to retain the
+previous Docker-when-available behavior.
+
 ```bash
 uv sync --locked
 uv run ruff check . && uv run ruff format --check .
@@ -97,6 +102,7 @@ uv run python scripts/verify_docs.py
 cd runtime && npm ci && npx tsc -p . && node --test test/ && cd ..
 docker build -f docker/dashboard-tools.Dockerfile -t dashboard-tools:local .
 export DASHBOARD_TOOLS_IMAGE=dashboard-tools:local
+export DASHBOARD_LAUNCH_MODE=docker
 export DASHBOARD_SRC="$PWD/src"
 export OPENHANDS_PROJECT_DIR="$PWD"
 launcher=plugins/dashboard/scripts/dashboard_launcher.py
