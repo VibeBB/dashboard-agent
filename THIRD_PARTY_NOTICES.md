@@ -8,15 +8,15 @@ includes or invokes the following third-party software:
 | Debian 13 (`node:26-trixie-slim`) | `sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1` | Debian packages; see Debian copyright files |
 | Node.js | 26.10.0 image line | MIT |
 | CPython | 3.12, installed by pinned uv | PSF-2.0 |
-| uv | 0.12.21, index digest `sha256:a7aed3216253ee804de3e2d8afa5073baa1a177335345d43845cd4165e43b711` | MIT / Apache-2.0 |
+| uv | 0.12.22, index digest `sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |
 | MCP Python SDK | `mcp>=1.29,<2` | MIT |
-| OpenHands SDK and tools | 1.50.1 (development plugin check) | MIT |
-| TypeScript | 7.1.0-dev.20260923.1 | Apache-2.0 |
+| OpenHands SDK and tools | 1.51.0 (development plugin check) | MIT |
+| TypeScript | 7.1.0-dev.20261003.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
 | Playwright | 1.63.0 | Apache-2.0 |
 | Chromium | Playwright 1.63.0 browser build | BSD-3-Clause and bundled notices |
-| `@types/node` | 26.6.2 | MIT |
+| `@types/node` | 26.6.4 | MIT |
 | `@types/web-bluetooth` | 0.0.21 | MIT |
 | `@types/w3c-web-usb` | 1.0.14 | MIT |
 | `@types/w3c-web-serial` | 1.0.8 | MIT |
