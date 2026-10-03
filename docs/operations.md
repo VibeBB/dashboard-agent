@@ -66,12 +66,18 @@ symlink components are rejected.
 ## CI and image provenance
 
 Workflow lint runs actionlint and zizmor on workflow changes and during weekly
-scheduled checks. Release automation dispatches and waits for CI and workflow
-lint on the version-bump branch, then validates the remotely installed plugin.
-The dashboard image publisher attaches GitHub build provenance and records the
-attestation URL in new digest locks. Locked-image checks verify present
-attestations against this repository's publisher workflow; existing pins
-without metadata continue with a warning until the next publish.
+scheduled checks; zizmor runs from a sha256-verified wheel and switches to
+offline mode on bot digest-lock branches. Release automation dispatches and
+waits for CI and workflow lint on the version-bump branch, then validates the
+remotely installed plugin; its `dry_run` input rehearses the path without
+merging or tagging.
+The dashboard image publisher pushes only the immutable `<sha>-tools` tag,
+gates on the Trivy fixable-CVE scan of the pushed digest, and only then
+promotes `:latest` server-side (`buildx imagetools create`) — a gate failure
+leaves the previous good `:latest` untouched. Build provenance and the
+attestation URL are recorded in new digest locks. Locked-image checks verify
+present attestations against this repository's publisher workflow; existing
+pins without metadata continue with a warning until the next publish.
 
 ## Device and WebMCP safety
 
@@ -101,9 +107,13 @@ Three layers were adopted after a comparative evaluation of Lynis,
 - **Weekly audit** (`container-audit.yml`, Mondays 03:27 UTC): pulls the
   pinned digest from `docker/image-digests.json` (`dashboard_tools`),
   re-scans with a fresh vulnerability DB (new CVEs against the frozen
-  image), runs the Docker CIS compliance report, runs an informational
-  in-image Lynis 3.1.7 audit, aggregates `container-hardening.json`
-  (artifact), and edits/creates a "Container hardening report" issue.
+  image) sharing one `TRIVY_CACHE_DIR` across its scans, runs the Docker
+  CIS compliance report (its nested `MisconfSummary` totals are read
+  recursively; a 0/0 result fails the run instead of masquerading as
+  coverage), runs an informational in-image Lynis audit pinned to the
+  3.1.7 commit `2e99f922` (a moved tag fails the checkout), aggregates
+  `container-hardening.json` (artifact), and edits/creates a
+  "Container hardening report" issue.
   The issue closes automatically when fixable HIGH/CRITICAL findings
   reach zero. The Lynis Hardening Index is recorded as a trend metric
   only — its denominator shifts with container-skipped tests, so it
@@ -161,11 +171,30 @@ that need scratch space.
 
 ## CI runner network auditing
 
-CI and image-publishing jobs use `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
+Every workflow job starts with `step-security/harden-runner` in audit-only
+mode. It observes network egress without blocking requests; per-run insights
+are available in the GitHub Actions job summary.
 
 ## Digest-lock PR verification
 
-The publisher dispatches `ci.yml` and `workflow-lint.yml` on the lock branch, then polls the authoritative required-check set for up to 30 minutes. Non-required failures do not block publishing; a concluded required-check failure or a PR closed without merge fails the job. A PR merged externally triggers the existing post-merge main workflows without waiting for their results. If required checks remain pending at the deadline, the publisher arms squash auto-merge with branch deletion and exits successfully so branch protection can complete the merge.
+The publisher dispatches `ci.yml`, `workflow-lint.yml`, and
+`locked-image-check.yml` on the lock branch — the last validates the new pin
+(attestation verify plus full gates against the new digest) before merge —
+then polls the authoritative required-check set for up to 30 minutes.
+Non-required failures do not block publishing; a concluded required-check
+failure or a PR closed without merge fails the job. A PR merged externally
+triggers the existing post-merge main workflows without waiting for their
+results. If required checks remain pending at the deadline, the publisher
+arms squash auto-merge with branch deletion and exits successfully so
+branch protection can complete the merge.
+
+Merges performed by the digest-lock sweep (or by armed auto-merge) run under
+`GITHUB_TOKEN`, which suppresses the push events `ci.yml` and
+`locked-image-check.yml` rely on. The sweep therefore dispatches both
+workflows on main after each successful merge, and
+`main-ci-failure-issue.yml` runs a scheduled reconcile that closes failure
+issues whose workflow's latest main run is green (bot-dispatched runs never
+emit `workflow_run` events, so the watcher alone cannot close them).
 
 SPDX generation prefers the GHCR registry source, writes temporary data under
 the runner's temporary directory, and disables file metadata. The publisher
@@ -173,3 +202,13 @@ removes file entries and relationships involving files to produce the
 package-level SPDX-2.3 SBOM. A guard reports disk space and the attested SBOM
 size after transformation and fails above 16 MiB; the full Syft SBOM is
 uploaded as a 90-day workflow-run artifact.
+
+## Repository settings
+
+These checks depend on settings outside the workflow files:
+
+- `dependency-review.yml` needs the dependency graph (and Dependabot
+  security updates) enabled for its license gate to see manifests.
+- Release rehearsal is manual: `release.yml` has never run a real
+  `workflow_dispatch`; a `dry_run` pass exercises the bump/dispatch/watch
+  path before the first real release.
