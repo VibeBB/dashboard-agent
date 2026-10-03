@@ -266,6 +266,34 @@ def test_servo_smoke_does_not_retry_non_timeout_failure(
     assert "last Servo log line" in result.detail
 
 
+def test_servo_smoke_retries_transient_page_failure(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    calls = _stub_smoke_attempts(
+        monkeypatch,
+        [
+            servo.SmokeResult(
+                ok=False,
+                detail=(
+                    "execute(transport controls) failed: "
+                    "Servo dashboard UI does not show the WebSocket route"
+                ),
+                transient=True,
+            ),
+            servo.SmokeResult(ok=True, detail="Servo rendered dashboard"),
+        ],
+    )
+
+    result = servo.smoke(tmp_path / "smart-kettle")
+
+    assert result.ok is True
+    assert result.attempts == 2
+    assert calls == [1, 2]
+    assert "attempt 1 failed" in result.detail
+    assert "attempt 2 passed" in result.detail
+
+
 def test_servo_smoke_retries_wrapped_url_timeout(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

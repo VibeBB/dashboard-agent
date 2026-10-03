@@ -59,13 +59,14 @@ def test_release_lints_version_bump_and_install_smokes_plugin() -> None:
     release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
     assert "workflow-lint.yml" in release
     assert "install-smoke:" in release
-    assert "needs: [bump-version, verify, install-smoke]" in release
+    assert "needs: [bump-version, install-smoke]" in release
     assert "--repo VibeBB/dashboard-agent" in release
     assert "--repo-path plugins/dashboard" in release
 
 
 def test_main_failure_report_tracks_default_branch_workflows() -> None:
     workflow = (ROOT / ".github/workflows/main-ci-failure-issue.yml").read_text(encoding="utf-8")
+    assert '- "Container hardening audit"' in workflow
     assert "- Digest lock PR sweep" in workflow
     assert "- Workflow lint" in workflow
     assert "- PR branch cleanup" in workflow
@@ -75,6 +76,7 @@ def test_main_failure_report_tracks_default_branch_workflows() -> None:
 def test_image_smokes_use_ci_runners_and_upload_diagnostics() -> None:
     publish = (ROOT / ".github/workflows/publish-dashboard-images.yml").read_text(encoding="utf-8")
     locked = (ROOT / ".github/workflows/locked-image-check.yml").read_text(encoding="utf-8")
+    ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 
     assert publish.count("runs-on: ubuntu-26.04") == 1
     assert locked.count("runs-on: ubuntu-26.04") == 2
@@ -84,6 +86,7 @@ def test_image_smokes_use_ci_runners_and_upload_diagnostics() -> None:
         assert "diagnostics_status" in workflow
         assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
         assert "if: always()" in workflow
+    for workflow in (publish, locked, ci):
         assert "examples/*/out/*.dash-report.json" in workflow
         assert "examples/*/out/*.stdout.json" in workflow
         assert "examples/*/out/*.servo-smoke.log" in workflow
