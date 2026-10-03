@@ -79,7 +79,7 @@ def checks() -> list[ToolCheck]:
         "playwright": _runtime_version(root, "@playwright/test"),
     }
     probes = (
-        ("uv", ["uv", "--version"], True, "0.12.21"),
+        ("uv", ["uv", "--version"], True, "0.12.22"),
         ("node", ["node", "--version"], True, "v26."),
         (
             "typescript",
