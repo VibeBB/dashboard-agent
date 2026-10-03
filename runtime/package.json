@@ -16,6 +16,6 @@
     "@types/w3c-web-usb": "1.0.14",
     "@types/web-bluetooth": "0.0.21",
     "esbuild": "0.28.2",
-    "typescript": "^7.1.0-dev.20261001.1"
+    "typescript": "7.1.0-dev.20261001.1"
   }
 }
