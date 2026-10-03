@@ -37,6 +37,9 @@ class SmokeResult(BaseModel):
     screenshot: Path | None = None
     attempts: int = 1
     timed_out: bool = False
+    # Transient failures (WebDriver races, page-state assertions) earn one
+    # retry; a Servo process crash stays single-attempt.
+    transient: bool = False
 
 
 class _Handler(SimpleHTTPRequestHandler):
@@ -396,6 +399,7 @@ def _smoke_once(generated_dir: Path, log_path: Path, attempt: int) -> SmokeResul
                 ok=False,
                 detail=f"{exc}; log: {log_path}",
                 timed_out=_is_timeout(exc),
+                transient=True,
             )
         finally:
             try:
@@ -448,9 +452,10 @@ def smoke(generated_dir: Path) -> SmokeResult:
                 ok=False,
                 detail=str(exc),
                 timed_out=_is_timeout(exc),
+                transient=True,
             )
         results.append(result)
-        if result.ok or not result.timed_out:
+        if result.ok or not (result.timed_out or result.transient):
             break
 
     summaries: list[str] = []
