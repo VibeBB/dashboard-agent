@@ -21,6 +21,9 @@ The checker covers:
 - npm and Rust crate pins emitted by `src/dashboard/generate.py` for Tauri
   scaffolds.
 - SHA-pinned GitHub Actions in `.github/workflows/`.
+- `git clone --branch` pins in `.github/workflows/` (e.g. the pinned
+  CISOfy/lynis checkout in `container-audit.yml`) against the upstream
+  repository's highest semver tag.
 
 Short-lived reviewed exceptions are recorded in
 `scripts/dependency_update_deferrals.json`. Each exception has a review date;

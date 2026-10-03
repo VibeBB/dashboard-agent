@@ -11,6 +11,7 @@ from scripts.check_dependency_updates import (
     DependencyStatus,
     apply_deferrals,
     check_dependency_updates,
+    check_git_clones,
     load_deferrals,
     main,
     render_markdown,
@@ -47,6 +48,7 @@ def test_checker_covers_required_dependency_surfaces() -> None:
         "npm",
         "tauri-scaffold",
         "github-actions",
+        "git-clone",
         "docker-base",
         "servo",
     } <= surfaces
@@ -150,6 +152,32 @@ def test_tauri_deferral_only_matches_tauri_scaffold_packages() -> None:
 
     assert deferred[0].deferred and not deferred[0].outdated
     assert deferred[1].outdated and not deferred[1].deferred
+
+
+def test_lynis_clone_pin_parsed() -> None:
+    statuses = check_git_clones(ROOT, list_remote_tags=lambda _url: ["3.1.7"])
+
+    lynis = next(status for status in statuses if status.name == "CISOfy/lynis")
+    assert lynis.current == "3.1.7"
+    assert lynis.latest == "3.1.7"
+    assert lynis.outdated is False
+
+
+def test_git_clones_report_outdated_and_fetch_failed() -> None:
+    statuses = check_git_clones(ROOT, list_remote_tags=lambda _url: ["3.1.7", "3.2.0"])
+
+    lynis = next(status for status in statuses if status.name == "CISOfy/lynis")
+    assert lynis.latest == "3.2.0"
+    assert lynis.outdated is True
+
+    def failed_tags(url: str) -> list[str]:
+        raise OSError(url)
+
+    statuses = check_git_clones(ROOT, list_remote_tags=failed_tags)
+    lynis = next(status for status in statuses if status.name == "CISOfy/lynis")
+    assert lynis.latest == "?"
+    assert lynis.fetch_failed is True
+    assert lynis.outdated is False
 
 
 def test_markdown_report_includes_surface_and_status() -> None:

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Report updates across dashboard Python, image, runtime, and scaffold pins."""
+"""Report updates across dashboard Python, image, runtime, and scaffold pins.
+
+Surfaces include `git clone --branch` pins inside workflows (e.g. the
+pinned CISOfy/lynis checkout in container-audit.yml).
+"""
 
 from __future__ import annotations
 
@@ -28,6 +32,7 @@ DEPENDENCY_SURFACES = {
     "npm",
     "tauri-scaffold",
     "github-actions",
+    "git-clone",
     "docker-base",
     "servo",
 }
@@ -376,6 +381,10 @@ def _tauri_statuses(root: Path, fetch_json: FetchJson) -> list[DependencyStatus]
 
 
 _ACTION = re.compile(r"uses:\s*([\w.-]+/[\w.-]+)@([0-9a-f]{40})(?:\s*#\s*(v[\w.-]+))?")
+_GIT_CLONE = re.compile(
+    r"git\s+clone[\s\S]{0,200}?--branch\s+(\S+)\s*(?:\\\s*\n\s*)?"
+    r"\s*(https://github\.com/([\w.-]+/[\w.-]+))"
+)
 
 
 def _version_key(value: str) -> tuple[int, ...] | None:
@@ -385,22 +394,30 @@ def _version_key(value: str) -> tuple[int, ...] | None:
     return tuple(int(part) for part in match.group(1).split("."))
 
 
-def _action_statuses(root: Path, list_remote_tags: ListRemoteTags) -> list[DependencyStatus]:
+def _workflow_files(root: Path) -> list[Path]:
     workflows = sorted((root / ".github/workflows").glob("*.yml"))
     workflows.extend(sorted((root / ".github/workflows").glob("*.yaml")))
+    return workflows
+
+
+def _github_latest_tag(repo: str, list_remote_tags: ListRemoteTags) -> str:
+    try:
+        tags = list_remote_tags(f"https://github.com/{repo}.git")
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    stable = [tag for tag in tags if _version_key(tag) is not None]
+    return max(stable, key=lambda tag: _version_key(tag) or (), default="")
+
+
+def _action_statuses(root: Path, list_remote_tags: ListRemoteTags) -> list[DependencyStatus]:
     pins: dict[str, tuple[str, str | None]] = {}
-    for workflow in workflows:
+    for workflow in _workflow_files(root):
         text = workflow.read_text(encoding="utf-8")
         for repo, sha, version in _ACTION.findall(text):
             pins.setdefault(repo, (sha, version or None))
     statuses: list[DependencyStatus] = []
     for repo, (sha, current_tag) in sorted(pins.items()):
-        try:
-            tags = list_remote_tags(f"https://github.com/{repo}.git")
-        except (OSError, subprocess.SubprocessError):
-            tags = []
-        stable = [tag for tag in tags if _version_key(tag) is not None]
-        latest = max(stable, key=lambda tag: _version_key(tag) or (), default="")
+        latest = _github_latest_tag(repo, list_remote_tags)
         current_key = _version_key(current_tag or "")
         latest_key = _version_key(latest)
         statuses.append(
@@ -417,6 +434,34 @@ def _action_statuses(root: Path, list_remote_tags: ListRemoteTags) -> list[Depen
                 fetch_failed=not latest,
             )
         )
+    return statuses
+
+
+def check_git_clones(
+    root: Path, *, list_remote_tags: ListRemoteTags = _default_list_remote_tags
+) -> list[DependencyStatus]:
+    """`git clone --branch <ref> <github-url>` pins inside workflows
+    (e.g. the pinned Lynis checkout in container-audit.yml)."""
+    statuses: list[DependencyStatus] = []
+    seen: set[tuple[str, str]] = set()
+    for workflow in _workflow_files(root):
+        for ref, _url, repo in _GIT_CLONE.findall(workflow.read_text(encoding="utf-8")):
+            if (repo, ref) in seen:
+                continue
+            seen.add((repo, ref))
+            latest = _github_latest_tag(repo, list_remote_tags)
+            statuses.append(
+                DependencyStatus(
+                    "git-clone",
+                    repo,
+                    ref,
+                    latest or "?",
+                    workflow.name,
+                    bool(latest) and latest != ref,
+                    "" if latest else "fetch failed",
+                    fetch_failed=not latest,
+                )
+            )
     return statuses
 
 
@@ -551,6 +596,13 @@ def check_dependency_updates(
     list_remote_tags: ListRemoteTags = _default_list_remote_tags,
     run_uv: RunUv = _default_run_uv,
 ) -> list[DependencyStatus]:
+    tag_cache: dict[str, list[str]] = {}
+
+    def cached_tags(url: str) -> list[str]:
+        if url not in tag_cache:
+            tag_cache[url] = list_remote_tags(url)
+        return tag_cache[url]
+
     pypi = _pypi_statuses(root, fetch_json)
     return [
         *pypi,
@@ -562,16 +614,20 @@ def check_dependency_updates(
             fetch_json=fetch_json,
         ),
         *_tauri_statuses(root, fetch_json),
-        *_action_statuses(root, list_remote_tags),
+        *_action_statuses(root, cached_tags),
+        *check_git_clones(root, list_remote_tags=cached_tags),
         *_docker_statuses(root, fetch_json),
     ]
 
 
 def render_markdown(statuses: list[DependencyStatus]) -> str:
+    labels = {
+        "git-clone": "Workflow git clones",
+    }
     lines = ["# Dependency update check report", ""]
     for surface in sorted(DEPENDENCY_SURFACES):
         entries = [status for status in statuses if status.surface == surface]
-        lines.extend([f"## {surface}", ""])
+        lines.extend([f"## {labels.get(surface, surface)}", ""])
         if not entries:
             lines.extend(["Nothing to check", ""])
             continue
