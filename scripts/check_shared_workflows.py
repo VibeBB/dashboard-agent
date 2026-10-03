@@ -10,7 +10,7 @@ EXPECTED: dict[str, str] = {
         "3e698f21e8bd8f382a3e3e4487f7d3375c607a1621ce1b2373c2acfbcad00087"
     ),
     ".github/workflows/workflow-lint.yml#jobs": (
-        "3f48097b9ec828e58c5eb013a135198f037bef2d40e0e884c03beb91138b8bdd"
+        "a8c8084488df9418729c6c0a3315aeb1421a39cd9b453d45eb911355f46f1a58"
     ),
     ".github/workflows/main-ci-failure-issue.yml#jobs": (
         "6848a4410863396c4e9776ff6044f42591c166585fa5d6dcfc83a55b56a8dfa6"
@@ -19,7 +19,7 @@ EXPECTED: dict[str, str] = {
         "b777952eaa08bdc29f149aceb55c2bad0d0ffe34fe394ea39806688937e0d216"
     ),
     ".github/workflows/scorecard.yml": (
-        "5184ead588834d108f7dcbf1bceb1af93c0d524c1261985a07afeef8cef31021"
+        "8fcf076367acd5e55f24b433e73fde92e49f7530520db33de76308e525e78b37"
     ),
 }
 UNITS: dict[str, tuple[str, bytes | None]] = {
