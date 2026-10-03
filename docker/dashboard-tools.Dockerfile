@@ -8,6 +8,10 @@ ARG IMAGE_REVISION=unknown
 ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.6.0/servo-x86_64-linux-gnu.tar.gz
 ARG SERVO_SHA256=ad951ede1a1a73899b822c9464f6bdb3ec25b531b27cd806671d79ac8b6a60d0
 
+# Fail the build when the left side of a verification pipe (curl|sha256sum)
+# breaks instead of silently passing the right side.
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ENV EMSDK=/emsdk \
     EM_CACHE=/opt/emscripten-cache \
     HOME=/tmp \
@@ -71,14 +75,16 @@ COPY examples ./examples
 COPY scripts ./scripts
 COPY docker/dashboard-tools-entrypoint.sh /usr/local/bin/dashboard-entrypoint
 RUN uv python install 3.12 \
-    && uv sync --locked --no-dev --no-group sdk-check \
-    && cd runtime \
-    && npm ci \
+    && uv sync --locked --no-dev --no-group sdk-check
+
+WORKDIR /opt/dashboard/runtime
+RUN npm ci \
     && npx playwright install --with-deps chromium \
     && npx tsc -p . \
-    && node --test test/ \
-    && cd /opt/dashboard \
-    && python -m dashboard generate examples/smart-kettle/smart-kettle.dash.json \
+    && node --test test/
+
+WORKDIR /opt/dashboard
+RUN python -m dashboard generate examples/smart-kettle/smart-kettle.dash.json \
     && python -m dashboard generate examples/bench-meter/bench-meter.dash.json \
     && emcc --version \
     && node --version \
