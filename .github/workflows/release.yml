@@ -13,6 +13,11 @@ on:
         description: Explicit X.Y.Z override
         required: false
         type: string
+      dry_run:
+        description: Rehearse the bump and checks without merging or tagging
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,7 +29,8 @@ concurrency:
 jobs:
   bump-version:
     runs-on: ubuntu-26.04
-    timeout-minutes: 45
+    # The job gh-watches a dispatched ci.yml whose e2e alone allows ~90min.
+    timeout-minutes: 120
     permissions:
       actions: write
       contents: write
@@ -33,6 +39,9 @@ jobs:
       version: ${{ steps.bump.outputs.version }}
       sha: ${{ steps.bump.outputs.sha }}
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - name: Require main
         env:
           REF: ${{ github.ref }}
@@ -47,6 +56,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           BUMP: ${{ inputs.bump }}
           SET_VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
           retry() {
@@ -116,6 +126,14 @@ jobs:
               if [ "$failed" -ne 0 ]; then
                 exit 1
               fi
+          if [ "$DRY_RUN" = "true" ]; then
+            retry gh pr close --repo "$GITHUB_REPOSITORY" --delete-branch "$pr_url" \
+              --comment "Dry run: closing without merge."
+            echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            echo "dry run complete: version files verified on $branch" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           retry gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash --delete-branch "$pr_url"
           merged=false
           for _ in $(seq 1 40); do
@@ -131,17 +149,14 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "sha=$(git rev-parse origin/main)" >> "$GITHUB_OUTPUT"
 
-  verify:
-    needs: bump-version
-    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository] reusable release verification
-    with:
-      ref: ${{ needs.bump-version.outputs.sha }}
-
   install-smoke:
     needs: bump-version
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.bump-version.outputs.sha }}
@@ -160,7 +175,8 @@ jobs:
           --repo VibeBB/dashboard-agent --ref "$REF" --repo-path plugins/dashboard
 
   release:
-    needs: [bump-version, verify, install-smoke]
+    needs: [bump-version, install-smoke]
+    if: inputs.dry_run != true
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     permissions:
@@ -169,6 +185,9 @@ jobs:
       VERSION: ${{ needs.bump-version.outputs.version }}
       SHA: ${{ needs.bump-version.outputs.sha }}
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.bump-version.outputs.sha }}
