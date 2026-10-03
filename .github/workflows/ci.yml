@@ -238,13 +238,15 @@ jobs:
             fi
           done
       - name: Upload reports
-        if: always()
+        if: always() && hashFiles('examples/*/out/*.dash-report.json', 'examples/*/out/*.stdout.json', 'examples/*/out/*.servo-smoke.log', 'examples/*/out/*.screens/**', 'doctor.json', 'docker-build.log') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-reports
           path: |
-            examples/*/out/*.dash-report.*
+            examples/*/out/*.dash-report.json
             examples/*/out/*.stdout.json
+            examples/*/out/*.servo-smoke.log
+            examples/*/out/*.screens/**
             doctor.json
             docker-build.log
           if-no-files-found: warn

@@ -63,9 +63,6 @@ dispatch_main_workflows() {
   for workflow in "${workflows[@]}"; do
     assert_pin_pr_merged
     local -a command=(gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main)
-    if [ "$workflow" = ci.yml ] && [ -n "$BASE_SHA" ]; then
-      command+=(-f "base_sha=$BASE_SHA")
-    fi
     if ! retry "${command[@]}"; then
       assert_pin_pr_merged
       write_summary "Post-merge ${workflow} dispatch on main failed; main-ci-failure-issue remains the completion monitor."
@@ -118,9 +115,6 @@ approve_gated_runs() {
 dispatch_pin_workflow() {
   local workflow=$1
   local -a command=(gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref "$BRANCH")
-  if [ "$workflow" = ci.yml ] && [ -n "$BASE_SHA" ]; then
-    command+=(-f "base_sha=$BASE_SHA")
-  fi
   check_pin_pr_state
   if ! retry "${command[@]}"; then
     check_pin_pr_state
@@ -185,7 +179,9 @@ arm_auto_merge() {
 }
 
 check_pin_pr_state
-for workflow in ci.yml workflow-lint.yml; do
+# locked-image-check validates the new pin (attestation verify + full gates
+# against the new digest) on the lock branch before the merge lands.
+for workflow in ci.yml workflow-lint.yml locked-image-check.yml; do
   dispatch_pin_workflow "$workflow"
 done
 

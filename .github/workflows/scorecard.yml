@@ -23,6 +23,9 @@ jobs:
       security-events: write # uploads the SARIF report to code scanning
       id-token: write # publishes results to the OpenSSF API
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -31,6 +34,34 @@ jobs:
           results_file: results.sarif
           results_format: sarif
           publish_results: true
+      - name: Normalize scorecard SARIF locations
+        # Alerts with no associated file carry the literal string
+        # "no file associated with this alert" as their artifact URI, which
+        # the SARIF uploader warns about on every run. Drop those locations
+        # (upstream workaround, ossf/scorecard#3063).
+        run: |
+          python3 - <<'PY'
+          import json
+          with open("results.sarif", encoding="utf-8") as fh:
+              data = json.load(fh)
+          count = 0
+          for run in data.get("runs", []):
+              for result in run.get("results", []):
+                  locations = result.get("locations", [])
+                  kept = [
+                      loc
+                      for loc in locations
+                      if loc.get("physicalLocation", {})
+                      .get("artifactLocation", {})
+                      .get("uri")
+                      != "no file associated with this alert"
+                  ]
+                  count += len(locations) - len(kept)
+                  result["locations"] = kept
+          with open("results.sarif", "w", encoding="utf-8") as fh:
+              json.dump(data, fh)
+          print(f"normalized {count} scorecard location(s)")
+          PY
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: scorecard-sarif

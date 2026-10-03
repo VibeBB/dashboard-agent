@@ -448,7 +448,9 @@ test("two browser pages establish a real WebRTC DataChannel through a signaling 
   await host.goto("/bench-meter/out/bench-meter/");
   await connectVia(host, config, "webrtc");
   await expect(host.locator(".connection-state")).toContainText("connected", { timeout: 30_000 });
-  await expect(host.locator("output[data-message='sample'][data-field='voltage_mv']")).toHaveText("12000");
+  // The channel reports "connected" before the first decoded sample reaches
+  // the widget, so the telemetry read needs the same headroom.
+  await expect(host.locator("output[data-message='sample'][data-field='voltage_mv']")).toHaveText("12000", { timeout: 30_000 });
   const range = host.locator(".widget").filter({ hasText: "Set range" });
   await range.locator("input[name='range']").fill("2");
   await range.getByRole("button", { name: "Send" }).click();

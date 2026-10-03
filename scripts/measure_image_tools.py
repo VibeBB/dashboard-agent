@@ -64,9 +64,14 @@ def measure(image_ref: str) -> dict[str, object]:
             text=True,
             encoding="utf-8",
         )
-        output = "\n".join(part.strip() for part in (result.stdout, result.stderr) if part.strip())
+        # Version strings come from stdout only: stderr carries the docker
+        # pull transcript into the lock's tools map when the image is absent.
+        output = result.stdout.strip()
         if result.returncode:
-            raise RuntimeError(f"{name} probe failed: {output or 'no output'}")
+            detail = "\n".join(
+                part.strip() for part in (result.stdout, result.stderr) if part.strip()
+            )
+            raise RuntimeError(f"{name} probe failed: {detail or 'no output'}")
         if not output:
             raise ValueError(f"{name} probe returned no output")
         measurements[name] = {"command": " ".join(command), "output": output}

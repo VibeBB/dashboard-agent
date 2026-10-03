@@ -44,6 +44,9 @@ jobs:
           docker pull "$ref"
       - name: Scan pinned image (Trivy SARIF)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          # Shared cache so the three Trivy scans reuse one DB download.
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
         with:
           scan-type: image
           # The digest is frozen; the vulnerability DB is not — this scan
@@ -59,6 +62,8 @@ jobs:
           limit-severities-for-sarif: true
       - name: Scan pinned image (Trivy JSON, full)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        env:
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
         with:
           scan-type: image
           scan-ref: ${{ env.PINNED_IMAGE }}
@@ -78,6 +83,8 @@ jobs:
         with:
           version: v0.75.0
       - name: Run Docker CIS compliance report
+        env:
+          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
         run: |
           set -euo pipefail
           trivy image --compliance docker-cis-1.6.0 --report all \
@@ -89,9 +96,13 @@ jobs:
         env:
           LYNIS_OUT: ${{ runner.temp }}/lynis-out
         run: |
-          set -uo pipefail
+          set -euo pipefail
           git clone --depth 1 --branch 3.1.7 \
             https://github.com/CISOfy/lynis "$RUNNER_TEMP/lynis"
+          # The mutable 3.1.7 tag must resolve to this commit; a moved tag
+          # fails the checkout instead of silently auditing different code.
+          git -C "$RUNNER_TEMP/lynis" checkout --detach \
+            2e99f92265760b73fd6b139868eb8d4116624030
           mkdir -p "$LYNIS_OUT"
           docker run --rm --user 0 \
             -v "$RUNNER_TEMP/lynis:/lynis:ro" \
@@ -119,7 +130,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, os
+          import json, os, sys
           from collections import Counter
           trivy = json.load(open(os.environ["TRIVY_JSON"], encoding="utf-8"))
           vulns, secrets, licenses = Counter(), Counter(), 0
@@ -144,14 +155,18 @@ jobs:
               for lic in result.get("Licenses") or []:
                   licenses += 1
           cis = {"passed": 0, "failed": 0}
-          try:
-              cis_data = json.load(open(os.environ["TRIVY_CIS"], encoding="utf-8"))
-              for result in cis_data.get("Results", []):
-                  summary = result.get("MisconfSummary") or {}
-                  cis["passed"] += int(summary.get("Successes", 0))
-                  cis["failed"] += int(summary.get("Failures", 0))
-          except (OSError, ValueError):
-              pass
+          cis_data = json.load(open(os.environ["TRIVY_CIS"], encoding="utf-8"))
+          def _summaries(node):
+              yield node
+              for child in node.get("Results") or []:
+                  yield from _summaries(child)
+          for result in _summaries(cis_data):
+              summary = result.get("MisconfSummary") or {}
+              cis["passed"] += int(summary.get("Successes", 0))
+              cis["failed"] += int(summary.get("Failures", 0))
+          if cis["passed"] + cis["failed"] == 0:
+              # dead telemetry must fail, not masquerade as coverage
+              sys.exit("Docker CIS scan produced no results")
           lynis = {"hardening_index": "unknown", "warnings": 0}
           try:
               for line in open(os.environ["LYNIS_OUT"] + "/lynis-report.dat",
@@ -187,7 +202,7 @@ jobs:
           print(json.dumps(report, indent=2, sort_keys=True))
           PY
       - name: Upload hardening report
-        if: always()
+        if: always() && hashFiles('container-hardening.json') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-tools-hardening-audit

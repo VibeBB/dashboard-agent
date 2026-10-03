@@ -69,11 +69,25 @@ jobs:
           build-args: |
             IMAGE_REVISION=${{ github.sha }}
           push: true
+          # Push only the immutable tag; :latest is promoted after the Trivy
+          # gate so a vulnerable digest never serves :latest.
           tags: |
             ghcr.io/${{ steps.owner.outputs.name }}/dashboard-tools:${{ github.sha }}-tools
-            ghcr.io/${{ steps.owner.outputs.name }}/dashboard-tools:latest
           cache-from: type=gha,scope=dashboard-tools
           cache-to: type=gha,mode=max,scope=dashboard-tools,ignore-error=true
+      - name: Scan tools image (Trivy JSON)
+        # Runs before the SARIF gate so the JSON report exists even when the
+        # gate fails the run.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: image
+          scan-ref: ghcr.io/${{ steps.owner.outputs.name }}/dashboard-tools@${{ steps.tools.outputs.digest }}
+          version: v0.75.0
+          scanners: vuln,secret,misconfig,license
+          ignore-unfixed: false
+          exit-code: '0'
+          format: json
+          output: trivy-image.json
       - name: Scan tools image (Trivy SARIF)
         id: trivy-scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -90,26 +104,25 @@ jobs:
           format: sarif
           output: trivy-image.sarif
           limit-severities-for-sarif: true
-      - name: Scan tools image (Trivy JSON)
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        with:
-          scan-type: image
-          scan-ref: ghcr.io/${{ steps.owner.outputs.name }}/dashboard-tools@${{ steps.tools.outputs.digest }}
-          version: v0.75.0
-          scanners: vuln,secret,misconfig,license
-          ignore-unfixed: false
-          exit-code: '0'
-          format: json
-          output: trivy-image.json
-          skip-setup-trivy: true
+      - name: Promote :latest
+        env:
+          IMAGE: ghcr.io/${{ steps.owner.outputs.name }}/dashboard-tools
+          DIGEST: ${{ steps.tools.outputs.digest }}
+        run: |
+          # The digest passed the fixable-CVE gate; only now may the mutable
+          # tag move. `imagetools create` copies the manifest server-side, so
+          # attestations keep referencing the digest.
+          docker buildx imagetools create \
+            --tag "${IMAGE}:latest" \
+            "${IMAGE}@${DIGEST}"
       - name: Upload Trivy SARIF
-        if: always()
+        if: always() && hashFiles('trivy-image.sarif') != ''
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
           sarif_file: trivy-image.sarif
           category: trivy-dashboard-tools
       - name: Upload Trivy JSON report
-        if: always()
+        if: always() && hashFiles('trivy-image.json') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-tools-trivy
@@ -245,7 +258,7 @@ jobs:
             fi
           done
       - name: Upload smoke reports
-        if: always()
+        if: always() && hashFiles('examples/*/out/*.dash-report.json', 'examples/*/out/*.stdout.json', 'examples/*/out/*.servo-smoke.log', 'examples/*/out/*.screens/**') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-publish-smoke-reports

@@ -2,6 +2,7 @@ name: Digest lock PR sweep
 
 on:
   schedule:
+    # Re-try the merge every 6 hours.
     - cron: "17 */6 * * *"
   workflow_dispatch:
 
@@ -17,9 +18,13 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:
+      actions: write # dispatches post-merge verification after bot merges
       contents: write # pushes and merges digest-lock branches
       pull-requests: write # merges digest-lock pull requests
     steps:
+      - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
       - name: Merge stalled dashboard digest-lock PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -39,6 +44,12 @@ jobs:
               clean|blocked|behind|unstable)
                 if gh pr merge --repo "$GITHUB_REPOSITORY" --squash --delete-branch "$pr"; then
                   echo "merged $url (was $state)" | tee -a "$GITHUB_STEP_SUMMARY"
+                  # GITHUB_TOKEN merges suppress the main push event, so the
+                  # post-merge verification has to be dispatched explicitly.
+                  for workflow in ci.yml locked-image-check.yml; do
+                    gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main \
+                      || echo "failed to dispatch $workflow on main" >&2
+                  done
                 else
                   gh pr merge --repo "$GITHUB_REPOSITORY" --auto --squash --delete-branch "$pr" || true
                   echo "$url remains open ($state)" | tee -a "$GITHUB_STEP_SUMMARY"
