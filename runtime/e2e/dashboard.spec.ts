@@ -372,7 +372,21 @@ test("two browser pages establish a real WebRTC DataChannel through a signaling 
       peer.addEventListener("datachannel", (event) => {
         const channel = event.channel;
         channel.binaryType = "arraybuffer";
-        channel.addEventListener("open", () => channel.send(Uint8Array.from(frameBytes)));
+        channel.addEventListener("open", () => {
+          const frame = Uint8Array.from(frameBytes);
+          // The answerer can observe `open` before the offerer finishes its
+          // channel setup, so a single send can race host readiness and drop
+          // the only sample frame. Re-send on a bounded interval instead.
+          let attempts = 0;
+          const resend = window.setInterval(() => {
+            if (channel.readyState !== "open" || ++attempts >= 60) {
+              window.clearInterval(resend);
+              return;
+            }
+            channel.send(frame);
+          }, 250);
+          channel.send(frame);
+        });
         channel.addEventListener("message", (message) => {
           window.__deviceFrames += 1;
           const encoded = new Uint8Array(message.data as ArrayBuffer);
