@@ -123,6 +123,11 @@ Suppressions: `.hadolint.yaml` waivers above; `.trivyignore` holds
 time-boxed finding IDs — entries must carry an `exp:` date and a
 rationale line here when added.
 
+The uv-managed CPython's bundled `pip` payload (vendored urllib3,
+msgpack, setuptools — never invoked; dependencies install via `uv` and
+the shipped venv is pip-less) is stripped in the `uv python install`
+layer, so the publish gate stays clean without `.trivyignore` waivers.
+
 ## CI runner network auditing
 
 CI and image-publishing jobs use `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
