@@ -27,6 +27,20 @@
       "latest": "*",
       "review_by": "2026-10-07",
       "reason": "Recheck API/CLI 2.12.1, tauri/runtime/runtime-wry 2.12.1, and tauri-macros/build 2.7.1 on 2026-10-07."
+    },
+    {
+      "surface": "docker-base",
+      "name": "emscripten/emsdk",
+      "latest": "digest-pinned",
+      "review_by": "2027-01-03",
+      "reason": "emsdk 6.0.10 vendors npm/emscripten node_modules and a TypeScript go binary (tsc) carrying ~55 Trivy CRITICAL/HIGH findings covered by expiring .trivyignore waivers; re-scan on the next emsdk release and drop cleared waivers."
+    },
+    {
+      "surface": "docker-base",
+      "name": "node",
+      "latest": "digest-pinned",
+      "review_by": "2027-01-03",
+      "reason": "node:26-trixie-slim bundles npm's vendored deps (brace-expansion, undici) flagged by Trivy under expiring .trivyignore waivers; re-scan on the next node base bump."
     }
   ]
 }

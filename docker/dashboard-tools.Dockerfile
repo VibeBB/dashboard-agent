@@ -28,6 +28,8 @@ LABEL org.opencontainers.image.source="https://github.com/VibeBB/dashboard-agent
 COPY --from=uv /uv /uvx /usr/local/bin/
 COPY --from=emscripten /emsdk /emsdk
 
+# The pinned base digest still ships libpcre2-8-0 10.46-1~deb13u2; upgrade it
+# to ~deb13u3 (CVE-2026-103111) inside the build via --only-upgrade.
 RUN apt-get -o Acquire::Retries=5 update \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         ca-certificates \
@@ -54,6 +56,8 @@ RUN apt-get -o Acquire::Retries=5 update \
         libxrender1 \
         fonts-dejavu-core \
         xz-utils \
+    && apt-get -o Acquire::Retries=5 install --only-upgrade --no-install-recommends -y \
+        libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --fail --location --silent --show-error \
@@ -114,6 +118,10 @@ try:
 finally:
     shutil.rmtree(output, ignore_errors=True)
 PY
+
+# Tighten the login.defs umask to 027 (Lynis AUTH-9328): the image has no
+# interactive users, so files created at runtime stay group-readable only.
+RUN printf 'UMASK 027\n' >> /etc/login.defs
 
 RUN chmod -R a+rX \
         /emsdk \
