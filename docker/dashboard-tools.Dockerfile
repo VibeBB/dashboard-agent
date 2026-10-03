@@ -74,7 +74,16 @@ COPY runtime ./runtime
 COPY examples ./examples
 COPY scripts ./scripts
 COPY docker/dashboard-tools-entrypoint.sh /usr/local/bin/dashboard-entrypoint
+# The uv-managed CPython bundles pip with vendored copies of urllib3,
+# msgpack, and setuptools that nothing in the image invokes — dependencies
+# install via uv and the shipped venv is pip-less — so strip the payload
+# instead of shipping unused vulnerable vendored packages.
 RUN uv python install 3.12 \
+    && rm -rf /opt/uv-python/bin/pip* \
+              /opt/uv-python/cpython-*/bin/pip* \
+              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip \
+              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip-*.dist-info \
+              /opt/uv-python/cpython-*/lib/python3.12/ensurepip \
     && uv sync --locked --no-dev --no-group sdk-check
 
 WORKDIR /opt/dashboard/runtime
