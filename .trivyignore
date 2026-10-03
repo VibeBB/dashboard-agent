@@ -1,3 +1,67 @@
-# One finding ID per line (CVE, GHSA, AVD-DS-*, secret rule, license).
-# Optional expiry suffix: ' exp:YYYY-MM-DD'. Audited suppressions carry a
-# statement in docs/operations.md.
+# .trivyignore — accepted-risk waivers for container scans.
+#
+# Every entry carries an `exp:` expiry; when a waiver lapses, the finding
+# becomes a gate failure again and must be re-evaluated (bump the carrying
+# dependency, or renew with justification). Waivers apply to the publish-time
+# Trivy gates (publish-dashboard-images.yml) and the weekly audit
+# (container-audit.yml). Each finding below was enumerated from a scan of the
+# published digest ghcr.io/vibebb/dashboard-tools@sha256:792834c6... on
+# 2026-10-03; see docs/operations.md "Container hardening" for the full
+# analysis.
+#
+# --- npm-bundled node_modules in base images (dashboard-tools) --------------
+# Vendored npm trees upstream ships inside the pinned bases: emsdk's own
+# node 24.19.0 (emsdk/node/24.19.0_64bit/lib/node_modules/npm/node_modules,
+# where tar 7.5.16 is the CRITICAL), emsdk's upstream/emscripten/node_modules
+# eslint/tooling deps (used by emcc at runtime — cannot be stripped), and
+# the node:26-trixie-slim npm bundle (/usr/local/lib/node_modules/npm/
+# node_modules). brace-expansion, browserslist, fast-uri, flatted,
+# ip-address, js-yaml, nanoid, picomatch, postcss, tar, undici. No upstream
+# release with patched bundles exists yet; re-evaluate at the next
+# emsdk/node base bump — tracked in scripts/dependency_update_deferrals.json.
+CVE-2026-102276 exp:2027-01-03
+CVE-2026-102278 exp:2027-01-03
+CVE-2026-12151 exp:2027-01-03
+CVE-2026-13149 exp:2027-01-03
+CVE-2026-14257 exp:2027-01-03
+CVE-2026-16221 exp:2027-01-03
+CVE-2026-18446 exp:2027-01-03
+CVE-2026-19534 exp:2027-01-03
+CVE-2026-32141 exp:2027-01-03
+CVE-2026-33228 exp:2027-01-03
+CVE-2026-33671 exp:2027-01-03
+CVE-2026-59869 exp:2027-01-03
+CVE-2026-59873 exp:2027-01-03
+CVE-2026-59874 exp:2027-01-03
+CVE-2026-67213 exp:2027-01-03
+CVE-2026-67214 exp:2027-01-03
+CVE-2026-69152 exp:2027-01-03
+CVE-2026-69192 exp:2027-01-03
+CVE-2026-73088 exp:2027-01-03
+CVE-2026-73089 exp:2027-01-03
+CVE-2026-73566 exp:2027-01-03
+CVE-2026-73646 exp:2027-01-03
+CVE-2026-75899 exp:2027-01-03
+CVE-2026-75931 exp:2027-01-03
+CVE-2026-75975 exp:2027-01-03
+CVE-2026-76172 exp:2027-01-03
+CVE-2026-84292 exp:2027-01-03
+CVE-2026-84375 exp:2027-01-03
+GHSA-5p4m-2wfm-xmqj exp:2027-01-03
+#
+# --- TypeScript go binary vendored inside emsdk (dashboard-tools) -----------
+# emsdk/upstream/emscripten/node_modules/@typescript/typescript-linux-x64/lib/
+# tsc is a go binary upstream builds with stdlib v1.26.4 and x/text v0.38.0.
+# The runtime/ copy (@typescript/typescript-linux-x64 7.1.0-dev.20261001.1)
+# scans clean; only the emsdk-bundled binary is flagged. No emsdk release
+# with a rebuilt binary exists yet. Re-evaluate at the next emsdk bump.
+CVE-2026-33818 exp:2027-01-03
+CVE-2026-39821 exp:2027-01-03
+CVE-2026-39822 exp:2027-01-03
+CVE-2026-46600 exp:2027-01-03
+CVE-2026-56852 exp:2027-01-03
+CVE-2026-56853 exp:2027-01-03
+CVE-2026-56858 exp:2027-01-03
+CVE-2026-56859 exp:2027-01-03
+CVE-2026-56860 exp:2027-01-03
+CVE-2026-56862 exp:2027-01-03

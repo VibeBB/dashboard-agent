@@ -128,6 +128,37 @@ msgpack, setuptools — never invoked; dependencies install via `uv` and
 the shipped venv is pip-less) is stripped in the `uv python install`
 layer, so the publish gate stays clean without `.trivyignore` waivers.
 
+First publish-gate firing (2026-10-03): 58 findings on the pushed
+`dashboard-tools` digest. One Debian finding — `libpcre2-8-0`
+10.46-1~deb13u2→u3 (CVE-2026-103111) — is fixed by an
+`apt-get install --only-upgrade` in the Dockerfile (the pinned base
+digest keeps shipping the old deb, so the upgrade has to land inside
+the build). The remaining 57 sit inside vendored trees no upstream
+release has patched yet: npm's bundled node_modules in emsdk's own
+node and in the node base image (where tar 7.5.16 was the CRITICAL),
+emscripten's eslint/tooling node_modules that `emcc` invokes at
+runtime, and emsdk's vendored TypeScript go binary (`tsc`, built with
+stdlib v1.26.4). Those carry per-CVE `exp:2027-01-03` waivers in
+`.trivyignore` and re-check entries in
+`scripts/dependency_update_deferrals.json` (docker-base
+`emscripten/emsdk`, `node`).
+
+The weekly audit runs Lynis as container root (`--user 0`) with the
+committed `docker/lynis-container.prf` profile, which skips tests that
+are inapplicable inside a container (kernel/systemd/mounts/storage/
+network/PAM/accounting are governed by the runtime flags below, not the
+image fs). The profile keeps the Hardening Index meaningful as an
+image-actionable metric instead of counting host-side state the image
+cannot control; remaining suggestions are fixed in the Dockerfile
+(`UMASK 027` in login.defs) or silenced only with a documented reason.
+
+`dashboard_launcher.py` applies the runtime-hardening flags the
+container profile defers to: `--network` on an internal
+(no-egress) Docker network, `--user uid:gid`, `--cap-drop ALL`,
+`--security-opt no-new-privileges`. A `--read-only` root filesystem
+stays an optional hardening for callers that supply tmpfs for tools
+that need scratch space.
+
 ## CI runner network auditing
 
 CI and image-publishing jobs use `step-security/harden-runner` in audit-only mode. It observes network egress without blocking requests; per-run insights are available in the GitHub Actions job summary.
