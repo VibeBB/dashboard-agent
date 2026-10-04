@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report the merge decision per open PR without mutating
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -25,11 +31,16 @@ jobs:
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          # This job only talks to the GitHub API; block everything else.
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
           disable-telemetry: true
       - name: Merge stalled digest-lock PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -uo pipefail
           # Lock PRs sometimes stay open with auto-merge armed and every
@@ -48,7 +59,10 @@ jobs:
               state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.mergeable_state // "unknown"' || echo unknown)
               case "$state" in
                 clean|blocked|behind|unstable)
-                  if gh pr merge --repo "$GITHUB_REPOSITORY" --squash --delete-branch "$pr"; then
+                  if [ "$DRY_RUN" = "true" ]; then
+                    echo "$pr_url would merge or arm auto-merge (mergeable_state=$state)" \
+                      | tee -a "$GITHUB_STEP_SUMMARY"
+                  elif gh pr merge --repo "$GITHUB_REPOSITORY" --squash --delete-branch "$pr"; then
                     echo "merged $pr_url (was $state)" | tee -a "$GITHUB_STEP_SUMMARY"
                     dispatch_post_merge=true
                   else
@@ -83,8 +97,12 @@ jobs:
               --json headRefName,mergedAt \
               --jq '.[] | select(.headRefName | startswith("bot/update-image-digests-")) | .mergedAt')
           fi
-          if [ "$dispatch_post_merge" = true ]; then
-            gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref main || true
-            gh workflow run locked-image-check.yml --repo "$GITHUB_REPOSITORY" --ref main || true
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "dry run: no merges or dispatches performed" | tee -a "$GITHUB_STEP_SUMMARY"
+          elif [ "$dispatch_post_merge" = true ]; then
+            # container-audit re-scans the newly pinned image.
+            for workflow in ci.yml locked-image-check.yml container-audit.yml; do
+              gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main || true
+            done
             echo "dispatched post-merge verification on main" | tee -a "$GITHUB_STEP_SUMMARY"
           fi

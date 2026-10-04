@@ -74,9 +74,19 @@ merging or tagging.
 The dashboard image publisher pushes only the immutable `<sha>-tools` tag,
 gates on the Trivy fixable-CVE scan of the pushed digest, and only then
 promotes `:latest` server-side (`buildx imagetools create`) — a gate failure
-leaves the previous good `:latest` untouched. Build provenance and the
+leaves the previous good `:latest` untouched; the offending fixable CVEs
+are rendered into the run summary by `scripts/trivy_gate_summary.py`.
+Both publisher scans share a weekly (`cache-trivy-<iso-week>`)
+`actions/cache` restore of the vulnerability DB. Manual `workflow_dispatch`
+runs the build only — every push/scan/promote/attest/digest-lock step is
+gated on `github.event_name == 'push'`, so a dispatch is a safe full
+rehearsal (a dedicated `dry_run` input remains tracked separately).
+Diagnostic artifacts (Trivy JSON/SARIF, smoke reports, audit reports) are
+retained 30 days; the attested full Syft SBOM stays 90 days.
+Build provenance and the
 attestation URL are recorded in new digest locks. Locked-image checks verify
-present attestations against this repository's publisher workflow; existing
+present attestations against this repository's publisher workflow (each
+verify result also lands in the run summary); existing
 pins without metadata continue with a warning until the next publish.
 
 ## Device and WebMCP safety
@@ -104,15 +114,23 @@ Three layers were adopted after a comparative evaluation of Lynis,
   (`category: trivy-dashboard-tools`) and a full JSON report as an
   artifact. The action is SHA-pinned and `version:` is explicit — the
   March 2026 Trivy supply-chain compromise made both non-negotiable.
-- **Weekly audit** (`container-audit.yml`, Mondays 03:27 UTC): pulls the
-  pinned digest from `docker/image-digests.json` (`dashboard_tools`),
+- **Weekly audit** (`container-audit.yml`, Mondays 03:27 UTC; also on
+  pushes to `main` touching the audit workflow, `.trivyignore`,
+  `docker/image-digests.json`, `docker/lynis-container.prf`, or
+  `scripts/container_hardening_report.py`, and after each sweep merge):
+  resolves the pinned digest via the explicit `dashboard_tools` key with
+  the same structural validation `locked-image-check.yml` uses, retries
+  `docker pull`, restores the Trivy DB from the weekly
+  `cache-trivy-<iso-week>` key shared with the publisher,
   re-scans with a fresh vulnerability DB (new CVEs against the frozen
   image) sharing one `TRIVY_CACHE_DIR` across its scans, runs the Docker
   CIS compliance report (its nested `MisconfSummary` totals are read
   recursively; a 0/0 result fails the run instead of masquerading as
-  coverage), runs an informational in-image Lynis audit pinned to the
+  coverage, and an empty report payload retries once), runs an
+  informational in-image Lynis audit pinned to the
   3.1.7 commit `2e99f922` (a moved tag fails the checkout), aggregates
-  `container-hardening.json` (artifact), and edits/creates a
+  `container-hardening.json` via `scripts/container_hardening_report.py`
+  (artifact, also mirrored into the run summary), and edits/creates a
   "Container hardening report" issue.
   The issue closes automatically when fixable HIGH/CRITICAL findings
   reach zero. The Lynis Hardening Index is recorded as a trend metric
@@ -125,8 +143,10 @@ Dockle (v0.4.15 stale; its CIS-derived checks are covered by Trivy's
 `--compliance docker-cis` report); Grype (equivalent for the SBOM path,
 kept as fallback); checkov (redundant third linter); `cisofy/lynis`
 Docker image (does not exist — Lynis runs from a pinned git clone);
-non-root USER enforcement and HEALTHCHECK enforcement (CI tools images —
-deferred policy decisions).
+non-root USER enforcement (`DS-0002`) and HEALTHCHECK enforcement
+(`DS-0026`) — CI tools images, deferred policy decisions. The audit
+report counts them as accepted policy failures so the unexpected-failure
+count reflects only real regressions.
 
 Changelog evaluation for the adopted pins is in the introducing PR.
 Suppressions: `.hadolint.yaml` waivers above; `.trivyignore` holds
@@ -169,11 +189,24 @@ container profile defers to: `--network` on an internal
 stays an optional hardening for callers that supply tmpfs for tools
 that need scratch space.
 
+### CIS baseline
+
+The Trivy CIS compliance scan reports `DS-0002` (image runs as root) and
+`DS-0026` (no `HEALTHCHECK`) on every tools image. Both are waived with
+`exp:` entries in `.trivyignore`: these are CI build/tool containers, not
+deployed services — workflows that need a non-root UID already run the
+image with `docker run --user`, and batch tooling has no health endpoint
+to probe. The waivers renew or get re-fixed by Dockerfile changes when
+they lapse.
+
 ## CI runner network auditing
 
 Every workflow job starts with `step-security/harden-runner` in audit-only
 mode. It observes network egress without blocking requests; per-run insights
-are available in the GitHub Actions job summary.
+are available in the GitHub Actions job summary. `digest-lock-sweep.yml`
+runs in `egress-policy: block` mode restricted to
+`api.github.com`/`github.com` — it only talks to the GitHub API. Other
+jobs stay in audit mode until the reported domains are verified.
 
 ## Digest-lock PR verification
 
@@ -190,11 +223,15 @@ branch protection can complete the merge.
 
 Merges performed by the digest-lock sweep (or by armed auto-merge) run under
 `GITHUB_TOKEN`, which suppresses the push events `ci.yml` and
-`locked-image-check.yml` rely on. The sweep therefore dispatches both
-workflows on main after each successful merge, and
+`locked-image-check.yml` rely on. The sweep therefore dispatches `ci.yml`,
+`locked-image-check.yml`, and `container-audit.yml` (re-scan of the newly
+pinned image) on main after each successful merge, and
 `main-ci-failure-issue.yml` runs a scheduled reconcile that closes failure
 issues whose workflow's latest main run is green (bot-dispatched runs never
 emit `workflow_run` events, so the watcher alone cannot close them).
+The sweep's `dry_run` dispatch input prints the merge/arm decision per
+open PR without mutating, which exercises the mergeable_state decision
+table on demand.
 
 SPDX generation prefers the GHCR registry source, writes temporary data under
 the runner's temporary directory, and disables file metadata. The publisher
@@ -212,3 +249,21 @@ These checks depend on settings outside the workflow files:
 - Release rehearsal is manual: `release.yml` has never run a real
   `workflow_dispatch`; a `dry_run` pass exercises the bump/dispatch/watch
   path before the first real release.
+
+## Settings-level posture (recorded decisions)
+
+The following live in repository Settings rather than code; they are
+intentional for the solo-maintainer bot-merge workflow and are recorded
+here so audits do not re-flag them:
+
+- Branch protection does not require approving reviews, code owners, or
+  "apply to administrators": every merge is performed by automation
+  (digest-lock, version-bump, and Devin PRs), so required approvers would
+  only add friction to a pipeline that already gates on the required-check
+  set. OpenSSF Scorecard reports this as Branch-Protection 3 and
+  Code-Review 0; that is the recorded trade-off, not an oversight.
+- The Dependency graph must stay enabled for `dependency-review.yml` to
+  evaluate pull requests.
+- `release.yml` is dispatch-only; run it once with `dry_run=true` before
+  the first real release to rehearse bump, verify, and install-smoke
+  without creating a GitHub release.
