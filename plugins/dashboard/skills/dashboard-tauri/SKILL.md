@@ -1,7 +1,7 @@
 ---
 name: dashboard-tauri
 description: Declare and gate Tauri v2 native BLE and serial routes.
-version: 0.1.0
+version: 0.1.1
 license: BSD-3-Clause
 triggers:
   - Tauri

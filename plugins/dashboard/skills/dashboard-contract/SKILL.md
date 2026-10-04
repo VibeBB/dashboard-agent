@@ -1,7 +1,7 @@
 ---
 name: dashboard-contract
 description: Author and validate dashboard JSON contracts and their typed protocol.
-version: 0.1.0
+version: 0.1.1
 license: BSD-3-Clause
 triggers:
   - dashboard contract
