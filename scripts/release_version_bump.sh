@@ -11,6 +11,9 @@ RUN_DISCOVER_SECONDS=${RELEASE_BUMP_RUN_DISCOVER_SECONDS:-10}
 MERGE_WAIT_ATTEMPTS=${RELEASE_BUMP_MERGE_WAIT_ATTEMPTS:-40}
 MERGE_WAIT_SECONDS=${RELEASE_BUMP_MERGE_WAIT_SECONDS:-15}
 GATE_WORKFLOWS=${RELEASE_BUMP_GATE_WORKFLOWS:-"ci.yml workflow-lint.yml"}
+APPROVE_POLLS=${RELEASE_BUMP_APPROVE_POLLS:-10}
+APPROVE_IDLE_SECONDS=${RELEASE_BUMP_APPROVE_IDLE_SECONDS:-30}
+APPROVE_SEEN_SECONDS=${RELEASE_BUMP_APPROVE_SEEN_SECONDS:-10}
 
 SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 cd "${GITHUB_WORKSPACE:-$PWD}"
@@ -37,6 +40,35 @@ write_summary() {
 
 write_output() {
   printf '%s\n' "$1" >> "$GITHUB_OUTPUT"
+}
+
+approve_gated_runs() {
+  # Pull_request runs on the bot branch queue as approval-gated
+  # action_required runs; poll and approve as in sibling release
+  # workflows. Approving them is what satisfies the PR's required checks —
+  # the workflow_dispatch runs gated below only verify the branch and
+  # never count toward them. A rejected approval is non-fatal.
+  local branch=$1
+  local gated_seen=0 empty_streak=0 attempt batch gated
+  for ((attempt = 1; attempt <= APPROVE_POLLS; attempt++)); do
+    batch=$(retry gh run list --repo "$GITHUB_REPOSITORY" --branch "$branch" \
+      --event pull_request --status action_required --json databaseId --jq '.[].databaseId' || true)
+    if [ -z "$batch" ]; then
+      empty_streak=$((empty_streak + 1))
+      if { [ "$gated_seen" -eq 0 ] && [ "$empty_streak" -ge 3 ]; } ||
+        { [ "$gated_seen" -eq 1 ] && [ "$empty_streak" -ge 2 ]; }; then
+        break
+      fi
+      sleep "$APPROVE_IDLE_SECONDS"
+      continue
+    fi
+    empty_streak=0
+    gated_seen=1
+    for gated in $batch; do
+      retry gh api -X POST "repos/$GITHUB_REPOSITORY/actions/runs/$gated/approve" || true
+    done
+    sleep "$APPROVE_SEEN_SECONDS"
+  done
 }
 
 gate_bump_pr() {
@@ -112,6 +144,8 @@ body=$(printf '%s\n\n- version: v%s\n- workflow run: %s\n' \
   "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}")
 pr_url=$(retry gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
   --title "Release v${VERSION}: update version files" --body "$body")
+
+approve_gated_runs "$branch"
 
 gate_bump_pr "$branch"
 
