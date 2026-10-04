@@ -140,8 +140,8 @@ jobs:
           # payload, so retry once keyed on content, not the exit code.
           for attempt in 1 2; do
             trivy image --compliance docker-cis-1.6.0 --report all \
-              --format json --output "$RUNNER_TEMP/trivy-cis.json" \
-              "${PINNED_IMAGE}"
+              --ignorefile /dev/null --format json \
+              --output "$RUNNER_TEMP/trivy-cis.json" "${PINNED_IMAGE}"
             if python3 scripts/container_hardening_report.py \
               --check-cis "$RUNNER_TEMP/trivy-cis.json"; then
               break
