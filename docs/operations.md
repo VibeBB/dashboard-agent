@@ -71,7 +71,7 @@ offline mode on bot digest-lock branches. Release automation dispatches and
 waits for CI and workflow lint on the version-bump branch, then validates the
 remotely installed plugin; its `dry_run` input rehearses the path without
 merging or tagging. The bump/dispatch/watch/merge state machine lives in
-`scripts/release_version_bump.sh` and is covered by stubbed-`gh`/`git`
+`scripts/release_bump.sh` and is covered by stubbed-`gh`/`git`
 pytest tests.
 The dashboard image publisher pushes only the immutable `<sha>-tools` tag,
 gates on the Trivy fixable-CVE scan of the pushed digest, and only then
