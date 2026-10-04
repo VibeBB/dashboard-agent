@@ -1,7 +1,7 @@
 ---
 name: dashboard-sibling-cooperation
 description: Exchange pinned protocol and change-request artifacts with sibling agents.
-version: 0.1.0
+version: 0.1.1
 license: BSD-3-Clause
 triggers:
   - firmware handoff
