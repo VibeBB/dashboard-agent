@@ -57,7 +57,10 @@ def test_all_workflows_use_dashboard_runner_label() -> None:
 
 def test_release_lints_version_bump_and_install_smokes_plugin() -> None:
     release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-    assert "workflow-lint.yml" in release
+    # The bump script dispatches the gate workflows on the fallback bump branch.
+    bump = (ROOT / "scripts/release_bump.sh").read_text(encoding="utf-8")
+    assert "workflow-lint.yml" in bump
+    assert "ci.yml" in bump
     assert "install-smoke:" in release
     assert "needs: [bump-version, install-smoke]" in release
     assert "--repo VibeBB/dashboard-agent" in release
