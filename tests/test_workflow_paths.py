@@ -67,20 +67,39 @@ def test_release_lints_version_bump_and_install_smokes_plugin() -> None:
 def test_publish_dispatch_builds_without_publishing() -> None:
     publish = (ROOT / ".github/workflows/publish-dashboard-images.yml").read_text(encoding="utf-8")
     assert "push: ${{ github.event_name == 'push' }}" in publish
-    gated_steps = [
-        "Scan tools image (Trivy JSON)",
-        "Scan tools image (Trivy SARIF)",
+    assert "load: ${{ inputs.dry_run == true }}" in publish
+    irreversible_steps = [
         "Promote :latest",
         "Attest dashboard tools image provenance",
-        "Generate tools SPDX SBOM",
         "Attest tools SBOM",
-        "Measure published tools",
-        "Smoke published tools through the launcher",
         "Update digest lock and merge PR",
     ]
-    for step_name in gated_steps:
+    for step_name in irreversible_steps:
         block = publish.split(f"- name: {step_name}", 1)[1].split("\n      - name:", 1)[0]
         assert "if: github.event_name == 'push'" in block, step_name
+        assert "inputs.dry_run != true" in block, step_name
+
+
+def test_publish_dry_run_rehearses_gates_without_alerts() -> None:
+    publish = (ROOT / ".github/workflows/publish-dashboard-images.yml").read_text(encoding="utf-8")
+    rehearsed_steps = [
+        "Scan tools image (Trivy JSON)",
+        "Scan tools image (Trivy SARIF)",
+        "Generate tools SPDX SBOM",
+        "Package tools SPDX SBOM",
+        "Guard tools SPDX SBOM size",
+        "Validate tools SPDX SBOM",
+        "Measure published tools",
+        "Smoke published tools through the launcher",
+    ]
+    for step_name in rehearsed_steps:
+        block = publish.split(f"- name: {step_name}", 1)[1].split("\n      - name:", 1)[0]
+        assert "github.event_name == 'push' || inputs.dry_run == true" in block, step_name
+    sarif_upload = publish.split("- name: Upload Trivy SARIF", 1)[1].split("\n      - name:", 1)[0]
+    assert "github.event_name == 'push'" in sarif_upload
+    assert "inputs.dry_run == true" not in sarif_upload
+    assert "- name: Dry-run rehearsal summary" in publish
+    assert "- name: Resolve scan image reference" in publish
 
 
 def test_sweep_reports_merge_decisions_and_dispatches_audit() -> None:

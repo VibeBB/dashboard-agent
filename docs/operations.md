@@ -70,7 +70,9 @@ scheduled checks; zizmor runs from a sha256-verified wheel and switches to
 offline mode on bot digest-lock branches. Release automation dispatches and
 waits for CI and workflow lint on the version-bump branch, then validates the
 remotely installed plugin; its `dry_run` input rehearses the path without
-merging or tagging.
+merging or tagging. The bump/dispatch/watch/merge state machine lives in
+`scripts/release_version_bump.sh` and is covered by stubbed-`gh`/`git`
+pytest tests.
 The dashboard image publisher pushes only the immutable `<sha>-tools` tag,
 gates on the Trivy fixable-CVE scan of the pushed digest, and only then
 promotes `:latest` server-side (`buildx imagetools create`) — a gate failure
@@ -78,9 +80,11 @@ leaves the previous good `:latest` untouched; the offending fixable CVEs
 are rendered into the run summary by `scripts/trivy_gate_summary.py`.
 Both publisher scans share a weekly (`cache-trivy-<iso-week>`)
 `actions/cache` restore of the vulnerability DB. Manual `workflow_dispatch`
-runs the build only — every push/scan/promote/attest/digest-lock step is
-gated on `github.event_name == 'push'`, so a dispatch is a safe full
-rehearsal (a dedicated `dry_run` input remains tracked separately).
+defaults to a build-only rehearsal; dispatching with `dry_run=true` also
+loads the image into the local daemon and runs the Trivy gate, the SPDX
+SBOM chain, tool measurement, and the launcher smoke against the local
+rehearsal tag — while pushing tags, promoting `:latest`, attestations, the
+code-scanning SARIF upload, and the digest-lock PR stay skipped.
 Diagnostic artifacts (Trivy JSON/SARIF, smoke reports, audit reports) are
 retained 30 days; the attested full Syft SBOM stays 90 days.
 Build provenance and the

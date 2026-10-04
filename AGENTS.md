@@ -45,6 +45,13 @@ Shared workflows are canonical across the family; change all 11 copies together 
 
 ## CI/CD
 
+The release bump/dispatch/watch/merge state machine is script-backed
+(`scripts/release_version_bump.sh`) with stubbed-`gh`/`git` pytest coverage,
+so `release.yml`'s `dry_run` rehearsal can be exercised and maintained under
+test. The publisher's `dry_run` dispatch input rehearses the Trivy/SBOM/
+measure/smoke gates against a locally loaded image without pushing tags,
+attesting, uploading SARIF, or opening the digest-lock PR.
+
 Digest-lock PRs use `scripts/publish_image_pin_pr.sh`: the publisher
 dispatches `ci.yml`, `workflow-lint.yml`, and `locked-image-check.yml` on the
 lock branch, then polls the authoritative required-check set for up to 30
