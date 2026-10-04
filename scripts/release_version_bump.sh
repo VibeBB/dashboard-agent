@@ -96,6 +96,10 @@ if [ "$VERSION" = "$CURRENT" ]; then
 fi
 
 branch="bot/release-bump-v${VERSION}-${GITHUB_RUN_ID}"
+# Capture the dispatch sha before switching: the dry-run path emits this so
+# downstream jobs verify the reachable main commit, not the soon-deleted bot
+# branch tip (a full clone of main can never resolve that sha).
+DISPATCH_SHA=$(git rev-parse HEAD)
 git switch -q -c "$branch"
 git config user.name "github-actions[bot]"
 git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -115,7 +119,7 @@ if [ "${DRY_RUN:-false}" = "true" ]; then
   retry gh pr close --repo "$GITHUB_REPOSITORY" --delete-branch "$pr_url" \
     --comment "Dry run: closing without merge."
   write_output "version=${VERSION}"
-  write_output "sha=$(git rev-parse HEAD)"
+  write_output "sha=${DISPATCH_SHA}"
   write_summary "dry run complete: version files verified on $branch"
   exit 0
 fi

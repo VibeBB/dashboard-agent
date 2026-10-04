@@ -56,9 +56,20 @@ case "${1:-}" in
     fi
     exit 1
     ;;
+  switch | commit)
+    # After a bot-branch switch or commit, HEAD no longer resolves to the
+    # dispatch sha — mirror that so the emitted sha is distinguishable.
+    printf '%s\\n' "$GIT_STUB_BUMP_SHA" > "$GIT_STUB_HEAD_FILE"
+    ;;
   rev-parse)
     case "${2:-}" in
-      HEAD) printf '%s\\n' "$GIT_STUB_HEAD_SHA" ;;
+      HEAD)
+        if [ -f "$GIT_STUB_HEAD_FILE" ]; then
+          cat "$GIT_STUB_HEAD_FILE"
+        else
+          printf '%s\\n' "$GIT_STUB_HEAD_SHA"
+        fi
+        ;;
       *) printf '%s\\n' "$GIT_STUB_MAIN_SHA" ;;
     esac
     ;;
@@ -116,6 +127,8 @@ def release_bump(tmp_path: Path) -> Fixture:
             "GIT_STUB_CALLS": str(tmp_path / "git-calls.log"),
             "GIT_STUB_HEAD_SHA": HEAD_SHA,
             "GIT_STUB_MAIN_SHA": MAIN_SHA,
+            "GIT_STUB_BUMP_SHA": "b" * 40,
+            "GIT_STUB_HEAD_FILE": str(tmp_path / "git-head.txt"),
             "BUMP": "patch",
             "SET_VERSION": "",
             "DRY_RUN": "false",
