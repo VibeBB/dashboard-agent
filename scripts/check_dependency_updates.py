@@ -35,6 +35,7 @@ DEPENDENCY_SURFACES = {
     "git-clone",
     "docker-base",
     "servo",
+    "workflow-download",
 }
 FetchJson = Callable[[str], Any]
 ListRemoteTags = Callable[[str], list[str]]
@@ -380,7 +381,7 @@ def _tauri_statuses(root: Path, fetch_json: FetchJson) -> list[DependencyStatus]
     return statuses
 
 
-_ACTION = re.compile(r"uses:\s*([\w.-]+/[\w.-]+)@([0-9a-f]{40})(?:\s*#\s*(v[\w.-]+))?")
+_ACTION = re.compile(r"uses:\s*([\w.-]+/[\w.-]+(?:/[\w.-]+)*)@([0-9a-f]{40})(?:\s*#\s*(v[\w.-]+))?")
 _GIT_CLONE = re.compile(
     r"git\s+clone[\s\S]{0,200}?--branch\s+(\S+)\s*(?:\\\s*\n\s*)?"
     r"\s*(https://github\.com/([\w.-]+/[\w.-]+))"
@@ -409,21 +410,24 @@ def _github_latest_tag(repo: str, list_remote_tags: ListRemoteTags) -> str:
     return max(stable, key=lambda tag: _version_key(tag) or (), default="")
 
 
-def _action_statuses(root: Path, list_remote_tags: ListRemoteTags) -> list[DependencyStatus]:
+def check_action_pins(root: Path, list_remote_tags: ListRemoteTags) -> list[DependencyStatus]:
     pins: dict[str, tuple[str, str | None]] = {}
     for workflow in _workflow_files(root):
         text = workflow.read_text(encoding="utf-8")
-        for repo, sha, version in _ACTION.findall(text):
-            pins.setdefault(repo, (sha, version or None))
+        for action, sha, version in _ACTION.findall(text):
+            pins.setdefault(action, (sha, version or None))
     statuses: list[DependencyStatus] = []
-    for repo, (sha, current_tag) in sorted(pins.items()):
+    for action, (sha, current_tag) in sorted(pins.items()):
+        # Subpath actions (github/codeql-action/upload-sarif) share the
+        # version history of their parent repository.
+        repo = "/".join(action.split("/")[:2])
         latest = _github_latest_tag(repo, list_remote_tags)
         current_key = _version_key(current_tag or "")
         latest_key = _version_key(latest)
         statuses.append(
             DependencyStatus(
                 "github-actions",
-                repo,
+                action,
                 current_tag or sha,
                 latest or "?",
                 ".github/workflows",
@@ -462,6 +466,115 @@ def check_git_clones(
                     fetch_failed=not latest,
                 )
             )
+    return statuses
+
+
+_GH_RELEASE_DOWNLOAD = re.compile(
+    r"https://github\.com/([\w.-]+/[\w.-]+)/releases/download/(v\d+(?:\.\d+)+)/"
+)
+_WHEEL_PIN = re.compile(r"([\w.-]+?)-(\d+(?:\.\d+)+)-py3-none-[\w_]+\.whl")
+_CHECKSUM_ECHO = re.compile(r'echo\s+"([0-9a-zA-Z]{8,128})\s+\$RUNNER_TEMP/\$([A-Za-z_]+)"')
+_SHELL_VAR = re.compile(r'^\s*([A-Za-z_]+)=("[^"]*"|[^\s"]+)', re.MULTILINE)
+_TRIVY_VERSION_INPUT = re.compile(r"^\s*version:\s*[\"']?(v\d+\.\d+\.\d+)", re.MULTILINE)
+
+
+def _download_name(artifact: str) -> str:
+    base = artifact.rsplit("/", 1)[-1]
+    stem = re.sub(r"[-_]\d+(?:\.\d+)+.*$", "", base)
+    return f"{stem or base} download checksum"
+
+
+def check_workflow_downloads(
+    root: Path,
+    *,
+    fetch_json: FetchJson = _default_fetch_json,
+    list_remote_tags: ListRemoteTags = _default_list_remote_tags,
+) -> list[DependencyStatus]:
+    """Direct-download pins inside workflows: GitHub release tarballs
+    (actionlint), sha256-verified PyPI wheels (zizmor), and `version:` tool
+    inputs on aquasecurity actions."""
+    statuses: list[DependencyStatus] = []
+    gh_downloads: dict[str, str] = {}
+    wheels: dict[str, str] = {}
+    checksums: dict[str, str] = {}
+    trivy_versions: dict[str, str] = {}
+    for workflow in _workflow_files(root):
+        text = workflow.read_text(encoding="utf-8")
+        source = workflow.relative_to(root).as_posix()
+        for repo, tag in _GH_RELEASE_DOWNLOAD.findall(text):
+            gh_downloads.setdefault(repo, tag)
+        for package, version in _WHEEL_PIN.findall(text):
+            wheels.setdefault(package, version)
+        variables = dict(_SHELL_VAR.findall(text))
+        for checksum, var in _CHECKSUM_ECHO.findall(text):
+            artifact = variables.get(var, var).strip('"')
+            checksums.setdefault(artifact, checksum)
+        if "aquasecurity/" in text:
+            for version in _TRIVY_VERSION_INPUT.findall(text):
+                trivy_versions.setdefault(version, source)
+    for repo, current in sorted(gh_downloads.items()):
+        latest = _github_latest_tag(repo, list_remote_tags)
+        current_key = _version_key(current)
+        latest_key = _version_key(latest)
+        statuses.append(
+            DependencyStatus(
+                "workflow-download",
+                repo,
+                current,
+                latest or "?",
+                ".github/workflows (release download URL)",
+                bool(current_key and latest_key and latest_key > current_key),
+                "" if latest else "fetch failed",
+                fetch_failed=not latest,
+            )
+        )
+    for package, current in sorted(wheels.items()):
+        latest = _latest_json_value(
+            fetch_json, f"https://pypi.org/pypi/{package}/json", "info", "version"
+        )
+        current_key = _version_key(current)
+        latest_key = _version_key(latest or "")
+        statuses.append(
+            DependencyStatus(
+                "workflow-download",
+                package,
+                current,
+                latest or "?",
+                ".github/workflows (sha256-verified wheel)",
+                bool(current_key and latest_key and latest_key > current_key),
+                "" if latest else "fetch failed",
+                fetch_failed=latest is None,
+            )
+        )
+    for artifact, checksum in sorted(checksums.items()):
+        valid = _SHA256.fullmatch(checksum) is not None
+        statuses.append(
+            DependencyStatus(
+                "workflow-download",
+                _download_name(artifact),
+                checksum,
+                "sha256 pinned" if valid else "invalid",
+                ".github/workflows (sha256sum -c echo)",
+                not valid,
+                "" if valid else "expected 64 lowercase hex characters",
+            )
+        )
+    for version, source in sorted(trivy_versions.items()):
+        latest = _github_latest_tag("aquasecurity/trivy", list_remote_tags)
+        current_key = _version_key(version)
+        latest_key = _version_key(latest)
+        statuses.append(
+            DependencyStatus(
+                "workflow-download",
+                "aquasecurity/trivy",
+                version,
+                latest or "?",
+                f"{source} (version: input)",
+                bool(current_key and latest_key and latest_key > current_key),
+                "" if latest else "fetch failed",
+                fetch_failed=not latest,
+            )
+        )
     return statuses
 
 
@@ -614,8 +727,9 @@ def check_dependency_updates(
             fetch_json=fetch_json,
         ),
         *_tauri_statuses(root, fetch_json),
-        *_action_statuses(root, cached_tags),
+        *check_action_pins(root, cached_tags),
         *check_git_clones(root, list_remote_tags=cached_tags),
+        *check_workflow_downloads(root, fetch_json=fetch_json, list_remote_tags=cached_tags),
         *_docker_statuses(root, fetch_json),
     ]
 
@@ -623,6 +737,7 @@ def check_dependency_updates(
 def render_markdown(statuses: list[DependencyStatus]) -> str:
     labels = {
         "git-clone": "Workflow git clones",
+        "workflow-download": "Workflow direct-download pins",
     }
     lines = ["# Dependency update check report", ""]
     for surface in sorted(DEPENDENCY_SURFACES):

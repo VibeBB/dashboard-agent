@@ -3,6 +3,17 @@ name: Container hardening audit
 on:
   schedule:
     - cron: "27 3 * * 1"
+  push:
+    branches: [main]
+    # Re-run the audit as soon as any of its inputs change instead of
+    # waiting up to a week for the cron; image-digests merges arrive via
+    # human pushes (bot merges dispatch this workflow explicitly).
+    paths:
+      - ".github/workflows/container-audit.yml"
+      - ".trivyignore"
+      - "docker/image-digests.json"
+      - "docker/lynis-container.prf"
+      - "scripts/container_hardening_report.py"
   workflow_dispatch:
 
 permissions:
@@ -40,9 +51,46 @@ jobs:
       - name: Resolve and pull pinned image
         run: |
           set -euo pipefail
-          ref=$(python3 -c 'import json; d=json.load(open("docker/image-digests.json", encoding="utf-8"))["dashboard_tools"]; print(d["image"]+"@"+d["digest"])')
+          ref=$(python3 - <<'PY'
+          import json
+          import re
+          import sys
+
+          data = json.load(open("docker/image-digests.json", encoding="utf-8"))
+          if not isinstance(data, dict):
+              sys.exit("image lock must be a JSON object")
+          entry = data.get("dashboard_tools")
+          if not isinstance(entry, dict):
+              sys.exit("image lock must contain a dashboard_tools object")
+          image = entry.get("image")
+          digest = entry.get("digest")
+          if image != "ghcr.io/vibebb/dashboard-tools":
+              sys.exit("dashboard_tools image does not match ghcr.io/vibebb/dashboard-tools")
+          if not isinstance(digest, str) or re.fullmatch(r"sha256:[0-9a-f]{64}", digest) is None:
+              sys.exit("dashboard_tools digest must be a sha256 digest")
+          print(f"{image}@{digest}")
+          PY
+          )
           echo "PINNED_IMAGE=$ref" >> "$GITHUB_ENV"
-          docker pull "$ref"
+          retry() {
+            local attempt
+            for attempt in 1 2 3; do
+              "$@" && return 0
+              sleep $((attempt * 10))
+            done
+            return 1
+          }
+          retry docker pull "$ref"
+      - name: Restore Trivy DB cache (weekly key)
+        id: trivy-cache
+        run: |
+          set -euo pipefail
+          echo "key=cache-trivy-$(date -u +%G-W%V)" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/trivy-cache
+          key: ${{ steps.trivy-cache.outputs.key }}
+          restore-keys: cache-trivy-
       - name: Scan pinned image (Trivy SARIF)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         env:
@@ -88,9 +136,22 @@ jobs:
           TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
         run: |
           set -euo pipefail
-          trivy image --compliance docker-cis-1.6.0 --report all \
-            --format json --output "$RUNNER_TEMP/trivy-cis.json" \
-            "${PINNED_IMAGE}"
+          # The compliance report exits 0 even when it produced an empty
+          # payload, so retry once keyed on content, not the exit code.
+          for attempt in 1 2; do
+            trivy image --compliance docker-cis-1.6.0 --report all \
+              --format json --output "$RUNNER_TEMP/trivy-cis.json" \
+              "${PINNED_IMAGE}"
+            if python3 scripts/container_hardening_report.py \
+              --check-cis "$RUNNER_TEMP/trivy-cis.json"; then
+              break
+            fi
+            if [ "$attempt" -eq 2 ]; then
+              echo "Docker CIS scan produced no results after retry" >&2
+              exit 1
+            fi
+            echo "Docker CIS scan returned an empty payload; retrying once" >&2
+          done
       - name: Run informational Lynis audit inside the image
         id: lynis
         continue-on-error: true
@@ -130,78 +191,12 @@ jobs:
           REPORT_JSON: container-hardening.json
         run: |
           set -euo pipefail
-          python3 - <<'PY'
-          import json, os, sys
-          from collections import Counter
-          trivy = json.load(open(os.environ["TRIVY_JSON"], encoding="utf-8"))
-          vulns, secrets, licenses = Counter(), Counter(), 0
-          mis_pass = mis_total = 0
-          fixable_high = 0
-          for result in trivy.get("Results", []):
-              for v in result.get("Vulnerabilities") or []:
-                  sev = v.get("Severity", "UNKNOWN").lower()
-                  fixed = bool(v.get("FixedVersion"))
-                  vulns[sev] += 1
-                  if fixed:
-                      vulns[f"{sev}_fixed"] += 1
-                      if sev in ("critical", "high"):
-                          fixable_high += 1
-              mis = result.get("Misconfigurations") or []
-              for m in mis:
-                  mis_total += 1
-                  if m.get("Status") == "PASS":
-                      mis_pass += 1
-              for s in result.get("Secrets") or []:
-                  secrets[s.get("Severity", "UNKNOWN").lower()] += 1
-              for lic in result.get("Licenses") or []:
-                  licenses += 1
-          cis = {"passed": 0, "failed": 0}
-          cis_data = json.load(open(os.environ["TRIVY_CIS"], encoding="utf-8"))
-          def _summaries(node):
-              yield node
-              for child in node.get("Results") or []:
-                  yield from _summaries(child)
-          for result in _summaries(cis_data):
-              summary = result.get("MisconfSummary") or {}
-              cis["passed"] += int(summary.get("Successes", 0))
-              cis["failed"] += int(summary.get("Failures", 0))
-          if cis["passed"] + cis["failed"] == 0:
-              # dead telemetry must fail, not masquerade as coverage
-              sys.exit("Docker CIS scan produced no results")
-          lynis = {"hardening_index": "unknown", "warnings": 0}
-          try:
-              for line in open(os.environ["LYNIS_OUT"] + "/lynis-report.dat",
-                               encoding="utf-8", errors="replace"):
-                  if line.startswith("hardening_index="):
-                      lynis["hardening_index"] = line.split("=", 1)[1].strip()
-                  elif line.startswith("warning[]"):
-                      lynis["warnings"] += 1
-          except OSError:
-              pass
-          image, _, digest = os.environ["PINNED_IMAGE"].partition("@")
-          report = {
-              "image": image,
-              "digest": digest,
-              "trivy": {
-                  "critical": vulns["critical"],
-                  "high": vulns["high"],
-                  "medium": vulns["medium"],
-                  "low": vulns["low"],
-                  "fixable_high_or_critical": fixable_high,
-                  "misconfig_pass": mis_pass,
-                  "misconfig_total": mis_total,
-                  "secrets": sum(secrets.values()),
-                  "license_findings": licenses,
-              },
-              "cis_docker": cis,
-              "lynis": lynis,
-              "gate": {"fixable_high_or_critical": fixable_high},
-          }
-          with open(os.environ["REPORT_JSON"], "w", encoding="utf-8") as fh:
-              json.dump(report, fh, indent=2, sort_keys=True)
-              fh.write("\n")
-          print(json.dumps(report, indent=2, sort_keys=True))
-          PY
+          python3 scripts/container_hardening_report.py \
+            --trivy-json "$TRIVY_JSON" \
+            --cis-json "$TRIVY_CIS" \
+            --lynis-report "$LYNIS_OUT/lynis-report.dat" \
+            --image-ref "$PINNED_IMAGE" \
+            --out "$REPORT_JSON"
       - name: Upload hardening report
         if: always() && hashFiles('container-hardening.json') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -210,7 +205,9 @@ jobs:
           path: |
             container-hardening.json
             trivy-image.json
-          retention-days: 90
+          # Diagnostic artifacts lose value once the issue is triaged;
+          # the attested SBOM stays at 90 days for compliance.
+          retention-days: 30
       - name: Post report to issue
         env:
           GH_TOKEN: ${{ github.token }}
@@ -230,13 +227,22 @@ jobs:
           print(f"| Fixable HIGH+CRITICAL | {t['fixable_high_or_critical']} |")
           print(f"| Misconfig pass | {t['misconfig_pass']}/{t['misconfig_total']} |")
           print(f"| Secrets found | {t['secrets']} |")
-          print(f"| CIS Docker pass/fail | {r['cis_docker']['passed']}/{r['cis_docker']['failed']} |")
+          cis = r["cis_docker"]
+          cis_note = ""
+          if cis.get("accepted_policy_failures"):
+              accepted = ", ".join(cis["accepted_policy_failures"])
+              cis_note += f" ({len(cis['accepted_policy_failures'])} accepted policy deferrals: {accepted})"
+          if cis.get("unexpected_failure_ids"):
+              unexpected = ", ".join(cis["unexpected_failure_ids"])
+              cis_note += f" — unexpected failures: {unexpected}"
+          print(f"| CIS Docker pass/fail | {cis['passed']}/{cis['failed']}{cis_note} |")
           print(f"| Lynis hardening index (trend only) | {r['lynis']['hardening_index']} |")
           print(f"| Lynis warnings | {r['lynis']['warnings']} |")
           print(f"\nRun: {os.environ['GITHUB_SERVER_URL']}/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}")
           PY
           gh label create container-hardening --repo "$GITHUB_REPOSITORY" \
             --color d93f0b --description "Container hardening report" --force
+          cat "$REPORT_MD" >> "$GITHUB_STEP_SUMMARY"
           number=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open \
             --label container-hardening \
             --search "in:title Container hardening report" \

@@ -64,6 +64,41 @@ def test_release_lints_version_bump_and_install_smokes_plugin() -> None:
     assert "--repo-path plugins/dashboard" in release
 
 
+def test_publish_dispatch_builds_without_publishing() -> None:
+    publish = (ROOT / ".github/workflows/publish-dashboard-images.yml").read_text(encoding="utf-8")
+    assert "push: ${{ github.event_name == 'push' }}" in publish
+    gated_steps = [
+        "Scan tools image (Trivy JSON)",
+        "Scan tools image (Trivy SARIF)",
+        "Promote :latest",
+        "Attest dashboard tools image provenance",
+        "Generate tools SPDX SBOM",
+        "Attest tools SBOM",
+        "Measure published tools",
+        "Smoke published tools through the launcher",
+        "Update digest lock and merge PR",
+    ]
+    for step_name in gated_steps:
+        block = publish.split(f"- name: {step_name}", 1)[1].split("\n      - name:", 1)[0]
+        assert "if: github.event_name == 'push'" in block, step_name
+
+
+def test_sweep_reports_merge_decisions_and_dispatches_audit() -> None:
+    sweep = (ROOT / ".github/workflows/digest-lock-sweep.yml").read_text(encoding="utf-8")
+    assert "dry_run:" in sweep
+    assert "clean|blocked|behind|unstable" in sweep
+    assert "container-audit.yml" in sweep
+
+
+def test_container_audit_reruns_when_its_inputs_change() -> None:
+    audit = (ROOT / ".github/workflows/container-audit.yml").read_text(encoding="utf-8")
+    assert '".github/workflows/container-audit.yml"' in audit
+    assert '".trivyignore"' in audit
+    assert '"docker/image-digests.json"' in audit
+    assert "container_hardening_report.py" in audit
+    assert "--check-cis" in audit
+
+
 def test_main_failure_report_tracks_default_branch_workflows() -> None:
     workflow = (ROOT / ".github/workflows/main-ci-failure-issue.yml").read_text(encoding="utf-8")
     assert '- "Container hardening audit"' in workflow
