@@ -12,6 +12,7 @@ from scripts.check_dependency_updates import (
     apply_deferrals,
     check_dependency_updates,
     check_git_clones,
+    check_workflow_downloads,
     load_deferrals,
     main,
     render_markdown,
@@ -51,12 +52,17 @@ def test_checker_covers_required_dependency_surfaces() -> None:
         "git-clone",
         "docker-base",
         "servo",
+        "workflow-download",
     } <= surfaces
     assert any(status.name == "typescript" and status.surface == "npm" for status in statuses)
     assert any(status.name == "tauri" and status.surface == "tauri-scaffold" for status in statuses)
     assert any(
         status.name == "transitive-lib" and status.surface == "pypi-lock" for status in statuses
     )
+    actions = {status.name for status in statuses if status.surface == "github-actions"}
+    assert "github/codeql-action/upload-sarif" in actions
+    downloads = {status.name for status in statuses if status.surface == "workflow-download"}
+    assert {"rhysd/actionlint", "zizmor", "aquasecurity/trivy"} <= downloads
 
 
 def test_current_dependency_deferrals_have_review_dates() -> None:
@@ -176,6 +182,83 @@ def test_git_clones_report_outdated_and_fetch_failed() -> None:
     assert lynis.latest == "?"
     assert lynis.fetch_failed is True
     assert lynis.outdated is False
+
+
+def test_subpath_action_pins_track_the_parent_repo(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "lint.yml").write_text(
+        "steps:\n"
+        "  - uses: github/codeql-action/upload-sarif@"
+        "2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2\n",
+        encoding="utf-8",
+    )
+    seen: list[str] = []
+
+    def remote_tags(url: str) -> list[str]:
+        seen.append(url)
+        return ["v4.38.2"]
+
+    statuses = check_dependency_updates_module._action_statuses(tmp_path, remote_tags)
+
+    pin = next(status for status in statuses if status.name == "github/codeql-action/upload-sarif")
+    assert pin.current == "v4.38.2"
+    assert pin.latest == "v4.38.2"
+    assert not pin.outdated
+    assert seen == ["https://github.com/github/codeql-action.git"]
+
+
+def test_workflow_download_pins_and_checksums(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "lint.yml").write_text(
+        'tarball="actionlint_1.7.12_linux_amd64.tar.gz"\n'
+        'curl "https://github.com/rhysd/actionlint/releases/download/v1.7.12/$tarball"\n'
+        'echo "8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8'
+        '  $RUNNER_TEMP/$tarball" | sha256sum -c -\n'
+        'wheel="zizmor-1.30.1-py3-none-manylinux_2_28_x86_64.whl"\n'
+        'echo "eee12266b793cb87ad4a7e3af2e72404f8a63e3de5eb099b80bf7b1cfd232a8e'
+        '  $RUNNER_TEMP/$wheel" | sha256sum -c -\n'
+        "      - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25\n"
+        "        with:\n"
+        "          version: v0.75.0\n",
+        encoding="utf-8",
+    )
+
+    statuses = check_workflow_downloads(
+        tmp_path,
+        fetch_json=_fetch_json,
+        list_remote_tags=lambda _url: ["v99.0.0"],
+    )
+
+    by_name = {status.name: status for status in statuses}
+    assert by_name["rhysd/actionlint"].current == "v1.7.12"
+    assert by_name["rhysd/actionlint"].outdated is True
+    assert by_name["zizmor"].current == "1.30.1"
+    assert by_name["zizmor"].latest == "99.0.0"
+    assert by_name["aquasecurity/trivy"].current == "v0.75.0"
+    assert by_name["actionlint download checksum"].outdated is False
+    assert by_name["zizmor download checksum"].outdated is False
+
+
+def test_workflow_download_checksum_must_be_sha256(tmp_path: Path) -> None:
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "lint.yml").write_text(
+        'tarball="actionlint_1.7.12_linux_amd64.tar.gz"\n'
+        'echo "deadbeef  $RUNNER_TEMP/$tarball" | sha256sum -c -\n',
+        encoding="utf-8",
+    )
+
+    statuses = check_workflow_downloads(
+        tmp_path,
+        fetch_json=_fetch_json,
+        list_remote_tags=lambda _url: [],
+    )
+
+    checksum = next(status for status in statuses if status.name.endswith("checksum"))
+    assert checksum.outdated is True
+    assert checksum.latest == "invalid"
 
 
 def test_markdown_report_includes_surface_and_status() -> None:
