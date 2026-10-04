@@ -1,7 +1,7 @@
 ---
 name: dashboard-workflow
 description: End-to-end dashboard workflow from contract to generated app and full gates.
-version: 0.1.0
+version: 0.1.1
 license: BSD-3-Clause
 triggers:
   - dashboard

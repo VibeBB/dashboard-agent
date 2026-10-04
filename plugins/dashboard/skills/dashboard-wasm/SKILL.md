@@ -1,7 +1,7 @@
 ---
 name: dashboard-wasm
 description: Build and verify portable codec and declared C modules with Emscripten.
-version: 0.1.0
+version: 0.1.1
 license: BSD-3-Clause
 triggers:
   - WebAssembly
