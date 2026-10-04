@@ -16,7 +16,7 @@ def _update(path: Path, sbom_attestation: str) -> str:
         published_at="2026-10-01T00:00:00Z",
         workflow_run="https://github.com/VibeBB/dashboard-agent/actions/runs/1",
         dockerfile="docker/dashboard-tools.Dockerfile",
-        tools={"python": "3.12"},
+        tools={"python": "3.14"},
         sbom_attestation=sbom_attestation,
     )
     return digest

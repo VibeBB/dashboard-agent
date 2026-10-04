@@ -36,6 +36,7 @@ DEPENDENCY_SURFACES = {
     "docker-base",
     "servo",
     "workflow-download",
+    "python-version",
 }
 FetchJson = Callable[[str], Any]
 ListRemoteTags = Callable[[str], list[str]]
@@ -578,6 +579,148 @@ def check_workflow_downloads(
     return statuses
 
 
+_SETUP_UV_USES = re.compile(r"uses:\s*astral-sh/setup-uv@[0-9a-f]{40}")
+_UV_VERSION_INPUT = re.compile(r"^\s*version:\s*[\"']?(\d+\.\d+\.\d+)", re.MULTILINE)
+_NODE_VERSION_INPUT = re.compile(r"^\s*node-version:\s*[\"']?(\d+)", re.MULTILINE)
+_STEP_BOUNDARY = re.compile(r"^\s*- (?:name|uses|run):", re.MULTILINE)
+_CPYTHON_TAG = re.compile(r"v?(\d+)\.(\d+)\.\d+")
+
+
+def _version_inputs(
+    text: str, uses_pattern: re.Pattern[str], input_pattern: re.Pattern[str]
+) -> list[str]:
+    """`with:`-block inputs scoped to the step between `uses:` and the next
+    step boundary (same shape as the trivy version-input scan)."""
+    pins: list[str] = []
+    for match in uses_pattern.finditer(text):
+        boundary = _STEP_BOUNDARY.search(text, match.end())
+        window = text[match.end() : boundary.start() if boundary else None]
+        value = input_pattern.search(window)
+        if value is not None:
+            pins.append(value.group(1))
+    return pins
+
+
+def check_workflow_tool_versions(
+    root: Path,
+    *,
+    list_remote_tags: ListRemoteTags = _default_list_remote_tags,
+) -> list[DependencyStatus]:
+    """`version:`/`node-version:` tool inputs on pinned actions that no
+    `uses:` SHA tracks: astral-sh/setup-uv's uv installer version and
+    actions/setup-node's Node major."""
+    statuses: list[DependencyStatus] = []
+    uv_versions: dict[str, str] = {}
+    node_majors: dict[str, str] = {}
+    for workflow in _workflow_files(root):
+        text = workflow.read_text(encoding="utf-8")
+        source = workflow.relative_to(root).as_posix()
+        for version in _version_inputs(text, _SETUP_UV_USES, _UV_VERSION_INPUT):
+            uv_versions.setdefault(version, source)
+        if "setup-node" in text:
+            for major in _NODE_VERSION_INPUT.findall(text):
+                node_majors.setdefault(major, source)
+    for version, source in sorted(uv_versions.items()):
+        latest = _github_latest_tag("astral-sh/uv", list_remote_tags)
+        statuses.append(
+            DependencyStatus(
+                "workflow-download",
+                "astral-sh/uv",
+                version,
+                latest or "?",
+                f"{source} (version: input)",
+                bool(latest) and latest.lstrip("v") != version,
+                "" if latest else "fetch failed",
+                fetch_failed=not latest,
+            )
+        )
+    for major, source in sorted(node_majors.items()):
+        latest_tag = _github_latest_tag("nodejs/node", list_remote_tags)
+        latest_major = latest_tag.lstrip("v").split(".")[0] if latest_tag else ""
+        statuses.append(
+            DependencyStatus(
+                "workflow-download",
+                "nodejs/node (major)",
+                major,
+                latest_tag or "?",
+                f"{source} (node-version: input)",
+                bool(latest_major) and latest_major != major,
+                "" if latest_tag else "fetch failed",
+                fetch_failed=not latest_tag,
+            )
+        )
+    return statuses
+
+
+def check_python_versions(
+    root: Path,
+    *,
+    list_remote_tags: ListRemoteTags = _default_list_remote_tags,
+) -> list[DependencyStatus]:
+    """Compare the repo's Python minor pins against the latest stable
+    CPython minor: pyproject requires-python, .python-version, workflow
+    `python-version:` inputs/quoted strings, and Dockerfile interpreter
+    installs."""
+    values: list[tuple[str, str]] = []
+    project = _dict(_project_data(root).get("project"), "pyproject.toml project is invalid")
+    requires_python = project.get("requires-python")
+    if not isinstance(requires_python, str):
+        raise ValueError("pyproject.toml has no requires-python")
+    requires_match = re.search(r"(\d+)\.(\d+)", requires_python)
+    if requires_match is None:
+        raise ValueError(f"invalid requires-python: {requires_python}")
+    values.append((f"{requires_match.group(1)}.{requires_match.group(2)}", "pyproject.toml"))
+    dotfile = root / ".python-version"
+    if dotfile.is_file():
+        match = re.search(r"(\d+\.\d+)", dotfile.read_text(encoding="utf-8"))
+        if match is not None:
+            values.append((match.group(1), ".python-version"))
+    for workflow in _workflow_files(root):
+        text = workflow.read_text(encoding="utf-8")
+        minors = {f"3.{minor}" for minor in re.findall(r'"3\.(\d+)"', text)}
+        minors.update(re.findall(r"python-version:\s*(\d+\.\d+)", text))
+        for minor in sorted(minors):
+            values.append((minor, workflow.relative_to(root).as_posix()))
+    for dockerfile in sorted((root / "docker").glob("*.Dockerfile")):
+        text = dockerfile.read_text(encoding="utf-8")
+        for minor in re.findall(r"uv\s+python\s+install\s+(\d+\.\d+)", text):
+            values.append((minor, dockerfile.name))
+        for minor in re.findall(r"uv\s+venv\s+--python\s+(\d+\.\d+)", text):
+            values.append((minor, dockerfile.name))
+        for minor in re.findall(r"python3\.(\d+)", text):
+            values.append((f"3.{minor}", dockerfile.name))
+    tags = list_remote_tags("https://github.com/python/cpython")
+    stable_minors = sorted(
+        {
+            (int(match.group(1)), int(match.group(2)))
+            for tag in tags
+            if (match := _CPYTHON_TAG.fullmatch(tag))
+        }
+    )
+    if not stable_minors:
+        raise ValueError("no stable CPython minor series found")
+    latest = ".".join(str(part) for part in stable_minors[-1])
+    statuses: list[DependencyStatus] = []
+    seen: set[tuple[str, str]] = set()
+    for value, source in values:
+        if (value, source) in seen:
+            continue
+        seen.add((value, source))
+        parts = value.split(".")
+        current_minor = (int(parts[0]), int(parts[1]))
+        statuses.append(
+            DependencyStatus(
+                "python-version",
+                f"Python version ({source})",
+                value,
+                latest,
+                source,
+                current_minor < stable_minors[-1],
+            )
+        )
+    return statuses
+
+
 _FROM = re.compile(r"^\s*FROM\s+(?:--platform=\S+\s+)?(\S+)", re.MULTILINE)
 _ARG = re.compile(r"^ARG\s+([A-Z_]+)=([^\s#]+)", re.MULTILINE)
 _SERVO_VERSION = re.compile(r"/download/(v[\d.]+)/")
@@ -730,6 +873,8 @@ def check_dependency_updates(
         *check_action_pins(root, cached_tags),
         *check_git_clones(root, list_remote_tags=cached_tags),
         *check_workflow_downloads(root, fetch_json=fetch_json, list_remote_tags=cached_tags),
+        *check_workflow_tool_versions(root, list_remote_tags=cached_tags),
+        *check_python_versions(root, list_remote_tags=cached_tags),
         *_docker_statuses(root, fetch_json),
     ]
 
@@ -738,6 +883,7 @@ def render_markdown(statuses: list[DependencyStatus]) -> str:
     labels = {
         "git-clone": "Workflow git clones",
         "workflow-download": "Workflow direct-download pins",
+        "python-version": "Python version",
     }
     lines = ["# Dependency update check report", ""]
     for surface in sorted(DEPENDENCY_SURFACES):

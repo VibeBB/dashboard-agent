@@ -42,6 +42,15 @@ uv run python scripts/check_dependency_updates.py \
 
 Review the complete upstream changelog before accepting a version update.
 
+## 2026-10-04 update (GitHub Actions latest state, Python 3.14, 3.15 canary)
+
+| Component | From -> to | Changelog review decision |
+| --- | --- | --- |
+| uv | 0.12.22 -> 0.12.23 | Adopted. `required-version`, Dockerfile `ARG UV_VERSION`/`UV_DIGEST`, setup-uv `version:` input, THIRD_PARTY_NOTICES updated. |
+| Python pins | 3.12 -> 3.14 | Adopted. Image `uv python install`/`python3.x` paths, `.python-version`, scalar workflow pins, and a new ci.yml matrix leg. |
+| Python 3.15 | - -> canary leg | Adopted as experimental matrix leg (step-level `continue-on-error` + `::warning::` report). Deferred as default: `openhands-sdk` -> `fastuuid==0.14.0` -> PyO3 0.26 caps interpreters at 3.14; the leg detects when upstream wheels land. |
+| dep-checker | narrow -> broad | `python-version` surface now covers every workflow pin, `.python-version`, and Dockerfile interpreter installs; new `check_workflow_tool_versions` monitors setup-uv `version:` and `node-version:` inputs. |
+
 ## 2026-10-03 update (sdk 1.51.0, uv 0.12.22, runtime pins)
 
 | Component | From -> to | Changelog review decision |
