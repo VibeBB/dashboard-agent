@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
+import pytest
 from scripts.trivy_gate_summary import fixable_findings, main, render_markdown
 
-TRIVY_JSON = {
+TRIVY_JSON: dict[str, Any] = {
     "Results": [
         {
             "Target": "ghcr.io/vibebb/dashboard-tools (debian 13.1)",
@@ -65,7 +67,7 @@ def test_empty_report_renders_a_clear_note() -> None:
     assert "No fixable HIGH/CRITICAL" in markdown
 
 
-def test_main_prints_summary(tmp_path: Path, capsys) -> None:
+def test_main_prints_summary(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     path = tmp_path / "trivy-image.json"
     path.write_text(json.dumps(TRIVY_JSON), encoding="utf-8")
 

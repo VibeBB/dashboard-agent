@@ -410,7 +410,7 @@ def _github_latest_tag(repo: str, list_remote_tags: ListRemoteTags) -> str:
     return max(stable, key=lambda tag: _version_key(tag) or (), default="")
 
 
-def _action_statuses(root: Path, list_remote_tags: ListRemoteTags) -> list[DependencyStatus]:
+def check_action_pins(root: Path, list_remote_tags: ListRemoteTags) -> list[DependencyStatus]:
     pins: dict[str, tuple[str, str | None]] = {}
     for workflow in _workflow_files(root):
         text = workflow.read_text(encoding="utf-8")
@@ -727,7 +727,7 @@ def check_dependency_updates(
             fetch_json=fetch_json,
         ),
         *_tauri_statuses(root, fetch_json),
-        *_action_statuses(root, cached_tags),
+        *check_action_pins(root, cached_tags),
         *check_git_clones(root, list_remote_tags=cached_tags),
         *check_workflow_downloads(root, fetch_json=fetch_json, list_remote_tags=cached_tags),
         *_docker_statuses(root, fetch_json),

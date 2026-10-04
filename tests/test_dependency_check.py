@@ -199,7 +199,7 @@ def test_subpath_action_pins_track_the_parent_repo(tmp_path: Path) -> None:
         seen.append(url)
         return ["v4.38.2"]
 
-    statuses = check_dependency_updates_module._action_statuses(tmp_path, remote_tags)
+    statuses = check_dependency_updates_module.check_action_pins(tmp_path, remote_tags)
 
     pin = next(status for status in statuses if status.name == "github/codeql-action/upload-sarif")
     assert pin.current == "v4.38.2"

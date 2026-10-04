@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from scripts.container_hardening_report import (
@@ -11,7 +12,7 @@ from scripts.container_hardening_report import (
     main,
 )
 
-TRIVY_JSON = {
+TRIVY_JSON: dict[str, Any] = {
     "Results": [
         {
             "Vulnerabilities": [
@@ -27,7 +28,7 @@ TRIVY_JSON = {
     ]
 }
 
-CIS_JSON = {
+CIS_JSON: dict[str, Any] = {
     "Results": [
         {
             "Results": [
@@ -44,7 +45,7 @@ CIS_JSON = {
     ]
 }
 
-CIS_EMPTY = {"Results": [{"Results": [{"Misconfigurations": []}]}]}
+CIS_EMPTY: dict[str, Any] = {"Results": [{"Results": [{"Misconfigurations": []}]}]}
 
 
 def _write(tmp_path: Path, name: str, payload: object) -> Path:
