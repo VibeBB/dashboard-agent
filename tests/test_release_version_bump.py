@@ -24,7 +24,13 @@ case "${1:-} ${2:-}" in
   "workflow run")
     ;;
   "run list")
-    printf '424242\\n'
+    if printf '%s' "$*" | grep -q 'action_required'; then
+      if [ "${GH_STUB_GATED:-0}" = "1" ]; then
+        printf '777777\\n'
+      fi
+    else
+      printf '424242\\n'
+    fi
     ;;
   "run watch")
     ;;
@@ -138,6 +144,10 @@ def release_bump(tmp_path: Path) -> Fixture:
             "RELEASE_BUMP_RUN_DISCOVER_SECONDS": "0",
             "RELEASE_BUMP_MERGE_WAIT_ATTEMPTS": "2",
             "RELEASE_BUMP_MERGE_WAIT_SECONDS": "0",
+            "RELEASE_BUMP_APPROVE_POLLS": "2",
+            "RELEASE_BUMP_APPROVE_IDLE_SECONDS": "0",
+            "RELEASE_BUMP_APPROVE_SEEN_SECONDS": "0",
+            "GH_STUB_GATED": "0",
         }
     )
     return Fixture(
@@ -191,6 +201,15 @@ def test_bump_merges_version_pr(release_bump: Fixture) -> None:
     assert "version=1.2.4" in output
     assert f"sha={MAIN_SHA}" in output
     assert 'version = "1.2.4"' in read(release_bump.repo / "pyproject.toml")
+
+
+def test_gated_pr_runs_are_approved(release_bump: Fixture) -> None:
+    release_bump.env["GH_STUB_GATED"] = "1"
+    result = run_bump(release_bump)
+    gh_calls = read(release_bump.gh_calls)
+
+    assert result.returncode == 0, result.stderr
+    assert "actions/runs/777777/approve" in gh_calls
 
 
 def test_dry_run_closes_pr_without_merging(release_bump: Fixture) -> None:
