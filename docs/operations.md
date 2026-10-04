@@ -169,6 +169,16 @@ container profile defers to: `--network` on an internal
 stays an optional hardening for callers that supply tmpfs for tools
 that need scratch space.
 
+### CIS baseline
+
+The Trivy CIS compliance scan reports `DS-0002` (image runs as root) and
+`DS-0026` (no `HEALTHCHECK`) on every tools image. Both are waived with
+`exp:` entries in `.trivyignore`: these are CI build/tool containers, not
+deployed services — workflows that need a non-root UID already run the
+image with `docker run --user`, and batch tooling has no health endpoint
+to probe. The waivers renew or get re-fixed by Dockerfile changes when
+they lapse.
+
 ## CI runner network auditing
 
 Every workflow job starts with `step-security/harden-runner` in audit-only
@@ -212,3 +222,21 @@ These checks depend on settings outside the workflow files:
 - Release rehearsal is manual: `release.yml` has never run a real
   `workflow_dispatch`; a `dry_run` pass exercises the bump/dispatch/watch
   path before the first real release.
+
+## Settings-level posture (recorded decisions)
+
+The following live in repository Settings rather than code; they are
+intentional for the solo-maintainer bot-merge workflow and are recorded
+here so audits do not re-flag them:
+
+- Branch protection does not require approving reviews, code owners, or
+  "apply to administrators": every merge is performed by automation
+  (digest-lock, version-bump, and Devin PRs), so required approvers would
+  only add friction to a pipeline that already gates on the required-check
+  set. OpenSSF Scorecard reports this as Branch-Protection 3 and
+  Code-Review 0; that is the recorded trade-off, not an oversight.
+- The Dependency graph must stay enabled for `dependency-review.yml` to
+  evaluate pull requests.
+- `release.yml` is dispatch-only; run it once with `dry_run=true` before
+  the first real release to rehearse bump, verify, and install-smoke
+  without creating a GitHub release.
