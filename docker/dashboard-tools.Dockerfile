@@ -85,9 +85,9 @@ COPY docker/dashboard-tools-entrypoint.sh /usr/local/bin/dashboard-entrypoint
 RUN uv python install 3.14 \
     && rm -rf /opt/uv-python/bin/pip* \
               /opt/uv-python/cpython-*/bin/pip* \
-              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip \
-              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip-*.dist-info \
-              /opt/uv-python/cpython-*/lib/python3.14/ensurepip \
+              /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip \
+              /opt/uv-python/cpython-*/lib/python3.*/site-packages/pip-*.dist-info \
+              /opt/uv-python/cpython-*/lib/python3.*/ensurepip \
     && uv sync --locked --no-dev --no-group sdk-check
 
 WORKDIR /opt/dashboard/runtime
