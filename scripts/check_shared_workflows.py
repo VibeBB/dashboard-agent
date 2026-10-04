@@ -7,7 +7,7 @@ from pathlib import Path
 
 EXPECTED: dict[str, str] = {
     ".github/workflows/pr-branch-cleanup.yml": (
-        "3e698f21e8bd8f382a3e3e4487f7d3375c607a1621ce1b2373c2acfbcad00087"
+        "a636de25fb8660aa7d1c5e7374e3b710b61164104eb797a88b85b51dfde7fbbf"
     ),
     ".github/workflows/workflow-lint.yml#jobs": (
         "a8c8084488df9418729c6c0a3315aeb1421a39cd9b453d45eb911355f46f1a58"
