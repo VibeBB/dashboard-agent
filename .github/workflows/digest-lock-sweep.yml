@@ -35,6 +35,7 @@ jobs:
           allowed-endpoints: >
             api.github.com:443
             github.com:443
+          disable-telemetry: true
       - name: Merge stalled dashboard digest-lock PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
