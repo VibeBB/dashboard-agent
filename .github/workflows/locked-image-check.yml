@@ -178,6 +178,7 @@ jobs:
           gh attestation verify "oci://${IMAGE}@${DIGEST}" \
             --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml"
+          echo "- image provenance attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Warn when tools image has no SBOM attestation
         if: needs.check-lock.outputs.sbom_attestation == ''
         run: echo "::warning::dashboard_tools image lock has no SBOM attestation; continuing"
@@ -192,6 +193,7 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml" \
             --predicate-type https://spdx.dev/Document/v2.3
+          echo "- image SBOM attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Pull locked dashboard image
         run: uv run python scripts/pull_locked_image.py --entry dashboard_tools
       - name: Full gates through launcher
@@ -228,15 +230,28 @@ jobs:
             stdout="$out/$design.stdout.json"
             if python3 - "$report" "$stdout" <<'PY'
           import json
+          import os
           import sys
           from pathlib import Path
 
           report_path, stdout_path = map(Path, sys.argv[1:])
           if report_path.is_file():
               report = json.loads(report_path.read_text(encoding="utf-8"))
-              for check in report["checks"]:
-                  print(f"{check['id']:26} {check['status']:16} {check['detail'][:180]}")
+              lines = [
+                  f"{check['id']:26} {check['status']:16} {check['detail'][:180]}"
+                  for check in report["checks"]
+              ]
+              print("\n".join(lines))
               verdict = report["verdict"]
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary_path and lines:
+                  design = report_path.name.removesuffix(".dash-report.json")
+                  with open(summary_path, "a", encoding="utf-8") as summary:
+                      summary.write(
+                          f"### {design} gates — verdict: {verdict}\n\n```\n"
+                          + "\n".join(lines)
+                          + "\n```\n"
+                      )
           elif stdout_path.is_file():
               output = stdout_path.read_text(encoding="utf-8")
               print(output, end="")
@@ -267,4 +282,5 @@ jobs:
             examples/*/out/*.servo-smoke.log
             examples/*/out/*.screens/**
             doctor.json
+          retention-days: 30
           if-no-files-found: warn

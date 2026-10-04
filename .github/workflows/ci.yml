@@ -206,16 +206,27 @@ jobs:
             fi
             report_status=0
             if [ -s "$out/$design.dash-report.json" ]; then
-              if python3 - "$out/$design.dash-report.json" <<'PY'
-          import json, sys
+              if python3 - "$out/$design.dash-report.json" "$design" <<'PY'
+          import json, os, sys
           try:
               with open(sys.argv[1], encoding="utf-8") as report_file:
                   report = json.load(report_file)
+              lines = []
               for check in report["checks"]:
                   detail = check["detail"]
                   if check["id"] != "smoke.servo":
                       detail = detail[:180]
-                  print(f"{check['id']:26} {check['status']:16} {detail}")
+                  line = f"{check['id']:26} {check['status']:16} {detail}"
+                  lines.append(line)
+                  print(line)
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary_path and lines:
+                  with open(summary_path, "a", encoding="utf-8") as summary:
+                      summary.write(
+                          f"### {sys.argv[2]} gates — verdict: {report['verdict']}\n\n```\n"
+                          + "\n".join(lines)
+                          + "\n```\n"
+                      )
               sys.exit(0 if report["verdict"] == "pass" else 1)
           except (KeyError, OSError, TypeError, ValueError) as exc:
               print(f"Dashboard gate report unavailable: {exc}")
@@ -249,4 +260,5 @@ jobs:
             examples/*/out/*.screens/**
             doctor.json
             docker-build.log
+          retention-days: 30
           if-no-files-found: warn

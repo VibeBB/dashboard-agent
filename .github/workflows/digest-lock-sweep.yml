@@ -5,6 +5,12 @@ on:
     # Re-try the merge every 6 hours.
     - cron: "17 */6 * * *"
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Report the merge decision per open PR without mutating
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,10 +30,15 @@ jobs:
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
-          egress-policy: audit
+          # This job only talks to the GitHub API; block everything else.
+          egress-policy: block
+          allowed-endpoints: >
+            api.github.com:443
+            github.com:443
       - name: Merge stalled dashboard digest-lock PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run }}
         run: |
           set -euo pipefail
           prs=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --limit 50 \
@@ -42,11 +53,15 @@ jobs:
             state=$(gh api "repos/$GITHUB_REPOSITORY/pulls/$pr" --jq '.mergeable_state // "unknown"' || echo unknown)
             case "$state" in
               clean|blocked|behind|unstable)
-                if gh pr merge --repo "$GITHUB_REPOSITORY" --squash --delete-branch "$pr"; then
+                if [ "$DRY_RUN" = "true" ]; then
+                  echo "$url would merge or arm auto-merge (mergeable_state=$state)" \
+                    | tee -a "$GITHUB_STEP_SUMMARY"
+                elif gh pr merge --repo "$GITHUB_REPOSITORY" --squash --delete-branch "$pr"; then
                   echo "merged $url (was $state)" | tee -a "$GITHUB_STEP_SUMMARY"
                   # GITHUB_TOKEN merges suppress the main push event, so the
                   # post-merge verification has to be dispatched explicitly.
-                  for workflow in ci.yml locked-image-check.yml; do
+                  # container-audit re-scans the newly pinned image.
+                  for workflow in ci.yml locked-image-check.yml container-audit.yml; do
                     gh workflow run "$workflow" --repo "$GITHUB_REPOSITORY" --ref main \
                       || echo "failed to dispatch $workflow on main" >&2
                   done
