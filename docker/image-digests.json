@@ -1,12 +1,12 @@
 {
   "dashboard_tools": {
-    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/52510106",
-    "digest": "sha256:7e091b84d9215148c72154c0c842f7f2bd2c7739ccb9edf20e8b49e7a209e487",
+    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/52514619",
+    "digest": "sha256:f9b2dcc100bea420b4c77102ca49de5d53446e27587db42761155655f29056ee",
     "dockerfile": "docker/dashboard-tools.Dockerfile",
     "image": "ghcr.io/vibebb/dashboard-tools",
-    "published_at": "2026-10-04T02:44:26Z",
-    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/52510236",
-    "tag": "489e7f430313145922423f30374ac0ae31853bf7-tools",
+    "published_at": "2026-10-04T03:19:07Z",
+    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/52514747",
+    "tag": "68d9ad1fcf99e72aedf585c53f01321ca093f0cc-tools",
     "tools": {
       "chromium": "153.0.8010.12",
       "dashboard_agent": "0.1.0",
@@ -14,11 +14,11 @@
       "node": "v26.10.0",
       "npm": "11.19.1",
       "playwright": "1.63.0",
-      "python": "Python 3.12.15",
+      "python": "Python 3.14.8",
       "servoshell": "Version: Servo 0.6.0-c78d2c206",
       "typescript": "Version 7.1.0-dev.20261003.1",
-      "uv": "uv 0.12.22 (x86_64-unknown-linux-musl)"
+      "uv": "uv 0.12.23 (x86_64-unknown-linux-musl)"
     },
-    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/37171545666"
+    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/37173226396"
   }
 }
