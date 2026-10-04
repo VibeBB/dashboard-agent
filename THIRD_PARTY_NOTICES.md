@@ -7,8 +7,8 @@ includes or invokes the following third-party software:
 | --- | --- | --- |
 | Debian 13 (`node:26-trixie-slim`) | `sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1` | Debian packages; see Debian copyright files |
 | Node.js | 26.10.0 image line | MIT |
-| CPython | 3.12, installed by pinned uv | PSF-2.0 |
-| uv | 0.12.22, index digest `sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc` | MIT / Apache-2.0 |
+| CPython | 3.14, installed by pinned uv | PSF-2.0 |
+| uv | 0.12.23, index digest `sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |
 | MCP Python SDK | `mcp>=1.29,<2` | MIT |
 | OpenHands SDK and tools | 1.51.0 (development plugin check) | MIT |

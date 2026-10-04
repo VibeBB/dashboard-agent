@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.12.22@sha256:f513a91fc62fe7c17567eee97230dd198e43edb8a9fbecca843714a4358fe1bc AS uv
+FROM ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21 AS uv
 
 FROM emscripten/emsdk:6.0.10@sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65 AS emscripten
 
@@ -82,12 +82,12 @@ COPY docker/dashboard-tools-entrypoint.sh /usr/local/bin/dashboard-entrypoint
 # msgpack, and setuptools that nothing in the image invokes — dependencies
 # install via uv and the shipped venv is pip-less — so strip the payload
 # instead of shipping unused vulnerable vendored packages.
-RUN uv python install 3.12 \
+RUN uv python install 3.14 \
     && rm -rf /opt/uv-python/bin/pip* \
               /opt/uv-python/cpython-*/bin/pip* \
-              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip \
-              /opt/uv-python/cpython-*/lib/python3.12/site-packages/pip-*.dist-info \
-              /opt/uv-python/cpython-*/lib/python3.12/ensurepip \
+              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip \
+              /opt/uv-python/cpython-*/lib/python3.14/site-packages/pip-*.dist-info \
+              /opt/uv-python/cpython-*/lib/python3.14/ensurepip \
     && uv sync --locked --no-dev --no-group sdk-check
 
 WORKDIR /opt/dashboard/runtime
