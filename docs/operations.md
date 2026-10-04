@@ -217,7 +217,7 @@ jobs stay in audit mode until the reported domains are verified.
 The publisher dispatches `ci.yml`, `workflow-lint.yml`, and
 `locked-image-check.yml` on the lock branch — the last validates the new pin
 (attestation verify plus full gates against the new digest) before merge —
-then polls the authoritative required-check set for up to 30 minutes.
+then polls the authoritative required-check set for up to 15 minutes.
 Non-required failures do not block publishing; a concluded required-check
 failure or a PR closed without merge fails the job. A PR merged externally
 triggers the existing post-merge main workflows without waiting for their
