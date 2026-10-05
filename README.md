@@ -1,21 +1,85 @@
-# dashboard-agent
+# Design a device dashboard with AI
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/VibeBB/dashboard-agent)
+[VibeBB](https://vibebb.org/) dashboard is an OpenHands plugin for turning a
+device's firmware interface into a usable, safety-aware web dashboard. It
+helps you describe the device, choose where it should work, and review the
+generated result with an AI agent.
 
-VibeBB's OpenHands plugin for connected-device dashboard developers. A JSON
-contract declares device routes and controls.
+You stay in control of the product decisions. The dashboard plugin does not
+write or flash firmware: it creates the user interface and the protocol
+artifacts that help the interface communicate with firmware.
 
-## Quick start
+## What you provide
 
-```bash
-uv sync --locked
-uv run python -m dashboard validate examples/smart-kettle/smart-kettle.dash.json
-uv run python -m dashboard generate examples/smart-kettle/smart-kettle.dash.json
-uv run python -m dashboard check examples/smart-kettle/smart-kettle.dash.json
-```
+- A plain-language description of the device, its telemetry, and the things a
+  person should be able to control.
+- The device's firmware contract, if one exists. The dashboard can bind a
+  copied contract by SHA-256 and map its messages to dashboard widgets.
+- The browsers and operating systems that matter to you, including whether
+  you want a web app, an optional Tauri desktop/mobile shell, or both.
+- Photos, sketches, screen references, and known constraints. The agent can
+  ask questions when behavior or safety details are unclear.
 
-Serve `examples/smart-kettle/out/smart-kettle/` from HTTPS or localhost.
-Hardware APIs require a user gesture; device selection stays with the user.
+## What you get back
+
+- A generated web app with telemetry displays, device controls, and connection
+  status.
+- An optional Tauri desktop/mobile shell scaffold when the contract declares
+  one.
+- A protocol export and generated C protocol header/codec projections for
+  firmware handoff.
+- Static and full gate reports, plus desktop and mobile screenshots for
+  review.
+- Append-only decision, stage-impression, and vision-review records. These
+  explain design choices and observations; they are advisory, not gate results.
+
+## Start in AgentCanvas or OpenHands
+
+1. Install the VibeBB `dashboard` plugin using your AgentCanvas/OpenHands
+   plugin manager.
+2. Install and start Docker. The plugin launcher uses Docker and its pinned
+   `dashboard-tools` image by default; it does not silently switch to host
+   execution. The first full run may need to pull the image.
+3. Start a chat and describe the device, or run `/dashboard:design`.
+
+For example:
+
+> Help me design a safe dashboard for this battery-powered garden pump. Use
+> the attached firmware contract, photos, and sketch. I need Chrome on Android
+> and a Tauri desktop app on Linux. Show pressure and battery telemetry, and
+> require confirmation before starting or stopping the pump. Ask me about
+> anything the contract or pictures do not make clear.
+
+The agent validates the design, generates the app, runs the available gates,
+and asks for review of desktop/mobile screenshots. Full gates use the
+Docker-based toolchain.
+
+## Working with VibeBB sibling plugins
+
+The dashboard can bind firmware contracts and export protocol artifacts
+without importing or editing firmware-project files. The UX-creator plugin
+can direct design work through dashboard liaison requests; use
+`dashboard_ux_inbox` and `dashboard_ux_respond` to review and answer them.
+Circuit, mechanical, FPGA, simulation, production-engineering, documentation,
+wire, and Bard plugins can exchange pinned JSON contracts or change requests
+through their own workflows. Each project remains owned by its plugin.
+
+## Safety and limits
+
+- Deterministic gates are authoritative. AI observations and VRP records are
+  advisory and never turn a failing gate into a pass.
+- Hazardous controls require an in-page confirmation. Bluetooth, USB, and
+  Serial device selection requires a secure context and an explicit user
+  gesture.
+- The dashboard does not flash devices or change firmware.
+- Browser and operating-system support depends on the declared route; a missing
+  route is unsupported, not a promise. See the matrix below.
+- The default launcher and full-gate tools require Docker. Explicit
+  `DASHBOARD_LAUNCH_MODE=host` is a developer-only option and requires
+  `DASHBOARD_SRC`.
+- WebMCP is optional and browser-limited. It does not expose device selection
+  or connection tools; optional command tools keep the same confirmation and
+  acknowledgement path as the dashboard.
 
 ## Platform support
 
@@ -33,105 +97,98 @@ Contracts declare `ios` and `ipados` independently; see both examples.
 | iPadOS | Safari, Chrome, Edge, Firefox (WebKit; network only); Bluefy (network and Web Bluetooth); Tauri v2 | WebSocket, WebRTC DataChannel; Bluefy Web Bluetooth; Tauri native BLE | No WebUSB or Web Serial routes; Tauri serial is not supported. Bluefy notifications can be unreliable. |
 | Android | Chrome, Edge, Opera (all five); Firefox and Samsung Internet (network only); Tauri v2 | Web Bluetooth, WebUSB, Web Serial, WebSocket, WebRTC DataChannel; Tauri native BLE and serial | Android WebUSB and Web Serial have device-driver and support limitations. |
 
-### Native shell (Tauri v2)
+## Project and license
 
-The `tauri` route uses native BLE on Windows, macOS, Linux, Android, iOS, and
-iPadOS; native serial is available on Windows, macOS, Linux, and Android.
-Tauri's iOS target covers iPadOS. Native routes use an in-page picker and
-require an explicit connection click. WebSocket and WebRTC remain webview
-routes. `dashboard generate` adds `out/<name>/tauri/` only when the contract
-declares `shell.tauri`. Run the generated app with:
-
-```bash
-cd examples/smart-kettle/out/smart-kettle/tauri
-npm install
-npx tauri dev
-```
-
-The scaffold README covers desktop and mobile builds and OS prerequisites.
-WebMCP never exposes device selection or connection tools.
-
-## Transports
-
-The runtime supports Web Bluetooth, WebUSB, Web Serial, native Tauri BLE and
-serial, WebSocket, and WebRTC DataChannel. Private, link-local, and `.local`
-network endpoints require a local-network caveat in the contract.
-
-## WebMCP
-
-On Chromium, the runtime feature-detects `document.modelContext`, which may
-require an origin trial or testing flag. It exposes status and telemetry as
-read tools; optional command tools use the same confirmation and
-acknowledgement path as the dashboard. WebMCP is unavailable on iOS and iPadOS.
-
-## CLI and MCP tools
-
-The `dashboard` CLI and MCP server expose doctor, matrix, validate, generate,
-check, gates, smoke, protocol export, and sibling-request operations. Use
-`dashboard screenshot <contract>` or MCP `dashboard_screenshot` to capture a
-fresh generated app at desktop and mobile viewports; the MCP result attaches
-eligible PNGs inline for advisory visual review.
-
-## Architecture and layout
-
-The `.dash.json` contract is the source of truth. Python validates contracts,
-generates files, and exposes CLI/MCP tools. The dependency-free TypeScript
-runtime handles browser APIs and protocol framing. Routes fail closed unless
-declared and detected; hazardous controls require confirmation. Sibling agents
-cooperate through copied contracts and JSON artifacts, never code imports.
-
-- `src/dashboard/`: contracts, matrix, gates, generation, and CLI/MCP.
-- `runtime/`: TypeScript runtime, Node tests, and Playwright E2E.
-- `examples/`: smart-kettle and bench-meter contracts.
-- `plugins/dashboard/`: OpenHands agents, commands, skills, hooks, and launcher.
-- `docker/`: pinned dashboard-tools environment for full gates.
-- `docs/`: operations, decisions, and browser API research.
-
-## Verification
-
-The launcher defaults to Docker and fails closed unless Docker and a tools
-image resolve. The local commands below build and select `dashboard-tools:local`;
-set `DASHBOARD_LAUNCH_MODE=host` to run on the host, or `auto` to retain the
-previous Docker-when-available behavior.
-
-CI workflows use `ubuntu-26.04`; workflow lint runs actionlint and zizmor.
-Releases wait for CI and workflow lint on the version-bump branch and verify a
-remote plugin install before publishing release archives.
-
-```bash
-uv sync --locked
-uv run ruff check . && uv run ruff format --check .
-uv run pyright
-uv run pytest
-uv run --group sdk-check python scripts/check_plugin_load.py
-uv run python scripts/verify_docs.py
-cd runtime && npm ci && npx tsc -p . && node --test test/ && cd ..
-docker build -f docker/dashboard-tools.Dockerfile -t dashboard-tools:local .
-export DASHBOARD_TOOLS_IMAGE=dashboard-tools:local
-export DASHBOARD_LAUNCH_MODE=docker
-export DASHBOARD_SRC="$PWD/src"
-export OPENHANDS_PROJECT_DIR="$PWD"
-launcher=plugins/dashboard/scripts/dashboard_launcher.py
-python3 "$launcher" generate examples/smart-kettle/smart-kettle.dash.json
-python3 "$launcher" gates examples/smart-kettle/smart-kettle.dash.json
-python3 "$launcher" generate examples/bench-meter/bench-meter.dash.json
-python3 "$launcher" gates examples/bench-meter/bench-meter.dash.json
-```
-
-The launcher runs gates in an internal Docker network without Internet egress.
-
-## License
-
-BSD-3-Clause. See [LICENSE](LICENSE) and
-[third-party notices](THIRD_PARTY_NOTICES.md).
+The project is maintained by VibeBB and is licensed under BSD-3-Clause. See
+[the VibeBB website](https://vibebb.org/) and the repository
+[license](LICENSE). For technical details, see the
+[documentation index](docs/README.md).
 
 ## 日本語
 
-dashboard-agent は、接続デバイス用ブラウザーダッシュボードの開発者向け
-VibeBB OpenHands プラグインです。JSON 契約がデバイス接続ルートと操作を
-宣言します。契約では `ios` と `ipados` を個別に宣言します。
+# AI でデバイス用ダッシュボードを設計する
 
-### プラットフォーム対応表
+[VibeBB](https://vibebb.org/) の dashboard は、デバイスのファームウェア
+インターフェースを、使いやすく安全性に配慮した Web ダッシュボードにする
+OpenHands プラグインです。デバイスの説明、対応させたい環境、生成結果の確認を
+AI エージェントと進められます。
+
+製品の判断は利用者が行います。dashboard プラグインはファームウェアを書いたり
+書き込んだりしません。ユーザーインターフェースと、ファームウェアとの通信に
+使うプロトコル成果物を生成します。
+
+## 用意するもの
+
+- デバイス、そのテレメトリー、人が操作したい機能についての平易な説明。
+- 利用可能であればデバイスのファームウェア契約。コピーした契約を SHA-256 で
+  固定し、そのメッセージをダッシュボードのウィジェットに対応付けられます。
+- 対応させたいブラウザーと OS。Web アプリ、任意の Tauri デスクトップ / モバイル
+  シェル、または両方が必要かも伝えてください。
+- 写真、スケッチ、画面の参考資料、既知の制約。動作や安全性が不明な場合、
+  エージェントが質問します。
+
+## 受け取れるもの
+
+- テレメトリー表示、デバイス操作、接続状態を含む生成 Web アプリ。
+- 契約で宣言した場合の、任意の Tauri デスクトップ / モバイルシェルの雛形。
+- ファームウェア連携用のプロトコルエクスポートと、生成された C プロトコル
+  ヘッダー / codec の投影成果物。
+- 静的ゲートとフルゲートのレポート、およびレビュー用のデスクトップ / モバイル
+  スクリーンショット。
+- 設計判断や観察を説明する追記専用の decision、stage-impression、
+  vision-review レコード。これらは助言であり、ゲート結果ではありません。
+
+## AgentCanvas または OpenHands で始める
+
+1. AgentCanvas / OpenHands のプラグイン管理機能で VibeBB の `dashboard`
+   プラグインをインストールします。
+2. Docker をインストールして起動します。プラグインランチャーは既定で Docker と
+   固定された `dashboard-tools` イメージを使い、暗黙にホスト実行へ切り替えません。
+   初回のフル実行ではイメージの取得が必要になる場合があります。
+3. チャットを開始してデバイスを説明するか、`/dashboard:design` を実行します。
+
+プロンプト例:
+
+> このバッテリー駆動の庭用ポンプに、安全なダッシュボードを設計してください。
+> 添付したファームウェア契約、写真、スケッチを使ってください。Android の Chrome
+> と Linux の Tauri デスクトップアプリが必要です。圧力とバッテリー残量を表示し、
+> ポンプの開始 / 停止には確認を必須にしてください。契約や画像で分からない点は
+> 質問してください。
+
+エージェントは設計を検証し、アプリを生成し、利用可能なゲートを実行し、
+デスクトップ / モバイルのスクリーンショットのレビューを依頼します。フルゲートは
+Docker ベースのツール環境を使います。
+
+## VibeBB の姉妹プラグインとの連携
+
+dashboard はファームウェア契約を固定してプロトコル成果物を出力できますが、
+ファームウェアプロジェクトのファイルを import したり編集したりしません。
+UX-creator プラグインは dashboard の liaison リクエストを通じて設計作業を依頼
+できます。`dashboard_ux_inbox` と `dashboard_ux_respond` で確認して回答します。
+Circuit、mechanical、FPGA、simulation、production-engineering、documentation、
+wire、Bard の各プラグインとは、それぞれのワークフローで SHA-256 固定 JSON 契約や
+変更リクエストを交換できます。各プロジェクトの所有権は対応するプラグインに
+あります。
+
+## 安全性と制限
+
+- 決定的なゲートが正式な判定です。AI の観察と VRP レコードは助言であり、失敗した
+  ゲートを pass に変えるものではありません。
+- 危険を伴う操作には画面内確認が必要です。Bluetooth、USB、Serial のデバイス選択
+  にはセキュアなコンテキストと明示的なユーザー操作が必要です。
+- dashboard はデバイスへファームウェアを書き込みません。
+- ブラウザーと OS の対応状況は宣言されたルートによって異なります。ルートがない
+  場合は非対応であり、対応の約束ではありません。下記の表を確認してください。
+- 既定のランチャーとフルゲートには Docker が必要です。明示的な
+  `DASHBOARD_LAUNCH_MODE=host` は開発者専用で、`DASHBOARD_SRC` が必要です。
+- WebMCP は任意で、利用できるブラウザーも限られます。デバイスの選択や接続の
+  ツールは公開しません。任意の操作ツールにもダッシュボードと同じ確認および
+  acknowledgement 手順が適用されます。
+
+## プラットフォーム対応
+
+表はブラウザーと OS ごとに利用可能なルートを示します。契約では `ios` と
+`ipados` を個別に宣言します。両方の例を参照してください。
 
 | OS | ブラウザー | 利用可能なトランスポート | 注意事項 |
 | --- | --- | --- | --- |
@@ -144,52 +201,9 @@ VibeBB OpenHands プラグインです。JSON 契約がデバイス接続ルー�
 | iPadOS | Safari、Chrome、Edge、Firefox（WebKit、ネットワークのみ）；Bluefy（ネットワーク、Web Bluetooth）；Tauri v2 | WebSocket、WebRTC DataChannel；Bluefy Web Bluetooth；Tauri ネイティブ BLE | WebUSB / Web Serial ルートはありません。Tauri serial も非対応です。Bluefy の通知機能は不安定な場合があります。 |
 | Android | Chrome、Edge、Opera（5 種すべて）；Firefox、Samsung Internet（ネットワークのみ）；Tauri v2 | Web Bluetooth、WebUSB、Web Serial、WebSocket、WebRTC DataChannel；Tauri ネイティブ BLE / serial | WebUSB / Web Serial はドライバーや対応デバイスに制限があります。 |
 
-### ネイティブシェル（Tauri v2）
+## プロジェクトとライセンス
 
-Tauri ルートでは Windows、macOS、Linux、Android、iOS、iPadOS でネイティブ
-BLE を利用できます。ネイティブ serial は Windows、macOS、Linux、Android
-のみ対応します。iPadOS は Tauri の iOS ターゲットを使います。デバイス選択
-には画面内のピッカーを使い、接続には明示的なクリックが必要です。WebSocket
-と WebRTC は WebView のルートです。`dashboard generate` は契約に
-`shell.tauri` がある場合だけ `out/<name>/tauri/` を生成します。生成した
-アプリは次の手順で起動できます。
-
-```bash
-cd examples/smart-kettle/out/smart-kettle/tauri
-npm install
-npx tauri dev
-```
-
-雛形の README にデスクトップ / モバイルのビルド方法と OS ごとの前提条件を記載
-しています。WebMCP はデバイス選択や接続ツールを公開しません。
-
-### CLI と MCP ツール
-
-`dashboard` CLI と MCP サーバーでは doctor、matrix、validate、generate、check、
-gates、smoke、protocol export、sibling request を利用できます。
-`dashboard screenshot <contract>` または MCP `dashboard_screenshot` は、最新の
-生成アプリをデスクトップ / モバイルで撮影します。MCP は対象 PNG をインラインで
-添付し、表示確認は助言として扱います。
-
-## トランスポートと WebMCP
-
-ランタイムは Web Bluetooth、WebUSB、Web Serial、Tauri ネイティブ BLE / serial、
-WebSocket、WebRTC DataChannel を使用します。プライベート IP、リンクローカル、`.local`
-エンドポイントには、契約でローカルネットワークの注意事項が必要です。
-
-Chromium では `document.modelContext` を検出して WebMCP を有効にします。
-Origin Trial またはテスト用フラグが必要な場合があります。
-標準では状態とテレメトリーを読み取り専用ツールとして公開します。任意の操作
-ツールもダッシュボードと同じ確認・ACK 手順を通ります。iOS / iPadOS では
-WebMCP を利用できません。
-
-## 検証
-
-`dashboard-tools` イメージのゲートは、ランチャーがインターネットへ接続できない
-内部 Docker ネットワークで実行します。検証方法は上記の Verification コマンドを
-参照してください。
-
-## ライセンス
-
-BSD-3-Clause。詳細は [LICENSE](LICENSE) と
-[third-party notices](THIRD_PARTY_NOTICES.md) を参照してください。
+本プロジェクトは VibeBB が管理し、BSD-3-Clause ライセンスで公開しています。
+[VibeBB のウェブサイト](https://vibebb.org/)とリポジトリーの
+[ライセンス](LICENSE)、技術情報の
+[ドキュメント一覧](docs/README.md)を参照してください。

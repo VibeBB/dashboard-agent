@@ -47,7 +47,7 @@ The full gate command additionally requires the generated app, Chromium,
 Emscripten, and Servo:
 
 ```bash
-uv run python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json --full
+uv run python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json
 ```
 
 The launcher accepts `DASHBOARD_LAUNCH_MODE=docker|host` (default `docker`).
