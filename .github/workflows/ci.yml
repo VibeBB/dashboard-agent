@@ -352,15 +352,15 @@ jobs:
             exit "$report_status"
           fi
       - name: Upload reports
-        if: always() && hashFiles(format('examples/{0}/out/*.dash-report.json', matrix.name), format('examples/{0}/out/*.stdout.json', matrix.name), format('examples/{0}/out/*.servo-smoke.log', matrix.name), format('examples/{0}/out/*.screens/**', matrix.name), 'doctor.json', 'docker-build.log') != ''
+        if: always() && hashFiles('examples/*/out/*.dash-report.json', 'examples/*/out/*.stdout.json', 'examples/*/out/*.servo-smoke.log', 'examples/*/out/*.screens/**', 'doctor.json', 'docker-build.log') != ''
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: dashboard-reports-${{ matrix.name }}
           path: |
-            examples/${{ matrix.name }}/out/*.dash-report.json
-            examples/${{ matrix.name }}/out/*.stdout.json
-            examples/${{ matrix.name }}/out/*.servo-smoke.log
-            examples/${{ matrix.name }}/out/*.screens/**
+            examples/*/out/*.dash-report.json
+            examples/*/out/*.stdout.json
+            examples/*/out/*.servo-smoke.log
+            examples/*/out/*.screens/**
             doctor.json
             docker-build.log
           retention-days: 30
