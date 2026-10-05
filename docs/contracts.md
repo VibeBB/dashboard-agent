@@ -148,7 +148,8 @@ requests require at least one existing VRP decision event ID.
 ## SLP v2 requests and responses
 
 Both liaison models are frozen and reject unknown fields. Hashes are 64
-lowercase hex characters; request IDs and dependencies are lowercase slugs.
+lowercase hex characters; request IDs and dependencies match the family SLP v2 id pattern
+`^[a-z0-9][a-z0-9._-]{0,63}$`.
 All paths must be workspace-relative, without absolute paths, drive prefixes,
 backslashes, or `..` traversal.
 
