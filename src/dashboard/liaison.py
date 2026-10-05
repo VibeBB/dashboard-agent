@@ -48,7 +48,7 @@ Stage = Literal[
 ]
 ResponseStatus = Literal["accepted", "in_progress", "done", "rejected", "deferred", "needs_info"]
 
-Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9-]{0,62}$")]
+Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9._-]{0,63}$")]
 Sha256 = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 NonEmpty = Annotated[str, StringConstraints(min_length=1, strip_whitespace=True)]
 Purpose = Annotated[str, StringConstraints(min_length=20, strip_whitespace=True)]

@@ -604,3 +604,12 @@ def test_hashed_path_rejects_absolute_and_escaping_paths() -> None:
     for path in ("/outside/file.ux.json", "../outside.ux.json", "C:\\outside.ux.json"):
         with pytest.raises(ValidationError):
             liaison.HashedPath(path=path, sha256="a" * 64)
+
+
+def test_family_request_id_with_dot_and_underscore_is_accepted(tmp_path: Path) -> None:
+    _write_request(tmp_path, "kettle.panel_v2")
+    inbox = liaison.ux_inbox(root=tmp_path)
+    request = cast(list[dict[str, object]], inbox["requests"])[0]
+    assert inbox["verdict"] == "pass"
+    assert request["id"] == "kettle.panel_v2"
+    assert request["state"] == "new"

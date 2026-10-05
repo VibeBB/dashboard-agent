@@ -12,7 +12,7 @@ from typing import cast
 
 SKIP_DIRECTORIES = {".git", ".venv", "__pycache__", "node_modules", ".cache"}
 MAX_DEPTH = 5
-REQUEST_ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,62}$")
+REQUEST_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 
 
 def _find_reports(root: Path) -> list[Path]:
