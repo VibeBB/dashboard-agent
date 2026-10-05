@@ -88,4 +88,4 @@ required per-tool hooks because plugin hooks do not propagate to tasks.
 The `.dash.json` contract is the editable source of truth. Do not edit
 `examples/*/out/`, `out/`, manifest, protocol header/JSON, reports, or
 screenshots by hand. Regenerate projections and record VRP evidence through
-the writers. Never edit sibling agent inputs or response artifacts manually.
+the writers. Never edit sister agent inputs or response artifacts manually.

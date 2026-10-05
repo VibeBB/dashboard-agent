@@ -54,7 +54,7 @@ The agent validates the design, generates the app, runs the available gates,
 and asks for review of desktop/mobile screenshots. Full gates use the
 Docker-based toolchain.
 
-## Working with VibeBB sibling plugins
+## Working with VibeBB sister plugins
 
 The dashboard can bind firmware contracts and export protocol artifacts
 without importing or editing firmware-project files. The UX-creator plugin

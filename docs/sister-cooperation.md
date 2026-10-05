@@ -1,7 +1,7 @@
 # Sister-agent cooperation
 
 Dashboard interoperability uses copied, hash-bound JSON artifacts and task
-delegation, not imports from another agent's Python package or edits to sibling
+delegation, not imports from another agent's Python package or edits to sister
 repositories.
 
 ## Imports and firmware binding
@@ -32,7 +32,7 @@ dashboard contract is always bound; a linked firmware contract is included
 when configured. Decision refs must exist in `observations/dashboard/
 decisions.jsonl`; high-risk requests require at least one.
 
-Never change sibling input files to make a request pass. `failing_checks`
+Never change sister input files to make a request pass. `failing_checks`
 describes observed deterministic evidence; it does not authorize a gate
 exception.
 
