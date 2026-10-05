@@ -42,6 +42,13 @@ uv run python scripts/check_dependency_updates.py \
 
 Review the complete upstream changelog before accepting a version update.
 
+## 2026-10-05 update (sdk 1.52.0)
+
+| Component | From -> to | Changelog review decision |
+| --- | --- | --- |
+| openhands-sdk / openhands-tools | 1.51.0 -> 1.52.0 | All 19 commits in `v1.51.0..v1.52.0` reviewed. Bug fixes (ask_agent in-flight tool-call context, client create-retry dedupe, server-side conversation create/fork dedupe, tmux socket isolation, terminal run permits, loopback-only workspace ports) adopted implicitly by the bump; plugin-load check passes unchanged. Not adopted / not applicable: automation observability propagation (no automation sessions), agent-server BashCommand stop endpoint (no agent-server wiring), uvicorn/posthog/python-frontmatter bumps (agent-server deps, absent from this lockfile), TypeScript-client/CI housekeeping. |
+| mcp | stays <2 (latest 2.3.0) | Still deferred: openhands-sdk 1.52.0 still requires `fastmcp>=3.2.0,<4`, which caps `mcp<2.0`. Deferral reason refreshed to cite 1.52.0, `review_by` kept at 2027-04-01. |
+
 ## 2026-10-04 update (GitHub Actions latest state, Python 3.14, 3.15 canary)
 
 | Component | From -> to | Changelog review decision |
