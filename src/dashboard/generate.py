@@ -621,6 +621,8 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
             b".hazard-badge{margin:.5rem 0;padding:.4rem .65rem;border:1px solid #ffb39f;"
             b"border-radius:.35rem;background:#4a1916;color:#fff;font-weight:700}"
             b"button.hazard{background:#8f241b;border:2px solid #ffb39f;color:#fff;font-weight:700}"
+            b"button.hazard:disabled{background:#3a2724;border-color:#7a5650;color:#b8a8a5;"
+            b"cursor:not-allowed}"
             b"#platform-banner.unsupported{position:fixed;inset:0;z-index:1000;display:grid;"
             b"place-content:center;padding:2rem;background:#301417;color:#fff;font-size:1.5rem;"
             b"text-align:center}"
