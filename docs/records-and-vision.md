@@ -54,9 +54,15 @@ Review every image actually viewed:
 Judge more than legibility. Compare the render with the contract and product
 intent: every widget, label, and unit; visibly distinct hazardous controls;
 obvious connection state; a clear unsupported-platform message; ambiguity;
-design intent; and usefulness to the person operating the device. Record
-findings with categories, `info`/`warning`/`error` severity, and notes. The
-impression must be at least 400 characters and three distinct sentences.
+design intent; and usefulness to the person operating the device. Confirm
+command-field units and slider readouts are visible, and hazardous controls
+clearly state when confirmation is required. Record findings with categories,
+`info`/`warning`/`error` severity, and notes. The impression must be at least
+400 characters and three distinct sentences.
+
+The current Servo render shows both `websocket (chrome)` and
+`websocket (tauri)` connect buttons. Track this as an investigation; visual
+review must not alter route-selection behavior.
 Bind the record to image bytes or the vision-tool event; never invent measured
 values or prose from a tool hint.
 

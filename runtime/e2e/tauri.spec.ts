@@ -118,7 +118,7 @@ test("Tauri picker connects a filtered device, shows telemetry, and writes a com
   await picker.selectOption("kettle-1");
   await page.locator('#connection-panel button[data-transport="kettle-tauri-ble"]').click();
   await expect(page.locator(".connection-state")).toContainText("connected");
-  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5");
+  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5 °C");
 
   const target = page.locator(".widget").filter({ hasText: "Set target" });
   await target.locator("input[name='target_temp_c']").fill("60");

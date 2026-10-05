@@ -1,9 +1,8 @@
 # Improvement notes
 
-These are implementation notes, not current runtime guarantees or work
-included in the documentation rebuild.
+This file tracks completed improvements and open follow-ups.
 
-## Completed in the launcher/runtime refactor
+## Completed improvements
 
 - Removed `auto` from `DASHBOARD_LAUNCH_MODE`; supported modes are `docker`
   (default) and explicit developer-only `host`.
@@ -11,6 +10,10 @@ included in the documentation rebuild.
 - Added VRP v1 and SLP v2 as local, validated dashboard-side implementations.
 - Added advisory vision-review hints without changing MCP image-path or gate
   verdict behavior.
+- Render contract units in telemetry values, gauge/chart readouts, and
+  human-readable command controls; sliders show their current value and unit.
+- Distinguish hazardous cards and buttons, show the confirmation badge, and
+  identify unavailable routes with human-readable transport labels.
 
 ## Open follow-ups
 
@@ -21,6 +24,8 @@ included in the documentation rebuild.
 - Add property-based tests for liaison path validation and dependency-graph
   edge cases (cycles, stale inputs, and malformed dependency files). This was
   the earlier deferred testing idea.
+- Investigate the Servo render showing both `websocket (chrome)` and
+  `websocket (tauri)` connect buttons; their route behavior is unchanged.
 - Decide at the VibeBB family level whether to install `require-records` Stop
   hooks on sub-agent definitions. Plugin lifecycle hooks do not propagate to
   sub-agents; the current per-agent hooks enforce generated-file and safety
