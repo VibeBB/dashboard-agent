@@ -1,5 +1,7 @@
 # dashboard-agent
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/VibeBB/dashboard-agent)
+
 VibeBB's OpenHands plugin for connected-device dashboard developers. A JSON
 contract declares device routes and controls.
 
