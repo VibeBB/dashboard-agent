@@ -12,6 +12,16 @@ export function element<K extends keyof HTMLElementTagNameMap>(
   return result;
 }
 
+export function formatFieldValue(value: string | number | boolean, unit?: string | null): string {
+  const rendered = typeof value === "boolean" ? (value ? "On" : "Off") : String(value);
+  return unit ? `${rendered} ${unit}` : rendered;
+}
+
+export function formatFieldLabel(name: string, unit?: string | null): string {
+  const rendered = name.replaceAll("_", " ");
+  return unit ? `${rendered} (${unit})` : rendered;
+}
+
 export function renderTelemetry(root: HTMLElement, values: TelemetryValues): void {
   for (const output of root.querySelectorAll<HTMLOutputElement>("output[data-message]")) {
     const message = output.dataset.message ?? "";
@@ -19,7 +29,7 @@ export function renderTelemetry(root: HTMLElement, values: TelemetryValues): voi
     const messageValues = values[message];
     if (!messageValues || !(field in messageValues)) continue;
     const value = messageValues[field];
-    output.value = typeof value === "boolean" ? (value ? "On" : "Off") : String(value);
+    output.value = formatFieldValue(value, output.dataset.unit);
     const meter = output.parentElement?.querySelector("meter");
     if (meter && typeof value === "number") {
       meter.value = Math.max(meter.min, Math.min(meter.max, value));

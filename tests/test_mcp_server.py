@@ -68,15 +68,78 @@ def test_service_failure_verdict_is_not_an_mcp_error(monkeypatch: MonkeyPatch) -
         assert _result_payload(result)["verdict"] == verdict
 
 
+def test_record_tools_use_input_schemas_and_return_text_only(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def record(kind: str, arguments: dict[str, object]) -> service.Json:
+        captured.update({"kind": kind, "arguments": arguments})
+        return {"verdict": "pass", "stage": "record", "record": {"event_id": "a" * 64}}
+
+    monkeypatch.setattr(service, "record_payload", record)
+    for name, kind in (
+        ("dashboard_record_decision", "decision"),
+        ("dashboard_record_impression", "impression"),
+        ("dashboard_record_vision_review", "vision-review"),
+    ):
+        result = asyncio.run(_call_tool(name, {"stage": "generate"}))
+
+        assert result.isError is False
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], types.TextContent)
+        assert _result_payload(result)["stage"] == "record"
+        assert captured["kind"] == kind
+    specs = {tool.name: tool for tool in mcp_server.tool_specs()}
+    for name in (
+        "dashboard_record_decision",
+        "dashboard_record_impression",
+        "dashboard_record_vision_review",
+    ):
+        assert "properties" in specs[name].inputSchema
+        annotations = specs[name].annotations
+        assert annotations is not None
+        assert annotations.readOnlyHint is False
+
+    def invalid_record(_kind: str, _arguments: dict[str, object]) -> service.Json:
+        return {"verdict": "fail", "stage": "record", "detail": "invalid"}
+
+    monkeypatch.setattr(service, "record_payload", invalid_record)
+    invalid = asyncio.run(_call_tool("dashboard_record_decision", {}))
+    assert invalid.isError is False
+    assert _result_payload(invalid)["detail"] == "invalid"
+
+
+def test_records_status_is_read_only_text_only(monkeypatch: MonkeyPatch) -> None:
+    def records_status() -> service.Json:
+        return {"verdict": "pass", "counts": {}}
+
+    monkeypatch.setattr(service, "records_status_payload", records_status)
+
+    result = asyncio.run(_call_tool("dashboard_records_status", {}))
+    tool = next(tool for tool in mcp_server.tool_specs() if tool.name == "dashboard_records_status")
+
+    assert result.isError is False
+    assert len(result.content) == 1
+    assert isinstance(result.content[0], types.TextContent)
+    assert tool.annotations is not None
+    assert tool.annotations.readOnlyHint is True
+
+
 def test_screenshot_tool_is_write_capable_and_inlines_image(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,
 ) -> None:
     image = tmp_path / "desktop.png"
     image.write_bytes(b"\x89PNG\r\n\x1a\nsmall image")
+    vision_review = [{"image_path": str(image), "sha256": "a" * 64}]
 
     def screenshot(_contract: Path, _out: Path | None) -> service.Json:
-        return {"verdict": "pass", "images": [str(image)]}
+        return {
+            "verdict": "pass",
+            "images": [str(image)],
+            "vision_review": vision_review,
+        }
 
     monkeypatch.setattr(
         service,
@@ -91,6 +154,7 @@ def test_screenshot_tool_is_write_capable_and_inlines_image(
     payload = _result_payload(result)
 
     assert result.isError is False
+    assert payload["vision_review"] == vision_review
     assert payload["inline_images"] == [
         {
             "path": str(image),
@@ -132,7 +196,12 @@ def test_gates_and_smoke_tools_inline_generated_images(
 ) -> None:
     image = tmp_path / "dashboard.png"
     image.write_bytes(b"\x89PNG\r\n\x1a\nimage")
-    payload: service.Json = {"verdict": "pass", "images": [str(image)]}
+    vision_review = [{"image_path": str(image), "sha256": "a" * 64}]
+    payload: service.Json = {
+        "verdict": "pass",
+        "images": [str(image)],
+        "vision_review": vision_review,
+    }
 
     def gates(
         _contract: Path,
@@ -158,6 +227,7 @@ def test_gates_and_smoke_tools_inline_generated_images(
             _result_payload(result)["inline_images"],
         )
         assert inline_images[0]["attached"] is True
+        assert _result_payload(result)["vision_review"] == vision_review
 
 
 def test_workspace_path_accepts_relative_and_absolute_inside_paths(

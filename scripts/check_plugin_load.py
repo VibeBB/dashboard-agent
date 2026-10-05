@@ -24,10 +24,15 @@ EXPECTED_SKILLS = {
 }
 EXPECTED_COMMANDS = {"design", "doctor", "gates", "generate", "screenshot", "smoke"}
 EXPECTED_HOOKS: dict[str, set[str]] = {
-    "session_start": {"dashboard-doctor", "intake-attachments", "ensure-llm-profiles"},
+    "session_start": {
+        "dashboard-doctor",
+        "intake-attachments",
+        "ensure-llm-profiles",
+        "require-records",
+    },
     "user_prompt_submit": {"intake-attachments"},
     "pre_tool_use": {"protect-generated", "safety-rail"},
-    "stop": {"intake-attachments", "report-dashboard-status"},
+    "stop": {"intake-attachments", "report-dashboard-status", "require-records"},
     "post_tool_use": {"record-vision-tool-event", "record-image-observation"},
 }
 

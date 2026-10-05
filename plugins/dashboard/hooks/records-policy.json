@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "plugin": "dashboard",
+  "records_dir": "observations/dashboard",
+  "artifact_globs": [
+    "**/*.dash.json",
+    "**/*.dash-report.json",
+    "**/*.dash-report.md",
+    "**/*.dash-protocol.json",
+    "**/*.dash-protocol.h",
+    "**/dash-manifest.json",
+    "**/*.screens/*.png",
+    "**/servo.png",
+    "**/*.dash-request.json",
+    "**/liaison/*.ux-response.json"
+  ],
+  "ignore_globs": ["examples/**", "tests/**", ".devin/**", "runtime/**"],
+  "max_stop_denials": 2,
+  "record_hint": "Use dashboard_record_decision, dashboard_record_impression and dashboard_record_vision_review (or `python -m dashboard record decision|impression|vision-review --json <file>`). Impressions need at least 400 characters and 3 sentences: what you noticed, what works, what worries you, how a maker or end user operating the device would read it, and what to do next."
+}

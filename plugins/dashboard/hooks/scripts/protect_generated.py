@@ -51,6 +51,8 @@ def is_protected(value: str) -> bool:
         or name.endswith(".dash-report.json")
         or name.endswith(".dash-report.md")
         or (name.endswith(".jsonl") and parts[-3:-1] == ["observations", "dashboard"])
+        or (name == "records-status.json" and parts[-3:-1] == ["observations", "dashboard"])
+        or (name.endswith(".ux-response.json") and len(parts) >= 2 and parts[-2] == "liaison")
         or parts[-3:] == ["intake", "attachments", "manifest.jsonl"]
     )
 

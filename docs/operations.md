@@ -47,13 +47,15 @@ The full gate command additionally requires the generated app, Chromium,
 Emscripten, and Servo:
 
 ```bash
-uv run python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json --full
+uv run python -m dashboard gates examples/smart-kettle/smart-kettle.dash.json
 ```
 
-The launcher accepts `DASHBOARD_LAUNCH_MODE=docker|host|auto` (default
-`docker`). Docker mode requires Docker and a resolvable tools image; if either
-is unavailable, set `DASHBOARD_LAUNCH_MODE=host` to run on the host. Auto mode
-retains Docker-when-available behavior. `prewarm` continues to pull the
+The launcher accepts `DASHBOARD_LAUNCH_MODE=docker|host` (default `docker`).
+Docker mode requires Docker and a resolvable tools image. Install Docker,
+configure a dashboard tools image, and run `dashboard_launcher.py prewarm` to
+prepare the default runtime. `host` is an explicit developer-only mode that
+requires `DASHBOARD_SRC` to point to a source directory containing the
+`dashboard` package; there is no automatic host fallback. `prewarm` pulls the
 configured image independently of launch mode.
 
 The `dashboard-tools` image pins those tools and runs full gates in an internal

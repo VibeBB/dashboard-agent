@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -12,8 +13,10 @@ from .contract import load_contract
 from .gates import FAIL, PASS, generated_freshness, run_gates
 from .generate import generate
 from .interchange import sha256_file
+from .liaison import ux_inbox, ux_respond
 from .matrix import CAVEATS, SUPPORT
 from .protocol import protocol_export
+from .records import RECORDERS, records_summary
 from .report import write_outputs
 from .requests import write_request
 from .screenshots import capture
@@ -63,6 +66,28 @@ def generate_payload(contract_path: Path, out_dir: Path | None = None) -> Json:
     }
 
 
+def _vision_review_payload(images: list[str]) -> list[dict[str, str]]:
+    checklists = {
+        "desktop.png": "dashboard-desktop",
+        "mobile.png": "dashboard-mobile",
+        "servo.png": "servo-render",
+    }
+    reviews: list[dict[str, str]] = []
+    for image in images:
+        path = Path(image)
+        if not path.is_file():
+            continue
+        reviews.append(
+            {
+                "image_path": image,
+                "sha256": sha256_file(path),
+                "checklist": checklists.get(path.name.lower(), "dashboard-image"),
+                "record_with": "dashboard_record_vision_review",
+            }
+        )
+    return reviews
+
+
 def gates_payload(contract_path: Path, out_dir: Path | None = None, *, full: bool = False) -> Json:
     out = out_dir or _default_out(contract_path)
     report = run_gates(contract_path, out, full=full)
@@ -78,6 +103,7 @@ def gates_payload(contract_path: Path, out_dir: Path | None = None, *, full: boo
             if evidence.lower().endswith((".png", ".jpg", ".jpeg")) and Path(evidence).is_file()
         ]
         payload["images"] = list(dict.fromkeys(images))
+        payload["vision_review"] = _vision_review_payload(payload["images"])
     return payload
 
 
@@ -113,11 +139,13 @@ def smoke_payload(contract_path: Path, out_dir: Path | None = None) -> Json:
         result = smoke((out_dir or _default_out(contract_path)) / contract.name)
     except (OSError, ValueError, RuntimeError, ValidationError) as exc:
         return {"verdict": FAIL, "stage": "smoke", "detail": str(exc)}
+    images = [str(result.screenshot)] if result.screenshot else []
     return {
         "verdict": PASS if result.ok else FAIL,
         "stage": "smoke",
         "detail": result.detail,
-        "images": [str(result.screenshot)] if result.screenshot else [],
+        "images": images,
+        "vision_review": _vision_review_payload(images),
     }
 
 
@@ -134,10 +162,18 @@ def screenshot_payload(contract_path: Path, out_dir: Path | None = None) -> Json
                 "design": contract.name,
                 "detail": "; ".join(freshness),
                 "images": [],
+                "vision_review": [],
             }
         result = capture(generated_dir, output)
     except (OSError, ValueError, RuntimeError, ValidationError) as exc:
-        return {"verdict": FAIL, "stage": "screenshot", "detail": str(exc), "images": []}
+        return {
+            "verdict": FAIL,
+            "stage": "screenshot",
+            "detail": str(exc),
+            "images": [],
+            "vision_review": [],
+        }
+    images = [str(image.path) for image in result.images]
     return {
         "verdict": PASS if result.ok else FAIL,
         "stage": "screenshot",
@@ -145,7 +181,8 @@ def screenshot_payload(contract_path: Path, out_dir: Path | None = None) -> Json
         "detail": result.detail,
         "contract_sha256": sha256_file(contract_path),
         "screens": [image.model_dump(mode="json") for image in result.images],
-        "images": [str(image.path) for image in result.images],
+        "images": images,
+        "vision_review": _vision_review_payload(images),
     }
 
 
@@ -158,6 +195,7 @@ def request_payload(
     change: str,
     rationale: str,
     failing_checks: list[str],
+    decision_refs: list[str],
 ) -> Json:
     try:
         contract = load_contract(contract_path)
@@ -170,6 +208,7 @@ def request_payload(
             change=change,
             rationale=rationale,
             failing_checks=failing_checks,
+            decision_refs=decision_refs,
         )
     except (OSError, ValueError, ValidationError) as exc:
         return {"verdict": FAIL, "stage": "request", "detail": str(exc)}
@@ -178,3 +217,28 @@ def request_payload(
     payload["written"] = [str(path)]
     payload["contract_sha256"] = sha256_file(contract_path)
     return payload
+
+
+def ux_inbox_payload(liaison_dir: Path | None = None) -> Json:
+    return ux_inbox(liaison_dir=liaison_dir)
+
+
+def ux_respond_payload(payload: Mapping[str, object]) -> Json:
+    return ux_respond(payload)
+
+
+def record_payload(kind: str, payload: Mapping[str, object]) -> Json:
+    recorder = RECORDERS.get(kind)
+    if recorder is None:
+        return {"verdict": FAIL, "stage": "record", "detail": f"unknown record kind {kind}"}
+    try:
+        return {"stage": "record", **recorder(payload)}
+    except (OSError, ValueError, ValidationError) as exc:
+        return {"verdict": FAIL, "stage": "record", "detail": str(exc)}
+
+
+def records_status_payload() -> Json:
+    try:
+        return records_summary()
+    except (OSError, ValueError, ValidationError) as exc:
+        return {"verdict": FAIL, "stage": "record", "detail": str(exc)}

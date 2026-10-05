@@ -338,14 +338,17 @@ def test_plugin_and_agent_vision_hooks_are_declared() -> None:
             "dashboard-doctor",
             "intake-attachments",
             "ensure-llm-profiles",
+            "require-records",
         },
         "user_prompt_submit": {"intake-attachments"},
-        "stop": {"report-dashboard-status", "intake-attachments"},
+        "stop": {"report-dashboard-status", "intake-attachments", "require-records"},
         "post_tool_use": {"record-image-observation", "record-vision-tool-event"},
     }
     for event, names in expected.items():
         actual = {hook["name"] for group in hooks[event] for hook in group["hooks"]}
         assert actual == names
+    stop_names = [hook["name"] for group in hooks["stop"] for hook in group["hooks"]]
+    assert stop_names[0] == "require-records"
     image_group = next(
         group
         for group in hooks["post_tool_use"]

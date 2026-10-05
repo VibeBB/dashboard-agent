@@ -5,12 +5,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from pathlib import Path
 from typing import cast
 
 SKIP_DIRECTORIES = {".git", ".venv", "__pycache__", "node_modules", ".cache"}
 MAX_DEPTH = 5
+REQUEST_ID = re.compile(r"^[a-z0-9][a-z0-9._-]{0,63}$")
 
 
 def _find_reports(root: Path) -> list[Path]:
@@ -38,6 +40,41 @@ def _check_ids(checks: list[object], status: str) -> list[str]:
         if check.get("status") == status:
             found.append(str(check.get("id", "unknown")))
     return found
+
+
+def _find_open_ux_requests(root: Path) -> list[str]:
+    pending: list[str] = []
+    for current, directories, files in os.walk(root):
+        directory = Path(current)
+        try:
+            depth = len(directory.relative_to(root).parts)
+        except ValueError:
+            continue
+        if depth >= MAX_DEPTH:
+            directories.clear()
+        else:
+            directories[:] = sorted(name for name in directories if name not in SKIP_DIRECTORIES)
+        for name in files:
+            if directory.name != "liaison" or not name.endswith(".ux-request.json"):
+                continue
+            path = directory / name
+            try:
+                value = json.loads(path.read_text(encoding="utf-8"))
+            except (OSError, UnicodeError, json.JSONDecodeError):
+                continue
+            if not isinstance(value, dict):
+                continue
+            request = cast(dict[str, object], value)
+            request_id = request.get("id")
+            if (
+                request.get("target_agent") == "dashboard"
+                and isinstance(request_id, str)
+                and REQUEST_ID.fullmatch(request_id)
+                and path.name == f"{request_id}.ux-request.json"
+                and not (path.parent / f"{request_id}.ux-response.json").exists()
+            ):
+                pending.append(request_id)
+    return sorted(set(pending))
 
 
 def main() -> int:
@@ -69,6 +106,13 @@ def main() -> int:
             unknown = _check_ids(checks, "unknown")
             if unknown:
                 lines.append(f"Unknown dashboard gates: {', '.join(unknown)}")
+        pending_ux = _find_open_ux_requests(root)
+        if pending_ux:
+            count = len(pending_ux)
+            lines.append(
+                f"{count} UX request(s) awaiting a dashboard response: "
+                f"{', '.join(pending_ux)} — run dashboard_ux_inbox"
+            )
         context = "\n".join(lines) if lines else f"No dashboard reports found under {root}."
         print(json.dumps({"decision": "allow", "additionalContext": context}))
         return 0

@@ -8,7 +8,13 @@ import {
   registerInjectedTauriBackends,
   type TauriBleDevice,
 } from "./transports/tauri.ts";
-import { element as make, renderTelemetry as updateTelemetry, setControlsEnabled } from "./ui.ts";
+import {
+  element as make,
+  formatFieldLabel,
+  formatFieldValue,
+  renderTelemetry as updateTelemetry,
+  setControlsEnabled,
+} from "./ui.ts";
 import { registerWebMcp } from "./webmcp.ts";
 
 registerInjectedTauriBackends();
@@ -59,6 +65,15 @@ type PickerState = {
   scanController: AbortController | null;
 };
 const pickerStates = new Map<string, PickerState>();
+const transportLabels: Record<TransportConfig["kind"], string> = {
+  web_bluetooth: "Web Bluetooth",
+  webusb: "WebUSB",
+  web_serial: "Web Serial",
+  websocket: "WebSocket",
+  webrtc: "WebRTC",
+  tauri_ble: "Tauri Bluetooth",
+  tauri_serial: "Tauri Serial",
+};
 
 function pickerState(transportId: string): PickerState {
   let state = pickerStates.get(transportId);
@@ -67,6 +82,10 @@ function pickerState(transportId: string): PickerState {
     pickerStates.set(transportId, state);
   }
   return state;
+}
+
+function transportLabel(transport: TransportConfig): string {
+  return transportLabels[transport.kind];
 }
 
 function waitForScanWindow(timeout: number, signal: AbortSignal): Promise<void> {
@@ -114,7 +133,7 @@ function renderTauriPicker(
   placeholder.value = "";
   placeholder.disabled = true;
   select.append(placeholder);
-  const connect = make("button", `Connect via ${transport.kind.replaceAll("_", " ")}`);
+  const connect = make("button", `Connect via ${transportLabel(transport)}`);
   connect.type = "button";
   connect.dataset.transport = transport.id;
   connect.disabled = disabled || !state.selected;
@@ -229,7 +248,7 @@ function renderConnection(): void {
       renderTauriPicker(transport, disabled);
       continue;
     }
-    const label = transport.kind.replaceAll("_", " ");
+    const label = transportLabel(transport);
     const connect = make("button", `Connect via ${label} (${route.browser})`);
     connect.type = "button";
     connect.dataset.transport = transport.id;
@@ -250,13 +269,16 @@ function renderConnection(): void {
     connectionPanel.append(connect);
   }
   if (selection.unavailable.length) {
+    const heading = make("h2", "Not available in this browser");
+    heading.id = "unavailable-routes-heading";
     const list = make("ul");
-    list.setAttribute("aria-label", "Unavailable routes");
+    list.setAttribute("aria-labelledby", heading.id);
     for (const route of selection.unavailable) {
-      const label = route.transport.replaceAll("-", " ").replaceAll("_", " ");
+      const transport = config.contract.transports.find((item) => item.id === route.transport);
+      const label = transport ? transportLabel(transport) : "Unknown transport";
       list.append(make("li", `${label} (${route.browser}): ${route.reason}`));
     }
-    connectionPanel.append(list);
+    connectionPanel.append(heading, list);
   }
   const disconnect = make("button", "Disconnect");
   disconnect.type = "button";
@@ -273,20 +295,30 @@ function renderConnection(): void {
 function renderWidgets(): void {
   widgetsRoot.replaceChildren();
   for (const widget of config.contract.widgets) {
-    const card = make("article", undefined, "widget");
+    const card = make("article", undefined, widget.hazard ? "widget hazard" : "widget");
     card.setAttribute("aria-label", widget.label);
     card.append(make("h2", widget.label));
+    if (widget.hazard) {
+      card.append(
+        make(
+          "p",
+          widget.confirm ? "Hazardous — asks for confirmation" : "Hazardous",
+          "hazard-badge",
+        ),
+      );
+    }
     if (["value", "gauge", "chart", "indicator"].includes(widget.kind)) {
       const value = make("output", "—");
       const [messageName, fieldName] = widget.source?.split(".", 2) ?? ["", ""];
       value.dataset.message = messageName;
       value.dataset.field = fieldName;
+      const fieldConfig = config.contract.protocol.messages
+        .find((item) => item.name === messageName)
+        ?.fields.find((item) => item.name === fieldName);
+      value.dataset.unit = fieldConfig?.unit ?? "";
       value.setAttribute("aria-live", "polite");
       if (widget.kind === "gauge") {
         const gauge = make("meter");
-        const fieldConfig = config.contract.protocol.messages
-          .find((item) => item.name === messageName)
-          ?.fields.find((item) => item.name === fieldName);
         gauge.min = fieldConfig?.min ?? 0;
         gauge.max = fieldConfig?.max ?? 100;
         gauge.value = gauge.min;
@@ -310,20 +342,35 @@ function renderWidgets(): void {
       }
       const controls = new Map<string, HTMLInputElement>();
       for (const field of command.fields) {
-        const label = make("label", field.name);
+        const fieldLabel = formatFieldLabel(field.name, field.unit);
+        const control = make("div", undefined, widget.kind === "slider" ? "control range-control" : "control");
+        const label = make("label", fieldLabel);
         const input = make("input");
+        input.id = `${widget.id}-${field.name}`;
+        label.htmlFor = input.id;
         input.name = field.name;
         input.type = field.type === "bool" ? "checkbox" : widget.kind === "slider" ? "range" : "number";
         input.dataset.field = field.name;
         if (field.min !== null && field.min !== undefined) input.min = String(field.min);
         if (field.max !== null && field.max !== undefined) input.max = String(field.max);
         if (input.type === "range" && field.scale > 0) input.step = String(field.scale);
-        label.append(input);
-        card.append(label);
+        control.append(label, input);
+        if (input.type === "range") {
+          const output = make("output", formatFieldValue(input.value, field.unit), "range-value");
+          output.dataset.controlField = field.name;
+          output.setAttribute("aria-live", "polite");
+          output.setAttribute("aria-label", `${fieldLabel} current value`);
+          input.addEventListener("input", () => {
+            output.value = formatFieldValue(input.value, field.unit);
+          });
+          control.append(output);
+        }
+        card.append(control);
         controls.set(field.name, input);
       }
       const send = make("button", widget.kind === "toggle" ? "Apply" : "Send");
       send.type = "button";
+      if (widget.hazard) send.classList.add("hazard");
       send.disabled = session.state !== "connected";
       send.addEventListener("click", async () => {
         const values: Record<string, number | boolean> = {};

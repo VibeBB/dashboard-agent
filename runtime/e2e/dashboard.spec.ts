@@ -39,6 +39,11 @@ const sampleFrame = encodeMessage(sample, { voltage_mv: 12000, current_ua: 50000
 async function openKettle(page: Page): Promise<void> {
   await page.goto("/smart-kettle/out/smart-kettle/");
   await expect(page.locator("#diagnostics")).toContainText('"platform": "linux"');
+  await expect(page.getByRole("heading", { name: "Not available in this browser" })).toBeVisible();
+  await expect(page.locator("#connection-panel")).toContainText("Connect via Web Serial (chrome)");
+  const unavailable = page.locator("#connection-panel ul[aria-labelledby='unavailable-routes-heading']");
+  await expect(unavailable).toContainText("Tauri Bluetooth (tauri): Declared for tauri, not chrome.");
+  await expect(unavailable).not.toContainText("kettle-tauri-ble");
 }
 
 async function connectVia(page: Page, config: DashboardConfig, kind: string): Promise<void> {
@@ -112,16 +117,30 @@ test("mock Web Serial exchanges telemetry, commands, ACKs, and hazard confirmati
   await openKettle(page);
   await connectVia(page, kettle, "web_serial");
   await expect(page.locator(".connection-state")).toContainText("connected");
-  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5");
+  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5 °C");
+  await expect(page.locator("output[data-message='status'][data-field='target_temp_c']")).toHaveText("60 °C");
 
   const target = page.locator(".widget").filter({ hasText: "Set target" });
-  await target.locator("input[name='target_temp_c']").fill("60");
+  await expect(target).not.toHaveClass(/hazard/);
+  const targetInput = target.getByLabel("target temp c (°C)", { exact: true });
+  const targetField = setTarget.fields.find((field) => field.name === "target_temp_c")!;
+  if (targetField.min !== null && targetField.min !== undefined) {
+    await expect(targetInput).toHaveAttribute("min", String(targetField.min));
+  }
+  if (targetField.max !== null && targetField.max !== undefined) {
+    await expect(targetInput).toHaveAttribute("max", String(targetField.max));
+  }
+  await targetInput.fill("60");
+  await expect(target.locator("output[data-control-field='target_temp_c']")).toHaveText("60 °C");
   await target.getByRole("button", { name: "Send" }).click();
   await expect.poll(() => page.evaluate(() => window.__serialWrites.length)).toBe(1);
   const command = decodeFrame(Uint8Array.from(await page.evaluate(() => window.__serialWrites[0]!)), kettle.contract.protocol.messages);
   expect(command).toMatchObject({ id: setTarget.id, values: { target_temp_c: 60 } });
 
   const start = page.locator(".widget").filter({ hasText: "Start boil" });
+  await expect(start).toHaveClass(/hazard/);
+  await expect(start.locator("button")).toHaveClass(/hazard/);
+  await expect(start.getByText("Hazardous — asks for confirmation")).toBeVisible();
   page.once("dialog", (dialog) => dialog.dismiss());
   await start.getByRole("button", { name: "Send" }).click();
   await expect(page.getByRole("alert")).toContainText("cancelled");
@@ -146,7 +165,7 @@ test("WebSocket carries telemetry and ACKs host commands", async ({ page }) => {
   await openKettle(page);
   await connectVia(page, kettle, "websocket");
   await expect(page.locator(".connection-state")).toContainText("connected");
-  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5");
+  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5 °C");
   const target = page.locator(".widget").filter({ hasText: "Set target" });
   await target.locator("input[name='target_temp_c']").fill("60");
   await target.getByRole("button", { name: "Send" }).click();
@@ -205,7 +224,7 @@ test("mock Web Bluetooth exchanges telemetry and a framed command", async ({ pag
   await openKettle(page);
   await connectVia(page, kettle, "web_bluetooth");
   await expect(page.locator(".connection-state")).toContainText("connected");
-  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5");
+  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5 °C");
   const target = page.locator(".widget").filter({ hasText: "Set target" });
   await target.locator("input[name='target_temp_c']").fill("60");
   await target.getByRole("button", { name: "Send" }).click();
@@ -252,9 +271,32 @@ test("mock WebUSB reads bench telemetry and writes a control frame", async ({ pa
   await page.goto("/bench-meter/out/bench-meter/");
   await connectVia(page, bench, "webusb");
   await expect(page.locator(".connection-state")).toContainText("connected");
-  await expect(page.locator("output[data-message='sample'][data-field='voltage_mv']")).toHaveText("12000");
+  const voltageField = sample.fields.find((field) => field.name === "voltage_mv")!;
+  await expect(page.locator("output[data-message='sample'][data-field='voltage_mv']")).toHaveText(
+    voltageField.unit ? `12000 ${voltageField.unit}` : "12000",
+  );
+  const temperatureOutput = page.locator("output[data-message='sample'][data-field='temperature_c']");
+  if (await temperatureOutput.count()) {
+    const temperatureField = sample.fields.find((field) => field.name === "temperature_c")!;
+    const renderedTemperature = (await temperatureOutput.textContent() ?? "").replace(
+      temperatureField.unit ? ` ${temperatureField.unit}` : "",
+      "",
+    );
+    expect(Number(renderedTemperature)).toBeCloseTo(23.4, 5);
+    if (temperatureField.unit) {
+      await expect(temperatureOutput).toContainText(` ${temperatureField.unit}`);
+    }
+  }
   const range = page.locator(".widget").filter({ hasText: "Set range" });
-  await range.locator("input[name='range']").fill("2");
+  const rangeInput = range.locator("input[name='range']");
+  const rangeField = setRange.fields.find((field) => field.name === "range")!;
+  if (rangeField.min !== null && rangeField.min !== undefined) {
+    await expect(rangeInput).toHaveAttribute("min", String(rangeField.min));
+  }
+  if (rangeField.max !== null && rangeField.max !== undefined) {
+    await expect(rangeInput).toHaveAttribute("max", String(rangeField.max));
+  }
+  await rangeInput.fill("2");
   await range.getByRole("button", { name: "Send" }).click();
   await expect.poll(() => page.evaluate(() => window.__usbWrites.length)).toBe(1);
   expect(setRange.id).toBeGreaterThan(0);
@@ -450,7 +492,11 @@ test("two browser pages establish a real WebRTC DataChannel through a signaling 
   await expect(host.locator(".connection-state")).toContainText("connected", { timeout: 30_000 });
   // The channel reports "connected" before the first decoded sample reaches
   // the widget, so the telemetry read needs the same headroom.
-  await expect(host.locator("output[data-message='sample'][data-field='voltage_mv']")).toHaveText("12000", { timeout: 30_000 });
+  const voltageField = sample.fields.find((field) => field.name === "voltage_mv")!;
+  await expect(host.locator("output[data-message='sample'][data-field='voltage_mv']")).toHaveText(
+    voltageField.unit ? `12000 ${voltageField.unit}` : "12000",
+    { timeout: 30_000 },
+  );
   const range = host.locator(".widget").filter({ hasText: "Set range" });
   await range.locator("input[name='range']").fill("2");
   await range.getByRole("button", { name: "Send" }).click();
