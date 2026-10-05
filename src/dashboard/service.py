@@ -13,6 +13,7 @@ from .contract import load_contract
 from .gates import FAIL, PASS, generated_freshness, run_gates
 from .generate import generate
 from .interchange import sha256_file
+from .liaison import ux_inbox, ux_respond
 from .matrix import CAVEATS, SUPPORT
 from .protocol import protocol_export
 from .records import RECORDERS, records_summary
@@ -194,6 +195,7 @@ def request_payload(
     change: str,
     rationale: str,
     failing_checks: list[str],
+    decision_refs: list[str],
 ) -> Json:
     try:
         contract = load_contract(contract_path)
@@ -206,6 +208,7 @@ def request_payload(
             change=change,
             rationale=rationale,
             failing_checks=failing_checks,
+            decision_refs=decision_refs,
         )
     except (OSError, ValueError, ValidationError) as exc:
         return {"verdict": FAIL, "stage": "request", "detail": str(exc)}
@@ -214,6 +217,14 @@ def request_payload(
     payload["written"] = [str(path)]
     payload["contract_sha256"] = sha256_file(contract_path)
     return payload
+
+
+def ux_inbox_payload(liaison_dir: Path | None = None) -> Json:
+    return ux_inbox(liaison_dir=liaison_dir)
+
+
+def ux_respond_payload(payload: Mapping[str, object]) -> Json:
+    return ux_respond(payload)
 
 
 def record_payload(kind: str, payload: Mapping[str, object]) -> Json:

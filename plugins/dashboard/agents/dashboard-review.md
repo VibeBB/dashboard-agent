@@ -94,3 +94,7 @@ legibility. Use checklist slugs `dashboard-desktop`, `dashboard-mobile`,
 write at least 400 characters and three sentences. Records are advisory;
 deterministic gates remain authoritative. `dashboard_records_status` shows
 what is still owed.
+
+UX liaison (SLP v2) requests belong to `dashboard-architect`; follow
+`dashboard-sibling-cooperation`, re-read stale inputs, and never edit response
+files by hand.

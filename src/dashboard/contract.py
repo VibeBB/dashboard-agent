@@ -254,7 +254,18 @@ class WasmConfig(StrictModel):
 
 
 class ImportRef(StrictModel):
-    from_system: Literal["firmware", "circuit", "ux-creator", "mech", "wire", "bard"]
+    from_system: Literal[
+        "firmware",
+        "circuit",
+        "ux-creator",
+        "mech",
+        "wire",
+        "bard",
+        "fpga",
+        "sim",
+        "prodeng",
+        "doc",
+    ]
     path: str = Field(min_length=1)
     sha256: str = Field(pattern=SHA256)
 

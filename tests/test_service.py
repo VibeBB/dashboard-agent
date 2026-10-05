@@ -6,7 +6,7 @@ from typing import cast
 from pytest import MonkeyPatch
 
 from dashboard import screenshots, service, servo
-from dashboard.contract import load_contract
+from dashboard.contract import DashboardContract, load_contract
 from dashboard.gates import Check, GateReport
 from dashboard.interchange import sha256_file
 from dashboard.service import matrix_payload, screenshot_payload, validate_payload
@@ -73,12 +73,14 @@ def test_image_payloads_bind_images_to_vision_reviews(
     for index, image in enumerate(images):
         image.write_bytes(f"image-{index}".encode())
 
-    monkeypatch.setattr(service, "load_contract", lambda _path: contract)
-    monkeypatch.setattr(service, "generated_freshness", lambda _contract, _generated: [])
-    monkeypatch.setattr(
-        service,
-        "capture",
-        lambda _generated, _out: screenshots.CaptureResult(
+    def fake_load_contract(_path: Path) -> DashboardContract:
+        return contract
+
+    def fake_generated_freshness(_path: Path, _generated: Path) -> list[str]:
+        return []
+
+    def fake_capture(_generated: Path, _out: Path) -> screenshots.CaptureResult:
+        return screenshots.CaptureResult(
             ok=True,
             detail="captured",
             images=[
@@ -92,12 +94,10 @@ def test_image_payloads_bind_images_to_vision_reviews(
                 )
                 for image in images[:2]
             ],
-        ),
-    )
-    monkeypatch.setattr(
-        service,
-        "run_gates",
-        lambda _contract_path, _out, *, full: GateReport(
+        )
+
+    def fake_run_gates(_contract_path: Path, _out: Path, *, full: bool) -> GateReport:
+        return GateReport(
             design=contract.name,
             scope="full" if full else "static",
             contract_sha256="a" * 64,
@@ -110,18 +110,24 @@ def test_image_payloads_bind_images_to_vision_reviews(
                     evidence=[str(servo_image), str(other)],
                 ),
             ],
-        ),
-    )
-    monkeypatch.setattr(service, "write_outputs", lambda _report, _out: [])
-    monkeypatch.setattr(
-        servo,
-        "smoke",
-        lambda _generated: SmokeResult(
+        )
+
+    def fake_write_outputs(_report: GateReport, _out: Path) -> list[Path]:
+        return []
+
+    def fake_smoke(_generated: Path) -> SmokeResult:
+        return SmokeResult(
             ok=True,
             detail="Servo rendered",
             screenshot=servo_image,
-        ),
-    )
+        )
+
+    monkeypatch.setattr(service, "load_contract", fake_load_contract)
+    monkeypatch.setattr(service, "generated_freshness", fake_generated_freshness)
+    monkeypatch.setattr(service, "capture", fake_capture)
+    monkeypatch.setattr(service, "run_gates", fake_run_gates)
+    monkeypatch.setattr(service, "write_outputs", fake_write_outputs)
+    monkeypatch.setattr(servo, "smoke", fake_smoke)
 
     screenshot = screenshot_payload(contract_path, tmp_path / "out")
     gates_payload = service.gates_payload(contract_path, tmp_path / "out", full=True)

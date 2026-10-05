@@ -91,3 +91,13 @@ legibility. Use checklist slugs `dashboard-desktop`, `dashboard-mobile`,
 write at least 400 characters and three sentences. Records are advisory;
 deterministic gates remain authoritative. `dashboard_records_status` shows
 what is still owed.
+
+## UX liaison (SLP v2)
+
+At session start, call `dashboard_ux_inbox` and answer every dashboard-targeted
+request through `dashboard_ux_respond` only: record `accepted`, then
+`in_progress`, then `done`, `needs_info`, `rejected`, or `deferred` as
+appropriate. For `done`, cite VRP decision and impression `event_id` values
+and attach the passing full gate report. Ask user-facing questions through
+`questions_for_user`. Re-read current inputs before answering stale requests;
+never edit a `.ux-response.json` file by hand.

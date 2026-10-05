@@ -28,12 +28,32 @@ def _parser() -> argparse.ArgumentParser:
         command.add_argument("--out", type=Path)
     request = sub.add_parser("request")
     request.add_argument("contract", type=Path)
-    request.add_argument("--target", required=True)
+    request.add_argument(
+        "--target",
+        choices=(
+            "bard",
+            "circuit",
+            "doc",
+            "firmware",
+            "fpga",
+            "mech",
+            "prodeng",
+            "sim",
+            "wire",
+            "ux-creator",
+        ),
+        required=True,
+    )
     request.add_argument("--risk", choices=("low", "high"), required=True)
     request.add_argument("--change", required=True)
     request.add_argument("--rationale", required=True)
     request.add_argument("--failing-check", action="append", default=[])
+    request.add_argument("--decision-ref", action="append", default=[])
     request.add_argument("--out", type=Path)
+    inbox = sub.add_parser("ux-inbox")
+    inbox.add_argument("--liaison-dir", type=Path)
+    respond = sub.add_parser("ux-respond")
+    respond.add_argument("--json", type=Path, required=True)
     record = sub.add_parser("record")
     record.add_argument(
         "kind",
@@ -51,6 +71,16 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _emit(service.matrix_payload())
     if args.command == "validate":
         return _emit(service.validate_payload(args.contract))
+    if args.command == "ux-inbox":
+        return _emit(service.ux_inbox_payload(args.liaison_dir))
+    if args.command == "ux-respond":
+        try:
+            value: object = json.loads(args.json.read_text(encoding="utf-8"))
+            if not isinstance(value, dict):
+                raise ValueError("UX response JSON must be an object")
+            return _emit(service.ux_respond_payload(cast(dict[str, object], value)))
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return _emit({"verdict": "fail", "stage": "ux-respond", "detail": str(exc)})
     if args.command == "record":
         if args.kind == "status":
             return _emit(service.records_status_payload())
@@ -88,6 +118,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             change=args.change,
             rationale=args.rationale,
             failing_checks=args.failing_check,
+            decision_refs=args.decision_ref,
         )
     )
 

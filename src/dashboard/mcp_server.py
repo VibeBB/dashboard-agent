@@ -17,6 +17,7 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
 from . import __version__, service
+from .liaison import UxRespondInput
 from .records import DecisionInput, StageImpressionInput, VisionReviewInput
 from .workspace import workspace_path
 
@@ -84,14 +85,39 @@ TOOLS: dict[str, tuple[str, dict[str, object], bool]] = {
             {
                 **_CONTRACT,
                 **_OUT,
-                "target": {"type": "string"},
+                "target": {
+                    "type": "string",
+                    "enum": [
+                        "bard",
+                        "circuit",
+                        "doc",
+                        "firmware",
+                        "fpga",
+                        "mech",
+                        "prodeng",
+                        "sim",
+                        "wire",
+                        "ux-creator",
+                    ],
+                },
                 "risk": {"type": "string", "enum": ["low", "high"]},
                 "change": {"type": "string"},
                 "rationale": {"type": "string"},
                 "failing_checks": _STRINGS,
+                "decision_refs": _STRINGS,
             },
             ["contract_path", "target", "risk", "change", "rationale"],
         ),
+        False,
+    ),
+    "dashboard_ux_inbox": (
+        "List dashboard-targeted UX liaison requests and their current states",
+        _schema({"liaison_dir": {"type": "string"}}, []),
+        True,
+    ),
+    "dashboard_ux_respond": (
+        "Write a validated dashboard response to a UX liaison request",
+        UxRespondInput.model_json_schema(),
         False,
     ),
     "dashboard_record_decision": (
@@ -201,7 +227,10 @@ def dispatch(name: str, arguments: dict[str, object]) -> service.Json:
             change=_string(arguments, "change"),
             rationale=_string(arguments, "rationale"),
             failing_checks=_strings(arguments, "failing_checks"),
+            decision_refs=_strings(arguments, "decision_refs"),
         ),
+        "dashboard_ux_inbox": lambda: service.ux_inbox_payload(_path(arguments, "liaison_dir")),
+        "dashboard_ux_respond": lambda: service.ux_respond_payload(arguments),
         "dashboard_record_decision": lambda: service.record_payload("decision", arguments),
         "dashboard_record_impression": lambda: service.record_payload("impression", arguments),
         "dashboard_record_vision_review": lambda: service.record_payload(

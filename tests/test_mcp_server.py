@@ -97,25 +97,24 @@ def test_record_tools_use_input_schemas_and_return_text_only(
         "dashboard_record_vision_review",
     ):
         assert "properties" in specs[name].inputSchema
-        assert specs[name].annotations is not None
-        assert specs[name].annotations.readOnlyHint is False
+        annotations = specs[name].annotations
+        assert annotations is not None
+        assert annotations.readOnlyHint is False
 
-    monkeypatch.setattr(
-        service,
-        "record_payload",
-        lambda _kind, _arguments: {"verdict": "fail", "stage": "record", "detail": "invalid"},
-    )
+    def invalid_record(_kind: str, _arguments: dict[str, object]) -> service.Json:
+        return {"verdict": "fail", "stage": "record", "detail": "invalid"}
+
+    monkeypatch.setattr(service, "record_payload", invalid_record)
     invalid = asyncio.run(_call_tool("dashboard_record_decision", {}))
     assert invalid.isError is False
     assert _result_payload(invalid)["detail"] == "invalid"
 
 
 def test_records_status_is_read_only_text_only(monkeypatch: MonkeyPatch) -> None:
-    monkeypatch.setattr(
-        service,
-        "records_status_payload",
-        lambda: {"verdict": "pass", "counts": {}},
-    )
+    def records_status() -> service.Json:
+        return {"verdict": "pass", "counts": {}}
+
+    monkeypatch.setattr(service, "records_status_payload", records_status)
 
     result = asyncio.run(_call_tool("dashboard_records_status", {}))
     tool = next(tool for tool in mcp_server.tool_specs() if tool.name == "dashboard_records_status")

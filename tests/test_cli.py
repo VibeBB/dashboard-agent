@@ -52,11 +52,10 @@ def test_record_status_routes_to_service(
     monkeypatch: MonkeyPatch,
     capsys: CaptureFixture[str],
 ) -> None:
-    monkeypatch.setattr(
-        service,
-        "records_status_payload",
-        lambda: {"verdict": "pass", "stage": "record", "counts": {}},
-    )
+    def records_status() -> service.Json:
+        return {"verdict": "pass", "stage": "record", "counts": {}}
+
+    monkeypatch.setattr(service, "records_status_payload", records_status)
 
     assert cli.main(["record", "status"]) == 0
     assert json.loads(capsys.readouterr().out) == {
