@@ -322,7 +322,9 @@ def test_default_docker_without_image_fails_closed(
     assert not commands
     error = capsys.readouterr().err
     assert "no image resolved from DASHBOARD_TOOLS_IMAGE" in error
-    assert "DASHBOARD_LAUNCH_MODE=host" in error
+    assert "configure a dashboard tools image" in error
+    assert "dashboard_launcher.py prewarm" in error
+    assert "DASHBOARD_LAUNCH_MODE=host" not in error
 
 
 def test_default_docker_without_binary_fails_closed(
@@ -337,7 +339,9 @@ def test_default_docker_without_binary_fails_closed(
     assert not commands
     error = capsys.readouterr().err
     assert "docker is not on PATH" in error
-    assert "DASHBOARD_LAUNCH_MODE=host" in error
+    assert "install Docker" in error
+    assert "dashboard_launcher.py prewarm" in error
+    assert "DASHBOARD_LAUNCH_MODE=host" not in error
 
 
 def test_default_docker_warn_emits_existing_json(
@@ -354,13 +358,14 @@ def test_default_docker_warn_emits_existing_json(
     warning = json.loads(captured.out)
     assert warning["verdict"] == "fail"
     assert "no image resolved from DASHBOARD_TOOLS_IMAGE" in warning["detail"]
-    assert "DASHBOARD_LAUNCH_MODE=host" in warning["detail"]
+    assert "dashboard_launcher.py prewarm" in warning["detail"]
     assert captured.err.startswith("warn:")
 
 
 def test_host_mode_runs_on_host_when_image_exists(monkeypatch: MonkeyPatch) -> None:
     _clear_launch_environment(monkeypatch)
     monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "host")
+    monkeypatch.setenv("DASHBOARD_SRC", str(ROOT / "src"))
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
     monkeypatch.setattr(launcher, "image_pin", _test_image)
     commands = _capture_subprocess(monkeypatch, returncode=17)
@@ -369,29 +374,59 @@ def test_host_mode_runs_on_host_when_image_exists(monkeypatch: MonkeyPatch) -> N
     assert commands == [[sys.executable, "-m", "dashboard", "doctor"]]
 
 
-def test_auto_mode_without_image_falls_back_to_host(monkeypatch: MonkeyPatch) -> None:
+def test_host_mode_requires_explicit_source(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
     _clear_launch_environment(monkeypatch)
-    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "auto")
+    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "host")
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
-    monkeypatch.setattr(launcher, "image_pin", _no_image)
+    monkeypatch.setattr(launcher, "image_pin", _test_image)
     commands = _capture_subprocess(monkeypatch)
 
-    assert _run_launcher(monkeypatch, "doctor") == 0
-    assert commands == [[sys.executable, "-m", "dashboard", "doctor"]]
+    assert _run_launcher(monkeypatch, "doctor") == 1
+    assert not commands
+    assert "requires DASHBOARD_SRC" in capsys.readouterr().err
+
+
+def test_host_mode_rejects_invalid_explicit_source(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    _clear_launch_environment(monkeypatch)
+    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "host")
+    monkeypatch.setenv("DASHBOARD_SRC", str(tmp_path))
+    monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
+    monkeypatch.setattr(launcher, "image_pin", _test_image)
+    commands = _capture_subprocess(monkeypatch)
+
+    assert _run_launcher(monkeypatch, "doctor") == 1
+    assert not commands
+    assert "does not contain dashboard/__init__.py" in capsys.readouterr().err
 
 
 def test_invalid_mode_exits_two_with_usage(
     monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
 ) -> None:
     _clear_launch_environment(monkeypatch)
-    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "invalid")
+    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "auto")
     commands = _capture_subprocess(monkeypatch)
 
     assert _run_launcher(monkeypatch, "doctor") == 2
     assert not commands
     error = capsys.readouterr().err
     assert "usage:" in error
-    assert "DASHBOARD_LAUNCH_MODE=auto|docker|host" in error
+    assert "DASHBOARD_LAUNCH_MODE=docker|host" in error
+
+
+def test_prewarm_rejects_auto_launch_mode(
+    monkeypatch: MonkeyPatch, capsys: CaptureFixture[str]
+) -> None:
+    _clear_launch_environment(monkeypatch)
+    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "auto")
+
+    assert _run_launcher(monkeypatch, "prewarm") == 2
+    assert "DASHBOARD_LAUNCH_MODE=docker|host" in capsys.readouterr().err
 
 
 def test_default_docker_runs_image_when_available(monkeypatch: MonkeyPatch) -> None:
@@ -411,9 +446,9 @@ def test_default_docker_runs_image_when_available(monkeypatch: MonkeyPatch) -> N
     assert commands[0][-4:] == ["python", "-m", "dashboard", "doctor"]
 
 
-def test_auto_mode_with_image_runs_docker(monkeypatch: MonkeyPatch) -> None:
+def test_explicit_docker_mode_with_image_runs_docker(monkeypatch: MonkeyPatch) -> None:
     _clear_launch_environment(monkeypatch)
-    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "auto")
+    monkeypatch.setenv("DASHBOARD_LAUNCH_MODE", "docker")
     monkeypatch.setattr(launcher.shutil, "which", _docker_on_path)
     monkeypatch.setattr(launcher, "image_pin", _test_image)
     monkeypatch.setattr(

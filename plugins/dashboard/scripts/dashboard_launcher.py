@@ -69,6 +69,18 @@ def resolve_source(plugin_root: Path) -> Path | None:
     return None
 
 
+def _host_source() -> Path:
+    source = os.environ.get("DASHBOARD_SRC")
+    if not source:
+        raise RuntimeError(
+            "DASHBOARD_LAUNCH_MODE=host is developer-only and requires DASHBOARD_SRC"
+        )
+    path = Path(source).expanduser()
+    if not (path / "dashboard" / "__init__.py").is_file():
+        raise RuntimeError(f"DASHBOARD_SRC does not contain dashboard/__init__.py: {path}")
+    return path.resolve()
+
+
 def _lock_ref(lock_path: Path) -> ImagePin | None:
     try:
         data: object = json.loads(lock_path.read_text(encoding="utf-8"))
@@ -341,6 +353,14 @@ def main() -> int:
         return 2
     warn = "--warn" in arguments
     arguments = [argument for argument in arguments if argument != "--warn"]
+    mode = os.environ.get("DASHBOARD_LAUNCH_MODE", "docker")
+    if mode not in {"docker", "host"}:
+        print(
+            f"DASHBOARD_LAUNCH_MODE must be docker or host (got {mode!r}); "
+            "usage: DASHBOARD_LAUNCH_MODE=docker|host",
+            file=sys.stderr,
+        )
+        return 2
     plugin_root = _plugin_root()
     source = resolve_source(plugin_root)
     pin = image_pin(plugin_root)
@@ -357,30 +377,21 @@ def main() -> int:
             ):
                 raise RuntimeError(f"could not pull dashboard tools image {image}")
             return 0
-        mode = os.environ.get("DASHBOARD_LAUNCH_MODE", "docker")
-        if mode not in {"auto", "docker", "host"}:
-            print(
-                f"DASHBOARD_LAUNCH_MODE must be auto, docker, or host (got {mode!r}); "
-                "usage: DASHBOARD_LAUNCH_MODE=auto|docker|host",
-                file=sys.stderr,
-            )
-            return 2
         docker = shutil.which("docker")
-        use_docker = mode == "docker" or (
-            mode == "auto" and docker is not None and image is not None
-        )
-        if use_docker:
+        if mode == "docker":
             if docker is None or image is None:
                 missing: list[str] = []
+                suggestions: list[str] = []
                 if docker is None:
                     missing.append("docker is not on PATH")
+                    suggestions.append("install Docker")
                 if image is None:
                     missing.append(
                         "no image resolved from DASHBOARD_TOOLS_IMAGE or the dashboard image lock"
                     )
-                raise RuntimeError(
-                    f"{'; '.join(missing)}. Set DASHBOARD_LAUNCH_MODE=host to run on the host."
-                )
+                    suggestions.append("configure a dashboard tools image")
+                suggestions.append("run dashboard_launcher.py prewarm")
+                raise RuntimeError(f"{'; '.join(missing)}. {', then '.join(suggestions)}.")
             if pin is None or not _image_ready(
                 pin,
                 pull=False,
@@ -393,8 +404,7 @@ def main() -> int:
             ensure_isolated_network(docker)
             argv = _docker(image, source, _inner_args(arguments, "python"))
         else:
-            if source is None:
-                raise RuntimeError("dashboard source is not installed; set DASHBOARD_SRC")
+            source = _host_source()
             environment = os.environ.copy()
             environment["PYTHONPATH"] = str(source)
             argv = _inner_args(arguments, sys.executable)
