@@ -63,6 +63,24 @@ internal network before each container run. MCP contract and output paths are
 resolved under `OPENHANDS_PROJECT_DIR`; paths outside the workspace or through
 symlink components are rejected.
 
+pytest selects subsets directly for a faster local check — `-k <expr>` or a
+test path:
+
+```bash
+uv run pytest -q tests/test_gates.py
+uv run pytest -q -k contract
+```
+
+Local `dashboard-tools` builds can reuse the CI-warmed registry buildcache; it
+is a public `buildcache` tag, so no GHCR login is needed:
+
+```bash
+docker buildx build --load \
+  -f docker/dashboard-tools.Dockerfile -t dashboard-tools:local \
+  --cache-from type=registry,ref=ghcr.io/vibebb/dashboard-tools:buildcache \
+  .
+```
+
 ## CI and image provenance
 
 Workflow lint runs actionlint and zizmor on workflow changes and during weekly
