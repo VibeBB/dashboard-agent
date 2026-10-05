@@ -8,6 +8,7 @@ tools:
   - grep
   - glob
   - task_tracker
+  - task_tool_set
 mcp_config:
   dashboard:
     command: sh
@@ -54,6 +55,11 @@ Own the `<name>.dash.json` contract. Read `dashboard-workflow`,
    Hazardous commands require a confirmation widget.
 5. Run `dashboard validate` and `dashboard check`; resolve each failed gate
    before handing the contract to `dashboard-developer`.
+
+Delegate implementation to `dashboard-developer` and independent review,
+including vision review, to `dashboard-review` via `task`. Provide each
+sub-agent with the contract and relevant artifacts; sub-agents declare their
+own hooks because architect hooks do not propagate to them.
 
 ## Records you must leave (VibeBB Record Protocol — mandatory, unprompted)
 

@@ -133,9 +133,14 @@ def test_screenshot_tool_is_write_capable_and_inlines_image(
 ) -> None:
     image = tmp_path / "desktop.png"
     image.write_bytes(b"\x89PNG\r\n\x1a\nsmall image")
+    vision_review = [{"image_path": str(image), "sha256": "a" * 64}]
 
     def screenshot(_contract: Path, _out: Path | None) -> service.Json:
-        return {"verdict": "pass", "images": [str(image)]}
+        return {
+            "verdict": "pass",
+            "images": [str(image)],
+            "vision_review": vision_review,
+        }
 
     monkeypatch.setattr(
         service,
@@ -150,6 +155,7 @@ def test_screenshot_tool_is_write_capable_and_inlines_image(
     payload = _result_payload(result)
 
     assert result.isError is False
+    assert payload["vision_review"] == vision_review
     assert payload["inline_images"] == [
         {
             "path": str(image),
@@ -191,7 +197,12 @@ def test_gates_and_smoke_tools_inline_generated_images(
 ) -> None:
     image = tmp_path / "dashboard.png"
     image.write_bytes(b"\x89PNG\r\n\x1a\nimage")
-    payload: service.Json = {"verdict": "pass", "images": [str(image)]}
+    vision_review = [{"image_path": str(image), "sha256": "a" * 64}]
+    payload: service.Json = {
+        "verdict": "pass",
+        "images": [str(image)],
+        "vision_review": vision_review,
+    }
 
     def gates(
         _contract: Path,
@@ -217,6 +228,7 @@ def test_gates_and_smoke_tools_inline_generated_images(
             _result_payload(result)["inline_images"],
         )
         assert inline_images[0]["attached"] is True
+        assert _result_payload(result)["vision_review"] == vision_review
 
 
 def test_workspace_path_accepts_relative_and_absolute_inside_paths(
