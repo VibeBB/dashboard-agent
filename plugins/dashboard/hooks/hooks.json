@@ -17,6 +17,11 @@
           "type": "command",
           "name": "ensure-llm-profiles",
           "command": "p=$(for c in \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\"; do [ -f \"$c/hooks/scripts/ensure_llm_profiles.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/ensure_llm_profiles.py\""
+        },
+        {
+          "type": "command",
+          "name": "require-records",
+          "command": "p=$(for c in \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\"; do [ -f \"$c/hooks/scripts/require_records.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/require_records.py\" session-start"
         }
       ]
     }
@@ -59,6 +64,11 @@
     {
       "matcher": "*",
       "hooks": [
+        {
+          "type": "command",
+          "name": "require-records",
+          "command": "p=$(for c in \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\"; do [ -f \"$c/hooks/scripts/require_records.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/require_records.py\" stop"
+        },
         {
           "type": "command",
           "name": "intake-attachments",

@@ -24,8 +24,17 @@ EXPECTED: dict[str, str] = {
     "ensure_llm_profiles.py": _EXPECTED_ENSURE_LLM_PROFILES_NORMALIZED_AST_SHA256,
     "_provenance.py": _EXPECTED_PROVENANCE_NORMALIZED_AST_SHA256,
     "safety_rail.py": _EXPECTED_SAFETY_RAIL_NORMALIZED_AST_SHA256,
+    "_records.py": "f793baeb1f3194b3e519ddc86c01928439a84a5531925303593b11dc473b65ad",
+    "require_records.py": "f16ef9a9e8a53a3228d386246bb81564bb94ccf7cbfe4ac694f1ff03098680cf",
 }
-REQUIRED = frozenset({"ensure_llm_profiles.py", "safety_rail.py"})
+REQUIRED = frozenset(
+    {
+        "ensure_llm_profiles.py",
+        "safety_rail.py",
+        "_records.py",
+        "require_records.py",
+    }
+)
 _DOCSTRING_NODE_TYPES = (
     ast.Module,
     ast.ClassDef,

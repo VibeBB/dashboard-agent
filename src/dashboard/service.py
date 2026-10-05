@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -14,6 +15,7 @@ from .generate import generate
 from .interchange import sha256_file
 from .matrix import CAVEATS, SUPPORT
 from .protocol import protocol_export
+from .records import RECORDERS, records_summary
 from .report import write_outputs
 from .requests import write_request
 from .screenshots import capture
@@ -178,3 +180,20 @@ def request_payload(
     payload["written"] = [str(path)]
     payload["contract_sha256"] = sha256_file(contract_path)
     return payload
+
+
+def record_payload(kind: str, payload: Mapping[str, object]) -> Json:
+    recorder = RECORDERS.get(kind)
+    if recorder is None:
+        return {"verdict": FAIL, "stage": "record", "detail": f"unknown record kind {kind}"}
+    try:
+        return {"stage": "record", **recorder(payload)}
+    except (OSError, ValueError, ValidationError) as exc:
+        return {"verdict": FAIL, "stage": "record", "detail": str(exc)}
+
+
+def records_status_payload() -> Json:
+    try:
+        return records_summary()
+    except (OSError, ValueError, ValidationError) as exc:
+        return {"verdict": FAIL, "stage": "record", "detail": str(exc)}

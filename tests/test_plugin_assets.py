@@ -61,10 +61,23 @@ def test_generated_artifacts_are_protected() -> None:
         "examples/kettle/kettle.dash-report.json",
         "observations/dashboard/image-observations.jsonl",
         "observations/dashboard/vision-tool-events.jsonl",
+        "observations/dashboard/decisions.jsonl",
+        "observations/dashboard/impressions.jsonl",
+        "observations/dashboard/vision-reviews.jsonl",
+        "observations/dashboard/records-status.json",
+        "liaison/example.ux-response.json",
         "intake/attachments/manifest.jsonl",
     ):
         assert is_protected(path)
     assert not is_protected("examples/smart-kettle/smart-kettle.dash.json")
+    assert not is_protected("observations/wire/records-status.json")
+    assert not is_protected("other/example.ux-response.json")
+
+
+def test_liaison_responses_are_protected_only_in_liaison_directories() -> None:
+    assert is_protected("liaison/request-id.ux-response.json")
+    assert is_protected("nested/liaison/request-id.ux-response.json")
+    assert not is_protected("requests/request-id.ux-response.json")
 
 
 def test_tauri_generated_platform_projects_are_user_owned() -> None:

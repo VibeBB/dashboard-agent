@@ -17,6 +17,7 @@ from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
 from . import __version__, service
+from .records import DecisionInput, StageImpressionInput, VisionReviewInput
 from .workspace import workspace_path
 
 server: Server = Server(f"dashboard-mcp/{__version__}")
@@ -92,6 +93,26 @@ TOOLS: dict[str, tuple[str, dict[str, object], bool]] = {
             ["contract_path", "target", "risk", "change", "rationale"],
         ),
         False,
+    ),
+    "dashboard_record_decision": (
+        "Record a principled dashboard design decision with evidence and risks",
+        DecisionInput.model_json_schema(),
+        False,
+    ),
+    "dashboard_record_impression": (
+        "Record a long-form stage impression bound to dashboard artifacts",
+        StageImpressionInput.model_json_schema(),
+        False,
+    ),
+    "dashboard_record_vision_review": (
+        "Record an advisory review bound to a dashboard image or vision event",
+        VisionReviewInput.model_json_schema(),
+        False,
+    ),
+    "dashboard_records_status": (
+        "Show dashboard record counts and the last Stop-hook verdict",
+        _schema({}, []),
+        True,
     ),
 }
 
@@ -181,6 +202,12 @@ def dispatch(name: str, arguments: dict[str, object]) -> service.Json:
             rationale=_string(arguments, "rationale"),
             failing_checks=_strings(arguments, "failing_checks"),
         ),
+        "dashboard_record_decision": lambda: service.record_payload("decision", arguments),
+        "dashboard_record_impression": lambda: service.record_payload("impression", arguments),
+        "dashboard_record_vision_review": lambda: service.record_payload(
+            "vision-review", arguments
+        ),
+        "dashboard_records_status": service.records_status_payload,
     }
     handler = handlers.get(name)
     if handler is None:

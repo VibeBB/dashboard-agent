@@ -68,6 +68,65 @@ def test_service_failure_verdict_is_not_an_mcp_error(monkeypatch: MonkeyPatch) -
         assert _result_payload(result)["verdict"] == verdict
 
 
+def test_record_tools_use_input_schemas_and_return_text_only(
+    monkeypatch: MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def record(kind: str, arguments: dict[str, object]) -> service.Json:
+        captured.update({"kind": kind, "arguments": arguments})
+        return {"verdict": "pass", "stage": "record", "record": {"event_id": "a" * 64}}
+
+    monkeypatch.setattr(service, "record_payload", record)
+    for name, kind in (
+        ("dashboard_record_decision", "decision"),
+        ("dashboard_record_impression", "impression"),
+        ("dashboard_record_vision_review", "vision-review"),
+    ):
+        result = asyncio.run(_call_tool(name, {"stage": "generate"}))
+
+        assert result.isError is False
+        assert len(result.content) == 1
+        assert isinstance(result.content[0], types.TextContent)
+        assert _result_payload(result)["stage"] == "record"
+        assert captured["kind"] == kind
+    specs = {tool.name: tool for tool in mcp_server.tool_specs()}
+    for name in (
+        "dashboard_record_decision",
+        "dashboard_record_impression",
+        "dashboard_record_vision_review",
+    ):
+        assert "properties" in specs[name].inputSchema
+        assert specs[name].annotations is not None
+        assert specs[name].annotations.readOnlyHint is False
+
+    monkeypatch.setattr(
+        service,
+        "record_payload",
+        lambda _kind, _arguments: {"verdict": "fail", "stage": "record", "detail": "invalid"},
+    )
+    invalid = asyncio.run(_call_tool("dashboard_record_decision", {}))
+    assert invalid.isError is False
+    assert _result_payload(invalid)["detail"] == "invalid"
+
+
+def test_records_status_is_read_only_text_only(monkeypatch: MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        service,
+        "records_status_payload",
+        lambda: {"verdict": "pass", "counts": {}},
+    )
+
+    result = asyncio.run(_call_tool("dashboard_records_status", {}))
+    tool = next(tool for tool in mcp_server.tool_specs() if tool.name == "dashboard_records_status")
+
+    assert result.isError is False
+    assert len(result.content) == 1
+    assert isinstance(result.content[0], types.TextContent)
+    assert tool.annotations is not None
+    assert tool.annotations.readOnlyHint is True
+
+
 def test_screenshot_tool_is_write_capable_and_inlines_image(
     monkeypatch: MonkeyPatch,
     tmp_path: Path,

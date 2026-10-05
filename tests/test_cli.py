@@ -26,3 +26,41 @@ def test_screenshot_command_routes_to_service(
     assert cli.main(["screenshot", str(contract), "--out", str(output)]) == 0
     assert captured == {"contract": contract, "out_dir": output}
     assert json.loads(capsys.readouterr().out) == {"verdict": "pass"}
+
+
+def test_record_command_routes_json_payload_to_service(
+    monkeypatch: MonkeyPatch,
+    tmp_path: Path,
+    capsys: CaptureFixture[str],
+) -> None:
+    record_file = tmp_path / "decision.json"
+    record_file.write_text('{"id":"dashboard-transport"}', encoding="utf-8")
+    captured: dict[str, object] = {}
+
+    def record(kind: str, payload: dict[str, object]) -> service.Json:
+        captured.update({"kind": kind, "payload": payload})
+        return {"verdict": "pass", "stage": "record"}
+
+    monkeypatch.setattr(service, "record_payload", record)
+
+    assert cli.main(["record", "decision", "--json", str(record_file)]) == 0
+    assert captured == {"kind": "decision", "payload": {"id": "dashboard-transport"}}
+    assert json.loads(capsys.readouterr().out) == {"verdict": "pass", "stage": "record"}
+
+
+def test_record_status_routes_to_service(
+    monkeypatch: MonkeyPatch,
+    capsys: CaptureFixture[str],
+) -> None:
+    monkeypatch.setattr(
+        service,
+        "records_status_payload",
+        lambda: {"verdict": "pass", "stage": "record", "counts": {}},
+    )
+
+    assert cli.main(["record", "status"]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "verdict": "pass",
+        "stage": "record",
+        "counts": {},
+    }
