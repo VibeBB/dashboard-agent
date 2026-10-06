@@ -15,6 +15,7 @@
 - [Performance and limits](performance-and-limits.md)
 - [Public function and CLI reference](reference.md)
 - [Development and verification](development.md)
+- [Test coverage and test design](test-coverage.md) — C0/C1/C2/MCC/MC/DC and boundary coverage, floors, test-design techniques
 - [Improvement notes](improvement-notes.md)
 - [Operations and verification policy](operations.md)
 - [Dependency update policy and reports](dependency-updates.md)
@@ -41,3 +42,4 @@
 - [ADR-0011: Docker-only launcher default](adr/ADR-0011-docker-only-launcher-default.md)
 - [ADR-0012: Attest published tools images](adr/ADR-0012-attest-published-tools-images.md)
 - [ADR-0013: VRP v1 records and SLP v2 liaison](adr/ADR-0013-vrp-and-slp-v2.md)
+- [ADR-0014: Structural coverage gate (C0, C1, C2, MC/DC, boundaries)](adr/ADR-0014-structural-coverage.md)

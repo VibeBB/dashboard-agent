@@ -73,7 +73,7 @@ Emscripten, and Servo work.
 uv sync --locked
 uv run ruff check . && uv run ruff format --check .
 uv run pyright
-uv run pytest --cov --cov-report=term-missing:skip-covered
+uv run python scripts/structural_coverage.py run
 uv run python scripts/check_shared_hooks.py
 uv run --group sdk-check python scripts/check_plugin_load.py
 uv run python scripts/verify_docs.py
