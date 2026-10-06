@@ -99,3 +99,18 @@ find what they missed.
 - **Mutation testing**: a mutant (a flipped comparison, a removed condition)
   that survives the suite marks an assertion that is missing even though the
   line is covered. Mutation runs are advisory evidence, not a CI gate.
+
+## Reference suite
+
+`tests/test_gate_boundaries.py` applies these techniques to the static
+contract gates in `src/dashboard/gates.py`, following the family pattern
+set by wire-agent:
+
+- 3-value boundaries for the maximum COBS-encoded frame size (including the
+  extra overhead byte once a raw frame exceeds 254 bytes), scaled and
+  unscaled wire-type field ranges, `min < max`, and the `max_frame_bytes`
+  schema bounds;
+- decision tables for WebSocket URL security (scheme x loopback host);
+- uniqueness rules for message ids, names, fields and transport use;
+- schema-level rejection of uppercase BLE UUIDs and `ack` on
+  device-to-host messages, which the gates re-check as defence in depth.
