@@ -35,6 +35,7 @@ DEPENDENCY_SURFACES = {
     "tauri-scaffold",
     "github-actions",
     "git-clone",
+    "docker-arg",
     "docker-base",
     "docker-npm",
     "servo",
@@ -729,6 +730,54 @@ _ARG = re.compile(r"^ARG\s+([A-Z_]+)=([^\s#]+)", re.MULTILINE)
 _SERVO_VERSION = re.compile(r"/download/(v[\d.]+)/")
 _SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
+_DOCKER_ARG_UPSTREAMS = {
+    # ARG name -> (github repo, tag prefix stripped before compare)
+    "NODE_VERSION": ("nodejs/node", "v"),
+}
+
+
+def docker_arg_pins(root: Path) -> dict[str, str]:
+    """ARG name -> default value across docker/*.Dockerfile."""
+    values: dict[str, str] = {}
+    for dockerfile in sorted((root / "docker").glob("*.Dockerfile")):
+        values.update(dict(_ARG.findall(dockerfile.read_text(encoding="utf-8"))))
+    return values
+
+
+def check_docker_args(
+    root: Path, *, list_remote_tags: ListRemoteTags = _default_list_remote_tags
+) -> list[DependencyStatus]:
+    """Version ARGs in docker/*.Dockerfile against the mapped upstream tag
+    feed (same convention as the sibling agents' docker-arg surface)."""
+    statuses: list[DependencyStatus] = []
+    values = docker_arg_pins(root)
+    for arg, (repo, strip) in _DOCKER_ARG_UPSTREAMS.items():
+        current = values.get(arg)
+        if current is None:
+            statuses.append(
+                DependencyStatus(
+                    "docker-arg", arg, "-", "?", "docker/*.Dockerfile", False, "ARG missing"
+                )
+            )
+            continue
+        latest = _github_latest_tag(repo, list_remote_tags)
+        latest_cmp = latest.removeprefix(strip)
+        current_cmp = current.removeprefix(strip)
+        outdated = bool(latest_cmp) and latest_cmp != current_cmp
+        statuses.append(
+            DependencyStatus(
+                "docker-arg",
+                arg,
+                current,
+                latest or "?",
+                "docker/*.Dockerfile",
+                outdated,
+                "" if latest_cmp else "fetch failed",
+                fetch_failed=not latest_cmp,
+            )
+        )
+    return statuses
+
 
 def _docker_statuses(root: Path, fetch_json: FetchJson) -> list[DependencyStatus]:
     statuses: list[DependencyStatus] = []
@@ -918,6 +967,7 @@ def check_dependency_updates(
         *check_workflow_tool_versions(root, list_remote_tags=cached_tags),
         *check_python_versions(root, list_remote_tags=cached_tags),
         *_docker_statuses(root, fetch_json),
+        *check_docker_args(root, list_remote_tags=cached_tags),
         *check_docker_npm_pins(root, fetch_json),
     ]
 
@@ -927,6 +977,7 @@ def render_markdown(statuses: list[DependencyStatus]) -> str:
         "git-clone": "Workflow git clones",
         "workflow-download": "Workflow direct-download pins",
         "python-version": "Python version",
+        "docker-arg": "Docker ARG",
         "docker-npm": "Dockerfile vendored npm pins",
     }
     lines = ["# Dependency update check report", ""]

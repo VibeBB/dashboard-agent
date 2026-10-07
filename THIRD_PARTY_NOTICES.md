@@ -5,8 +5,8 @@ includes or invokes the following third-party software:
 
 | Component | Pin or source | License / use |
 | --- | --- | --- |
-| Debian 13 (`node:26-trixie-slim`) | `sha256:930557a230abacbc3f4fd9b8648abf8f4bee1e17cb72195dcdfb2f709bc85b33` | Debian packages; see Debian copyright files |
-| Node.js | 26.11.0 image line | MIT |
+| Debian 13 (`debian:13-slim`) | `sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f` | Debian packages; see Debian copyright files |
+| Node.js | 26.11.0 upstream tarball (`node-v26.11.0-linux-x64.tar.xz`), sha256-verified at build (`NODE_VERSION`/`NODE_SHA256` args) | MIT |
 | CPython | 3.14, installed by pinned uv | PSF-2.0 |
 | uv | 0.12.23, index digest `sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |

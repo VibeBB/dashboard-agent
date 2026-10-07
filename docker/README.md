@@ -5,6 +5,11 @@ Emscripten, and Servo environment used by the dashboard launcher and CI gates.
 The image runs generated examples with the launcher's internal Docker network;
 gate execution does not need outbound network access.
 
+Node.js comes from the upstream `nodejs.org` tarball — `NODE_VERSION` and
+`NODE_SHA256` args pin and verify the download (sha256-verified, the same
+pattern as every other external fetch in the image); the dependency checker
+tracks `NODE_VERSION` against the `nodejs/node` tag feed.
+
 Build a local image from the repository root:
 
 ```bash

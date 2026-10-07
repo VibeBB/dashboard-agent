@@ -15,8 +15,9 @@ The checker covers:
 
 - Direct Python package pins, transitive drift from `uv lock --upgrade
   --dry-run`, and the `uv` required-version in `pyproject.toml`.
-- Digest-pinned `FROM` references and Servo's `SERVO_URL`/`SERVO_SHA256`
-  arguments in `docker/*.Dockerfile`.
+- Digest-pinned `FROM` references, version `ARG`s tracked against upstream
+  tag feeds (`NODE_VERSION` -> nodejs/node), and checksum `ARG`s such as
+  `SERVO_SHA256` in `docker/*.Dockerfile`.
 - Inline `npm install name@x.y.z` pins in `docker/*.Dockerfile` — vendored
   packages that `runtime/package.json` and `uv.lock` never see (currently
   `source-map-js`, layered onto the vendored emsdk toolchain for
@@ -46,6 +47,14 @@ uv run python scripts/check_dependency_updates.py \
 
 Review the complete upstream changelog before accepting a version update.
 
+## 2026-10-07 update (node install method)
+
+| Component | From -> to | Changelog review decision |
+| --- | --- | --- |
+| Node.js install | `node:26-trixie-slim` base (image ships Node 26.10.0) -> `debian:13-slim` + sha256-verified Node 26.11.0 tarball | Adopted — same migration as UX-creator-agent #120. The measured diff between the node image and `debian:13-slim` is `adduser` (unused uid 1000), `libatomic1` (required by the x64 binary — added to the apt list), and the Node install itself, so `debian:13-slim` + tarball is functionally equivalent while making the Node version an auditable `NODE_VERSION` ARG verified by `NODE_SHA256`. The 26.10.0 -> 26.11.0 changelog (Current line, 2026-10-07) was reviewed in full: semver-minor additions (buffer `isLatin1`/`stringLength`, http header validators, perf_hooks histogram helpers, sqlite API renames, `--process-timeout`) plus fixes; none are used by the dependency-free runtime build, `node --test`, or Playwright — nothing to adopt, no breaking change for our usage. |
+| dep-checker | - -> `docker-arg` surface | Adopted. `check_docker_args` maps `NODE_VERSION` to the `nodejs/node` tag feed via `_DOCKER_ARG_UPSTREAMS` (sibling convention); new entries join by adding a mapping. |
+| `node` docker-base deferral | reason refreshed | Kept under the same `docker-base`/`node` key (it only records the waiver re-scan note for container-audit; suppression of the FROM line was never effective). Reason now cites the tarball's bundled npm and the next `NODE_VERSION` bump. |
+
 ## 2026-10-07 update (sdk 1.53.0, servo 0.7.0, node base)
 
 | Component | From -> to | Changelog review decision |
@@ -53,7 +62,7 @@ Review the complete upstream changelog before accepting a version update.
 | openhands-sdk / openhands-tools | 1.52.0 -> 1.53.0 | All 6 PRs in `v1.52.0..v1.53.0` reviewed (release notes plus source diff of both tags). The installed-packages skills-scan fix adopted implicitly; plugin skills and `Plugin.load` unaffected. Not adopted / not applicable: canvas-extension SVG icon serving (VibeBB plugins are AgentCanvas plugins, not canvas extensions), TypeScript-client/release-CI pins, AGENTS.md refresh, test sweep. Dependency constraint surface identical to 1.52.0 except `version`. |
 | Servo | v0.6.0 -> v0.7.0 | All ~150 PRs reviewed via the v0.7.0 release notes. WebDriver-facing items (webdriver 0.54, server-shipped webdriver, popup sandboxing, CSS/text module scripts, WebGL default feature, `getComposedRanges`, icu4x 2.1, Stylo 2026-07-31) need no `src/dashboard/servo.py` API change; tarball SHA-256 verified and layout/NEEDED-library set identical to v0.6.0, so no new apt packages. `SERVO_URL`/`SERVO_SHA256`, doctor expected string, and the userAgent fixture updated; publisher-managed locks left untouched. |
 | mcp | stays <2 (latest 2.3.0) | Still deferred: openhands-sdk 1.53.0 still requires `fastmcp>=3.2.0,<4`, which caps `mcp<2.0`. Deferral reason refreshed to cite 1.53.0, `review_by` kept at 2027-04-01. |
-| `node:26-trixie-slim` base digest | `sha256:ec7758ee` -> `sha256:930557a2` | Node.js 26.11 rebuild of the tag (Docker Hub last_pushed 2026-10-06); adopted as the pinned base in `docker/dashboard-tools.Dockerfile` and THIRD_PARTY_NOTICES. The `docker-base` node deferral entry is unchanged: it covers Trivy waivers on npm's vendored deps, re-scanned by container-audit on this bump. |
+| `node:26-trixie-slim` base digest | `sha256:ec7758ee` -> `sha256:930557a2` | Node.js rebuild of the tag (Docker Hub last_pushed 2026-10-06); adopted as the pinned base in `docker/dashboard-tools.Dockerfile` and THIRD_PARTY_NOTICES. The `docker-base` node deferral entry is unchanged: it covers Trivy waivers on npm's vendored deps, re-scanned by container-audit on this bump. (Correction: the pinned image was later verified to ship Node 26.10.0, not 26.11.0 — the opaque tag drift that motivated the tarball migration above.) |
 
 ## 2026-10-05 update (sdk 1.52.0)
 

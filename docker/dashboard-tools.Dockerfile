@@ -2,9 +2,12 @@ FROM ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce2459468
 
 FROM emscripten/emsdk:6.0.10@sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65 AS emscripten
 
-FROM node:26-trixie-slim@sha256:930557a230abacbc3f4fd9b8648abf8f4bee1e17cb72195dcdfb2f709bc85b33
+FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
 ARG IMAGE_REVISION=unknown
+ARG NODE_VERSION=26.11.0
+# sha256 of https://nodejs.org/dist/v26.11.0/node-v26.11.0-linux-x64.tar.xz
+ARG NODE_SHA256=db6342d36ebdb3cbd72103d0ce5ccc528620f6c9df72a11f4ccb384bf1bef678
 ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.7.0/servo-x86_64-linux-gnu.tar.gz
 ARG SERVO_SHA256=728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333
 
@@ -23,13 +26,15 @@ ENV EMSDK=/emsdk \
 
 LABEL org.opencontainers.image.source="https://github.com/VibeBB/dashboard-agent" \
       org.opencontainers.image.licenses="BSD-3-Clause" \
-      org.opencontainers.image.revision="${IMAGE_REVISION}"
+      org.opencontainers.image.revision="${IMAGE_REVISION}" \
+      dashboard.node.version="${NODE_VERSION}"
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 COPY --from=emscripten /emsdk /emsdk
 
-# The pinned base digest still ships libpcre2-8-0 10.46-1~deb13u2; upgrade it
-# to ~deb13u3 (CVE-2026-103111) inside the build via --only-upgrade.
+# Debian slim snapshots lag the pcre2 security update (10.46-1~deb13u3,
+# CVE-2026-103111); apply --only-upgrade inside the build regardless of
+# which snapshot the pinned digest carries (idempotent when already fixed).
 RUN apt-get -o Acquire::Retries=5 update \
     && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
         ca-certificates \
@@ -56,9 +61,35 @@ RUN apt-get -o Acquire::Retries=5 update \
         libxrender1 \
         fonts-dejavu-core \
         xz-utils \
+        libatomic1 \
     && apt-get -o Acquire::Retries=5 install --only-upgrade --no-install-recommends -y \
         libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/*
+
+# Node.js official tarball — the same sha256-verified external-download
+# pattern as the other tools in this image (and the ux-tools migration).
+# Provides /usr/local/bin/{node,nodejs,npm,npx} with npm bundled; libatomic1
+# above is required by the x64 node binary. The openssl archs prune mirrors
+# the upstream image's ~34MB header cleanup.
+RUN curl --fail --location --silent --show-error \
+        --retry 5 --retry-delay 10 --retry-all-errors \
+        --output /tmp/node.tar.xz \
+        "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum --check \
+    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 --no-same-owner \
+    && rm -f /tmp/node.tar.xz \
+    && ln -s /usr/local/bin/node /usr/local/bin/nodejs \
+    && find /usr/local/include/node/openssl/archs -mindepth 1 -maxdepth 1 \
+        ! -name "linux-x86_64" -exec rm -rf {} + \
+    && ldd /usr/local/bin/node | tee /tmp/node-ldd.txt \
+    && ! grep -F "not found" /tmp/node-ldd.txt \
+    && node --version | grep -Fx "v${NODE_VERSION}" \
+    && npm --version \
+    && mkdir -p /usr/share/doc/node \
+    && printf '%s\n' \
+        "source=https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+        "version=v${NODE_VERSION}" \
+        > /usr/share/doc/node/SOURCE
 
 # The pinned emsdk stage vendors source-map-js 1.2.1 inside the emscripten
 # toolchain (CVE-2026-93749, fixed in 1.2.2); upgrade the vendored copy and
