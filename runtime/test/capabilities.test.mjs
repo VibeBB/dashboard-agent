@@ -215,7 +215,7 @@ test('Servo can use declared network routes without exposing hardware transports
     ],
   };
   const environment = detectEnvironment({
-    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Servo/0.6.0',
+    userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Servo/0.7.0',
     maxTouchPoints: 0,
   }, true);
   environment.capabilities.websocket = true;

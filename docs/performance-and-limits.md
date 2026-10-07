@@ -96,7 +96,7 @@ overridden dashboard-tools image; missing prerequisites fail rather than
 falling back. Run the launcher `prewarm` command to pull the image. Host mode
 requires `DASHBOARD_SRC` and is not a production fallback.
 
-The image pins Node 26, uv 0.12.23, Emscripten 6.0.10, Servo 0.6.0, and the
+The image pins Node 26, uv 0.12.23, Emscripten 6.0.10, Servo 0.7.0, and the
 runtime package-lock versions of TypeScript, esbuild, and Playwright. The
 plugin doctor reports the declared tool versions and full-gate image
 availability. Full gates also need Chromium installed through the pinned
