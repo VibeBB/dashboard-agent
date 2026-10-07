@@ -44,7 +44,7 @@ plugins/dashboard/         # AgentCanvas/OpenHands plugin assets
 ├── agents/                # architect, developer, independent reviewer
 ├── app/                   # Agent Canvas app (Beta): dashboard-reports viewer
 ├── commands/              # six /dashboard:* command prompts
-├── skills/                # ten domain/workflow skill packages
+├── skills/                # ten domain/workflow skills plus two path rules
 ├── hooks/                 # lifecycle hooks, scripts, records policy
 ├── scripts/dashboard_launcher.py
 ├── .mcp.json

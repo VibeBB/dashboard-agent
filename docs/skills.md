@@ -1,8 +1,9 @@
 # Skills
 
-The plugin defines ten keyword-triggered skills under
-`plugins/dashboard/skills/`. Their trigger phrases come from each `SKILL.md`
-frontmatter; each skill supplies focused process guidance for its topic.
+The plugin defines ten keyword-triggered skills and two path-triggered
+rules under `plugins/dashboard/skills/`. Their trigger phrases — or `paths:`
+globs — come from each `SKILL.md` frontmatter; each skill supplies focused
+process guidance for its topic.
 
 | Skill | Trigger phrases | Content summary |
 | --- | --- | --- |
@@ -16,6 +17,8 @@ frontmatter; each skill supplies focused process guidance for its topic.
 | `dashboard-wasm` | `WebAssembly`, `WASM`, `emscripten` | Build and test the shared C codec and contract-declared C modules with Emscripten. |
 | `dashboard-webmcp` | `WebMCP`, `model context`, `browser agent tool` | Expose dashboard status, telemetry, and optional safety-aware commands via WebMCP. |
 | `dashboard-workflow` | `dashboard`, `connected device`, `telemetry` | Coordinate the complete contract → generation → gates → visual review → liaison → handoff workflow and required records. |
+| `dashboard-contract-rules` | path rule on `**/*.dash.json` | Schema and provenance reminders injected whenever a dashboard contract file is touched. |
+| `dashboard-out-rules` | path rule on `**/out/**` | Reminds that generated artifacts under `out/` are read-only projections — change the contract and regenerate (the `protect-generated` hook enforces). |
 
 Skills do not replace the contract schema or gate implementation. The
 deterministic checks in `src/dashboard/` remain the authority for accepted

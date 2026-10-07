@@ -3,7 +3,12 @@
 Plugin-level hooks are defined in `plugins/dashboard/hooks/hooks.json`.
 Commands resolve the installed plugin in this order: `$DASHBOARD_PLUGIN_ROOT`,
 `$OPENHANDS_PROJECT_DIR/plugins/dashboard`, `$HOME/.agents/plugins/dashboard`,
-then `$HOME/.openhands/plugins/installed/dashboard`.
+`$HOME/.openhands/plugins/installed/dashboard`, then
+`$HOME/plugins/installed/dashboard` and
+`$OH_PERSISTENCE_DIR/plugins/installed/dashboard`. The last two candidates
+resolve the plugin inside an OpenHands docker conversation runtime (inner
+`HOME=/var/openhands/.openhands`), where `dashboard_launcher.py` then fails
+closed with guidance — docker is unavailable there by design.
 
 ## Plugin lifecycle hooks
 
@@ -11,7 +16,8 @@ then `$HOME/.openhands/plugins/installed/dashboard`.
 | --- | --- | --- | --- | --- |
 | `session_start` | `*` | `dashboard-doctor` → launcher `doctor --warn` | Probes the pinned toolchain. If the launcher resolves, `--warn` returns probe failures as JSON without stopping the session; an unresolved plugin root exits 1. | Repository-specific launcher entry. |
 | `session_start` | `*` | `intake-attachments` → `hooks/scripts/intake_attachments.py` | Copies supported user image attachments into hash-named `intake/attachments/` files and appends their provenance to `manifest.jsonl`. Missing event data is a no-op; errors are reported on stderr and the hook exits 0. | Repository-specific. |
-| `session_start` | `*` | `ensure-llm-profiles` → `hooks/scripts/ensure_llm_profiles.py` | Copies the active OpenHands profile to missing `vibebb-author` and `vibebb-review` slots; never overwrites existing profiles. Reports missing/unreadable profiles and vision capability; advisory and always exits 0. | Shared canonical hook. |
+| `session_start` | `*` | `ensure-llm-profiles` → `hooks/scripts/ensure_llm_profiles.py` | Copies the active OpenHands profile to missing `vibebb-author`, `vibebb-review`, and `oracle` slots; never overwrites existing profiles. Reports missing/unreadable profiles and vision capability (probed for the two VibeBB lanes only); advisory and always exits 0. | Shared canonical hook. |
+| `session_start` | `*` | `ensure-agent-profiles` → `hooks/scripts/ensure_agent_profiles.py` | Writes `~/.openhands/agent-profiles/vibebb-dashboard.json` when missing: `agent_kind=openhands`, `llm_profile_ref=vibebb-author`, MCP scoped to `dashboard`, no secrets. Advisory and always exits 0. | Shared canonical hook. |
 | `session_start` | `*` | `require-records` → `hooks/scripts/require_records.py session-start` | Initializes the session marker used to relate changed artifacts and observations to the current session. Missing plugin root is a no-op; script errors are handled as a skipped, non-blocking hook. | Shared canonical hook. |
 | `user_prompt_submit` | `*` | `intake-attachments` | Repeats attachment intake for newly supplied images. Failures are logged but non-blocking. | Repository-specific. |
 | `pre_tool_use` | `file_editor\|apply_patch\|terminal` | `protect-generated` → `hooks/scripts/protect_generated.py` | Blocks edits to generated dashboard projections, VRP logs/status, and liaison responses; these must be regenerated or written through tools. Invalid hook JSON or unresolved plugin root exits 2; a protected write exits 2; unrelated actions pass. | Repository-specific. |
@@ -48,7 +54,8 @@ SHA-256 digests (not raw file hashes):
 
 | Hook file | Canonical normalized AST SHA-256 | Required by this plugin |
 | --- | --- | --- |
-| `ensure_llm_profiles.py` | `e8eb58bf540e432be683e737a913a97e84b7f2c2e20daddf27cb6fec42316c79` | Yes |
+| `ensure_llm_profiles.py` | `8cb8ea31ef79d00a26e4a8b0259f2a668e6dc0d976fba1d61f019ada95b94aa6` | Yes |
+| `ensure_agent_profiles.py` | `81cf8a503e249c29e4a67901b58004bde0037e4e7d969b3287f5087ca7e25152` | Yes |
 | `_provenance.py` | `129bc2a98d85c300026ef50dabe90940c4b3c0e7054fb02d52d1d1dee3b18672` | No |
 | `safety_rail.py` | `1a9f3f72fec383f046db2ca8805a7190c33daa86daf42f06c3cd27e3f8be245b` | Yes |
 | `_records.py` | `f793baeb1f3194b3e519ddc86c01928439a84a5531925303593b11dc473b65ad` | Yes |

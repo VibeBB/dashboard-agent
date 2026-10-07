@@ -338,6 +338,7 @@ def test_plugin_and_agent_vision_hooks_are_declared() -> None:
             "dashboard-doctor",
             "intake-attachments",
             "ensure-llm-profiles",
+            "ensure-agent-profiles",
             "require-records",
         },
         "user_prompt_submit": {"intake-attachments"},

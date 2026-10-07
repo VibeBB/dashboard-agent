@@ -8,6 +8,7 @@ does not re-verify an image that is already present locally.
 
 from __future__ import annotations
 
+import contextlib
 import json
 import os
 import shutil
@@ -332,6 +333,33 @@ def _verify_attestation(pin: ImagePin, *, override: bool) -> None:
         raise RuntimeError(f"attestation verification failed for {pin['image']}@{pin['digest']}")
 
 
+def _inside_conversation_container() -> bool:
+    """True when running inside an OpenHands docker conversation runtime.
+
+    The runtime injects ``OH_PERSISTENCE_DIR``/``OH_RUNTIME_LAUNCHED_PROFILE``
+    into each ``agent-server-conversation-*`` container, which carries no
+    docker client — dashboard tools then have nowhere to launch the pinned
+    tools image. ``OH_CONVERSATION_RUNTIME`` is not usable as the signal:
+    the runtime sets it to ``local`` inside the container itself.
+    """
+    if os.environ.get("OH_PERSISTENCE_DIR") or os.environ.get("OH_RUNTIME_LAUNCHED_PROFILE"):
+        return True
+    with contextlib.suppress(OSError):
+        return Path.home() == Path("/var/openhands/.openhands")
+    return False
+
+
+def _conversation_container_hint() -> str:
+    if not _inside_conversation_container():
+        return ""
+    return (
+        " — this appears to be an OpenHands docker conversation "
+        "container, which cannot launch tool containers; set the "
+        "conversation runtime to local (Agent Canvas -> Settings -> "
+        "Application) and start a new conversation"
+    )
+
+
 def _image_ready(
     image: ImagePin | str,
     *,
@@ -347,7 +375,7 @@ def _image_ready(
     ref = pin["ref"]
     docker = shutil.which("docker")
     if docker is None:
-        raise RuntimeError("docker is not on PATH")
+        raise RuntimeError("docker is not on PATH" + _conversation_container_hint())
     if prewarm:
         _verify_attestation(pin, override=override)
     inspected = _run_timed(
@@ -427,7 +455,10 @@ def main() -> int:
                     )
                     suggestions.append("configure a dashboard tools image")
                 suggestions.append("run dashboard_launcher.py prewarm")
-                raise RuntimeError(f"{'; '.join(missing)}. {', then '.join(suggestions)}.")
+                detail = f"{'; '.join(missing)}. {', then '.join(suggestions)}."
+                if docker is None:
+                    detail += _conversation_container_hint()
+                raise RuntimeError(detail)
             if pin is None or not _image_ready(
                 pin,
                 pull=False,
