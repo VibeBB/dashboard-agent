@@ -275,7 +275,7 @@ def test_docker_npm_pins_reported(tmp_path: Path) -> None:
         encoding="utf-8",
     )
 
-    statuses = check_dependency_updates_module._docker_npm_statuses(
+    statuses = check_dependency_updates_module.check_docker_npm_pins(
         tmp_path, fetch_json=_fetch_json
     )
 
@@ -298,7 +298,7 @@ def test_docker_npm_fetch_failure(tmp_path: Path) -> None:
     def failed(_url: str) -> object:
         raise OSError("offline")
 
-    statuses = check_dependency_updates_module._docker_npm_statuses(tmp_path, fetch_json=failed)
+    statuses = check_dependency_updates_module.check_docker_npm_pins(tmp_path, fetch_json=failed)
 
     assert len(statuses) == 1
     assert statuses[0].latest == "?"

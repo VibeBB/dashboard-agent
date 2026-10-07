@@ -795,7 +795,7 @@ _DOCKER_NPM_PIN = re.compile(
 _DOCKER_NPM_PIN_END = re.compile(r"[&;|\\\n]")
 
 
-def _docker_npm_statuses(root: Path, fetch_json: FetchJson) -> list[DependencyStatus]:
+def check_docker_npm_pins(root: Path, fetch_json: FetchJson) -> list[DependencyStatus]:
     """Inline `npm install name@x.y.z` pins inside Dockerfiles — vendored
     packages that package.json and uv.lock never see (e.g. source-map-js
     layered onto the vendored emsdk toolchain)."""
@@ -918,7 +918,7 @@ def check_dependency_updates(
         *check_workflow_tool_versions(root, list_remote_tags=cached_tags),
         *check_python_versions(root, list_remote_tags=cached_tags),
         *_docker_statuses(root, fetch_json),
-        *_docker_npm_statuses(root, fetch_json),
+        *check_docker_npm_pins(root, fetch_json),
     ]
 
 
