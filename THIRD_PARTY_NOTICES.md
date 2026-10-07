@@ -11,7 +11,7 @@ includes or invokes the following third-party software:
 | uv | 0.12.23, index digest `sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |
 | MCP Python SDK | `mcp>=1.29,<2` | MIT |
-| OpenHands SDK and tools | 1.52.0 (development plugin check) | MIT |
+| OpenHands SDK and tools | 1.53.0 (development plugin check) | MIT |
 | TypeScript | 7.1.0-dev.20261003.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
 | Playwright | 1.63.0 | Apache-2.0 |
@@ -21,7 +21,7 @@ includes or invokes the following third-party software:
 | `@types/w3c-web-usb` | 1.0.14 | MIT |
 | `@types/w3c-web-serial` | 1.0.8 | MIT |
 | Emscripten SDK | 6.0.10, image digest `sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65` | MIT / UIUC |
-| Servo | v0.6.0, SHA-256 `ad951ede1a1a73899b822c9464f6bdb3ec25b531b27cd806671d79ac8b6a60d0` | MPL-2.0; unmodified binary invoked as a subprocess |
+| Servo | v0.7.0, SHA-256 `728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333` | MPL-2.0; unmodified binary invoked as a subprocess |
 | GStreamer runtime packages | Debian 13 | LGPL-2.1-or-later |
 
 Container package copyright and license texts are provided by Debian under

@@ -27,6 +27,7 @@
 - [BSD Chromium port research](research/bsd-chromium.md)
 - [Dependency upgrade review, October 2026](research/dependency-upgrades-2026-10.md)
 - [SDK v1.50.1 feature evaluation](research/sdk-v1.50.1-feature-evaluation.md)
+- [SDK v1.53.0 feature evaluation](research/sdk-v1.53.0-feature-evaluation.md)
 
 ## Architecture decision records
 

@@ -5,8 +5,8 @@ FROM emscripten/emsdk:6.0.10@sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b2661
 FROM node:26-trixie-slim@sha256:ec7758ee051e457b468b32bde57b0879010b325bb9862718e9615225ce4aaae1
 
 ARG IMAGE_REVISION=unknown
-ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.6.0/servo-x86_64-linux-gnu.tar.gz
-ARG SERVO_SHA256=ad951ede1a1a73899b822c9464f6bdb3ec25b531b27cd806671d79ac8b6a60d0
+ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.7.0/servo-x86_64-linux-gnu.tar.gz
+ARG SERVO_SHA256=728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333
 
 # Fail the build when the left side of a verification pipe (curl|sha256sum)
 # breaks instead of silently passing the right side.

@@ -95,7 +95,7 @@ def checks() -> list[ToolCheck]:
             runtime_versions["playwright"],
         ),
         ("emcc", ["emcc", "--version"], True, "6.0.10"),
-        ("servo", [servo, "--version"], True, "0.6.0"),
+        ("servo", [servo, "--version"], True, "0.7.0"),
     )
     return [
         _probe(name, argv, required=required, expected=expected)
