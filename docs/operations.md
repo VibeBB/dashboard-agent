@@ -189,7 +189,8 @@ First publish-gate firing (2026-10-03): 58 findings on the pushed
 digest keeps shipping the old deb, so the upgrade has to land inside
 the build). The remaining 57 sit inside vendored trees no upstream
 release has patched yet: npm's bundled node_modules in emsdk's own
-node and in the node base image (where tar 7.5.16 was the CRITICAL),
+node and in the Node install's bundled npm (where tar 7.5.16 was the
+CRITICAL — identical tree from the sha256-verified upstream tarball),
 emscripten's eslint/tooling node_modules that `emcc` invokes at
 runtime, and emsdk's vendored TypeScript go binary (`tsc`, built with
 stdlib v1.26.4). Those carry per-CVE `exp:2027-01-03` waivers in

@@ -10,15 +10,17 @@
 # analysis.
 #
 # --- npm-bundled node_modules in base images (dashboard-tools) --------------
-# Vendored npm trees upstream ships inside the pinned bases: emsdk's own
+# Vendored npm trees upstream ships inside the image: emsdk's own
 # node 24.19.0 (emsdk/node/24.19.0_64bit/lib/node_modules/npm/node_modules,
 # where tar 7.5.16 is the CRITICAL), emsdk's upstream/emscripten/node_modules
 # eslint/tooling deps (used by emcc at runtime — cannot be stripped), and
-# the node:26-trixie-slim npm bundle (/usr/local/lib/node_modules/npm/
-# node_modules). brace-expansion, browserslist, fast-uri, flatted,
+# the Node 26 install's bundled npm (/usr/local/lib/node_modules/npm/
+# node_modules — identical tree from the verified upstream tarball).
+# brace-expansion, browserslist, fast-uri, flatted,
 # ip-address, js-yaml, nanoid, picomatch, postcss, tar, undici. No upstream
 # release with patched bundles exists yet; re-evaluate at the next
-# emsdk/node base bump — tracked in scripts/dependency_update_deferrals.json.
+# emsdk release or NODE_VERSION bump — tracked in
+# scripts/dependency_update_deferrals.json.
 CVE-2026-102276 exp:2027-01-03
 CVE-2026-102278 exp:2027-01-03
 CVE-2026-12151 exp:2027-01-03

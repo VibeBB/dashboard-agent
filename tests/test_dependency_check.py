@@ -306,6 +306,42 @@ def test_docker_npm_fetch_failure(tmp_path: Path) -> None:
     assert statuses[0].outdated is False
 
 
+def test_docker_args_track_upstream_tags(tmp_path: Path) -> None:
+    docker = tmp_path / "docker"
+    docker.mkdir()
+    (docker / "tools.Dockerfile").write_text(
+        "ARG NODE_VERSION=26.11.0\nARG NODE_SHA256=db6342d3\n",
+        encoding="utf-8",
+    )
+
+    statuses = check_dependency_updates_module.check_docker_args(
+        tmp_path, list_remote_tags=lambda _url: ["v26.11.0", "v26.12.0"]
+    )
+
+    assert len(statuses) == 1
+    status = statuses[0]
+    assert status.surface == "docker-arg"
+    assert status.name == "NODE_VERSION"
+    assert status.current == "26.11.0"
+    assert status.latest == "v26.12.0"
+    assert status.outdated is True
+
+
+def test_docker_args_missing_arg_reported(tmp_path: Path) -> None:
+    docker = tmp_path / "docker"
+    docker.mkdir()
+    (docker / "tools.Dockerfile").write_text("FROM debian:13-slim\n", encoding="utf-8")
+
+    statuses = check_dependency_updates_module.check_docker_args(
+        tmp_path, list_remote_tags=lambda _url: ["v26.11.0"]
+    )
+
+    assert len(statuses) == 1
+    assert statuses[0].name == "NODE_VERSION"
+    assert statuses[0].current == "-"
+    assert statuses[0].note == "ARG missing"
+
+
 def test_markdown_report_includes_surface_and_status() -> None:
     report = render_markdown(
         [
