@@ -60,6 +60,12 @@ RUN apt-get -o Acquire::Retries=5 update \
         libpcre2-8-0 \
     && rm -rf /var/lib/apt/lists/*
 
+# The pinned emsdk stage vendors source-map-js 1.2.1 inside the emscripten
+# toolchain (CVE-2026-93749, fixed in 1.2.2); upgrade the vendored copy and
+# fail the build if the landed version is still vulnerable.
+RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund source-map-js@1.2.2 \
+    && node -p "require('/emsdk/upstream/emscripten/node_modules/source-map-js/package.json').version" | grep -qx '1.2.2'
+
 RUN curl --fail --location --silent --show-error \
         --retry 5 --retry-delay 10 --retry-all-errors \
         --output /tmp/servo.tar.gz "${SERVO_URL}" \
