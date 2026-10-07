@@ -151,12 +151,14 @@ jobs:
             # builds nothing to scan.
             if: github.event_name == 'push' || inputs.dry_run == true
             uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-            env:
-              # Shared cache so the Trivy scans reuse one DB download.
-              TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
             with:
               scan-type: image
               scan-ref: ${{ steps.scan-ref.outputs.ref }}
+              # Private cache dir: this leg runs inside a parallel group,
+              # and trivy-action's default cache-dir (.cache/trivy) would
+              # share the DB with other legs and corrupt db/metadata.json
+              # on concurrent writes.
+              cache-dir: ${{ runner.temp }}/trivy-tools-json
               version: v0.75.0
               scanners: vuln,secret,misconfig,license
               ignore-unfixed: false
@@ -187,13 +189,18 @@ jobs:
         id: trivy-scan
         if: github.event_name == 'push' || inputs.dry_run == true
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        env:
-          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
         with:
           scan-type: image
           # Scan the exact pushed digest on publish — the content the SBOM
           # and provenance attestations bind to (the rehearsal tag in dry_run).
           scan-ref: ${{ steps.scan-ref.outputs.ref }}
+          # Shared warm DB dir; sequential legs may share it. Never place
+          # trivy-action legs inside a `parallel:` group with a shared
+          # cache-dir — concurrent writers corrupt the DB, and the action
+          # also round-trips env vars through ./trivy_envs.txt in the job
+          # cwd, which races the same way. TRIVY_CACHE_DIR env does NOT
+          # override the action's cache-dir input.
+          cache-dir: ${{ runner.temp }}/trivy-cache
           version: v0.75.0
           scanners: vuln,secret,misconfig
           severity: CRITICAL,HIGH
