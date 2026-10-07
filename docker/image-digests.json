@@ -1,12 +1,12 @@
 {
   "dashboard_tools": {
-    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53622383",
-    "digest": "sha256:cd2bed9f85d3cc09967a96dd37eb4b16dd09880a0cfee986093309b03300929f",
+    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53653038",
+    "digest": "sha256:961c96c62b0a7c32d2564185460a08a7dd5aa29ce0c1ef1ce16526eceba7bbab",
     "dockerfile": "docker/dashboard-tools.Dockerfile",
     "image": "ghcr.io/vibebb/dashboard-tools",
-    "published_at": "2026-10-07T16:00:12Z",
-    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53623263",
-    "tag": "d9879abdbc42a6bd52934f6b0c5b8b31c815b31d-tools",
+    "published_at": "2026-10-07T17:44:01Z",
+    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53653900",
+    "tag": "892d17654cdbf05d7cf78b49a874a88a0ed56d4c-tools",
     "tools": {
       "chromium": "153.0.8010.12",
       "dashboard_agent": "0.1.0",
@@ -19,6 +19,6 @@
       "typescript": "Version 7.1.0-dev.20261003.1",
       "uv": "uv 0.12.23 (x86_64-unknown-linux-musl)"
     },
-    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/37647368978"
+    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/37660058673"
   }
 }
