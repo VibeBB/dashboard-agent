@@ -63,6 +63,7 @@ def _clear_launch_environment(monkeypatch: MonkeyPatch) -> None:
     monkeypatch.delenv("DASHBOARD_LAUNCH_MODE", raising=False)
     monkeypatch.delenv("DASHBOARD_TOOLS_IMAGE", raising=False)
     monkeypatch.delenv("DASHBOARD_SRC", raising=False)
+    monkeypatch.setattr(launcher, "_docker_info_security_options", lambda: None)
 
 
 def _capture_subprocess(monkeypatch: MonkeyPatch, *, returncode: int = 0) -> list[list[str]]:
@@ -461,3 +462,19 @@ def test_explicit_docker_mode_with_image_runs_docker(monkeypatch: MonkeyPatch) -
     assert _run_launcher(monkeypatch, "doctor") == 0
     assert commands[0][:2] == ["docker", "run"]
     assert "dashboard-tools:test" in commands[0]
+
+
+def test_container_user_rootless(monkeypatch: MonkeyPatch) -> None:
+    """Rootless daemons get 0:0 — the host uid maps to an unusable subuid."""
+    import os
+
+    monkeypatch.setattr(
+        launcher,
+        "_docker_info_security_options",
+        lambda: '["name=seccomp,profile=builtin","name=rootless","name=cgroupns"]',
+    )
+    assert launcher._container_user() == "0:0"  # pyright: ignore[reportPrivateUsage]
+    command = _docker("dashboard-tools:ci", None, ["python", "-m", "dashboard", "doctor"])
+    assert command[command.index("--user") + 1] == "0:0"
+    monkeypatch.setattr(launcher, "_docker_info_security_options", lambda: None)
+    assert launcher._container_user() == f"{os.getuid()}:{os.getgid()}"  # pyright: ignore[reportPrivateUsage]

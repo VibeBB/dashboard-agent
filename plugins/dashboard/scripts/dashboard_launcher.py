@@ -23,6 +23,7 @@ _PULL_TIMEOUT_S = 900
 _NETWORK_TIMEOUT_S = 30
 _ATTEST_TIMEOUT_S = 120
 _GH_AUTH_TIMEOUT_S = 15
+_DOCKER_INFO_TIMEOUT_S = 10
 _VERIFY_ENV = "DASHBOARD_VERIFY_ATTESTATION"
 _REPOSITORY = "VibeBB/dashboard-agent"
 _PUBLISH_FILE = ".github/workflows/publish-dashboard-images.yml"
@@ -174,6 +175,39 @@ def ensure_isolated_network(docker: str) -> None:
     raise RuntimeError(f"could not create internal Docker network {ISOLATED_NETWORK}: {detail}")
 
 
+def _docker_info_security_options() -> str | None:
+    """Return `docker info` security options, or None when unavailable."""
+    docker = shutil.which("docker")
+    if docker is None:
+        return None
+    try:
+        result = subprocess.run(
+            [docker, "info", "-f", "{{json .SecurityOptions}}"],
+            capture_output=True,
+            text=True,
+            timeout=_DOCKER_INFO_TIMEOUT_S,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout if result.returncode == 0 else None
+
+
+def _container_user() -> str:
+    """uid:gid to run the tools container as.
+
+    On rootless Docker the host uid maps to an unmapped subuid inside the
+    container user namespace, so bind-mounted workspace writes fail. There
+    container root (0:0) maps back to the daemon's owner — the invoking
+    user — so 0:0 keeps writes working without weakening isolation (the
+    container stays cap-dropped on an internal network). On rootful Docker
+    keep the host uid so artifacts stay user-owned.
+    """
+    if "name=rootless" in (_docker_info_security_options() or ""):
+        return "0:0"
+    return f"{os.getuid()}:{os.getgid()}"
+
+
 def _docker(image: str, source: Path | None, command: list[str]) -> list[str]:
     workspace = Path(os.environ.get("OPENHANDS_PROJECT_DIR") or Path.cwd()).resolve()
     cwd = Path.cwd().resolve()
@@ -190,7 +224,7 @@ def _docker(image: str, source: Path | None, command: list[str]) -> list[str]:
         "--security-opt",
         "no-new-privileges",
         "--user",
-        f"{os.getuid()}:{os.getgid()}",
+        _container_user(),
         "-v",
         f"{workspace}:{workspace}",
         "-w",
