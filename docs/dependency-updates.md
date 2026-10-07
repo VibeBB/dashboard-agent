@@ -17,6 +17,10 @@ The checker covers:
   --dry-run`, and the `uv` required-version in `pyproject.toml`.
 - Digest-pinned `FROM` references and Servo's `SERVO_URL`/`SERVO_SHA256`
   arguments in `docker/*.Dockerfile`.
+- Inline `npm install name@x.y.z` pins in `docker/*.Dockerfile` — vendored
+  packages that `runtime/package.json` and `uv.lock` never see (currently
+  `source-map-js`, layered onto the vendored emsdk toolchain for
+  CVE-2026-93749).
 - Exact dependencies in `runtime/package.json`.
 - npm and Rust crate pins emitted by `src/dashboard/generate.py` for Tauri
   scaffolds.
