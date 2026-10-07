@@ -39,6 +39,8 @@ def test_plugin_assets_have_expected_manifest_and_entry_points() -> None:
     }
     assert {path.parent.name for path in (PLUGIN / "skills").glob("*/SKILL.md")} == {
         "dashboard-contract",
+        "dashboard-contract-rules",
+        "dashboard-out-rules",
         "dashboard-platform-matrix",
         "dashboard-tauri",
         "dashboard-protocol",

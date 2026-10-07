@@ -12,6 +12,8 @@ PLUGIN = ROOT / "plugins" / "dashboard"
 EXPECTED_AGENTS = {"dashboard-architect", "dashboard-developer", "dashboard-review"}
 EXPECTED_SKILLS = {
     "dashboard-contract",
+    "dashboard-contract-rules",
+    "dashboard-out-rules",
     "dashboard-platform-matrix",
     "dashboard-tauri",
     "dashboard-protocol",
@@ -28,6 +30,7 @@ EXPECTED_HOOKS: dict[str, set[str]] = {
         "dashboard-doctor",
         "intake-attachments",
         "ensure-llm-profiles",
+        "ensure-agent-profiles",
         "require-records",
     },
     "user_prompt_submit": {"intake-attachments"},

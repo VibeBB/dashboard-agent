@@ -43,7 +43,7 @@ runtime/                   # dependency-free production TypeScript and browser t
 plugins/dashboard/         # AgentCanvas/OpenHands plugin assets
 ├── agents/                # architect, developer, independent reviewer
 ├── commands/              # six /dashboard:* command prompts
-├── skills/                # ten domain/workflow skill packages
+├── skills/                # ten domain/workflow skills plus two path rules
 ├── hooks/                 # lifecycle hooks, scripts, records policy
 ├── scripts/dashboard_launcher.py
 ├── .mcp.json
