@@ -1,5 +1,7 @@
 # Design a device dashboard with AI
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/VibeBB/dashboard-agent)
+
 [VibeBB](https://vibebb.org/) dashboard is an OpenHands plugin for turning a
 device's firmware interface into a usable, safety-aware web dashboard. It
 helps you describe the device, choose where it should work, and review the
