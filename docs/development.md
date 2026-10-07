@@ -33,6 +33,7 @@ uv run python scripts/check_shared_hooks.py
 uv run --group sdk-check python scripts/check_plugin_load.py
 uv run python scripts/verify_docs.py
 cd runtime && npm ci && npx tsc -p . && node --test test/
+node --test plugins/dashboard/app/extension.test.js
 ```
 
 For a documentation-only change, run the docs verifier, the targeted plugin
@@ -67,6 +68,9 @@ not weaken tests or gate assertions to obtain a pass.
   dependency/release/publish/report tests.
 - `runtime/test/` uses Node's built-in test runner for capabilities, codec,
   session, Tauri, WebMCP, and WASM parity/exports.
+- `plugins/dashboard/app/extension.test.js` uses the same runner for the
+  Agent Canvas app's manifest/host-API contract; `tests/test_canvas_app.py`
+  guards the manifest and entrypoint statically.
 - `runtime/e2e/` contains Playwright Chromium tests for dashboard behavior,
   WebMCP enabled/disabled, and the Tauri bridge.
 

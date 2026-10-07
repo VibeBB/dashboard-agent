@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "name": "dashboard-reports",
+  "display_name": "Dashboard reports",
+  "version": "0.1.0",
+  "description": "Browse and inspect VibeBB dashboard gate reports (*.dash-report.json) produced in local Agent Server workspaces.",
+  "entrypoint": "extension.js",
+  "icon": "icon.svg",
+  "contributes": {
+    "pages": [
+      {
+        "id": "reports",
+        "title": "Dashboard reports",
+        "path": "/reports",
+        "nav_label": "Dashboard reports",
+        "description": "List and inspect dashboard gate reports found in local workspaces"
+      }
+    ]
+  }
+}

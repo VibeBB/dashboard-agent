@@ -42,6 +42,7 @@ src/dashboard/             # Python contract, generator, CLI/MCP, and gates
 runtime/                   # dependency-free production TypeScript and browser tests
 plugins/dashboard/         # AgentCanvas/OpenHands plugin assets
 ├── agents/                # architect, developer, independent reviewer
+├── app/                   # Agent Canvas app (Beta): dashboard-reports viewer
 ├── commands/              # six /dashboard:* command prompts
 ├── skills/                # ten domain/workflow skill packages
 ├── hooks/                 # lifecycle hooks, scripts, records policy
@@ -78,6 +79,7 @@ uv run python scripts/check_shared_hooks.py
 uv run --group sdk-check python scripts/check_plugin_load.py
 uv run python scripts/verify_docs.py
 cd runtime && npm ci && npx tsc -p . && node --test test/
+node --test plugins/dashboard/app/extension.test.js
 ```
 
 For pytest in environments with inherited shell startup hooks, use
