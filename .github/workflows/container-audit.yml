@@ -94,24 +94,24 @@ jobs:
           path: ${{ runner.temp }}/trivy-cache
           key: ${{ steps.trivy-cache.outputs.key }}
           restore-keys: cache-trivy-
-      - name: Warm the Trivy DB before the parallel scans
+      - name: Warm the Trivy DB for the raw-trivy scan legs
         env:
           TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
-        # Populate the shared cache dir serially so the scan legs below
-        # only ever read the DB (concurrent DB downloads in one cache dir
-        # are not safe).
+        # Populate the raw-trivy legs' cache dir serially so those
+        # legs only ever read the DB. The trivy-action legs restore
+        # their own DB into per-leg cache-dir paths instead:
+        # concurrent DB updates in one cache dir race on
+        # db/metadata.json and corrupt it.
         run: trivy image --download-db-only
-      # The four scans read the same pinned image and the now-warm shared
-      # vulnerability DB, and each writes a disjoint report path, so they
-      # run as one parallel group (implicit wait at the end).
+      # The scans read the same pinned image, each writes a disjoint
+      # report path, and each trivy process writes to its own cache dir,
+      # so they run as one parallel group (implicit wait at the end).
       - parallel:
           - name: Scan pinned image (Trivy SARIF)
             uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-            env:
-              # Shared cache so the three Trivy scans reuse one DB download.
-              TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
             with:
               scan-type: image
+              cache-dir: ${{ runner.temp }}/trivy-cache-sarif
               # The digest is frozen; the vulnerability DB is not — this scan
               # surfaces newly disclosed CVEs against the shipped tools image.
               scan-ref: ${{ env.PINNED_IMAGE }}
@@ -126,10 +126,9 @@ jobs:
               skip-setup-trivy: true
           - name: Scan pinned image (Trivy JSON, full)
             uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-            env:
-              TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
             with:
               scan-type: image
+              cache-dir: ${{ runner.temp }}/trivy-cache-json
               scan-ref: ${{ env.PINNED_IMAGE }}
               version: v0.75.0
               scanners: vuln,secret,misconfig,license
