@@ -46,13 +46,14 @@ uv run python scripts/check_dependency_updates.py \
 
 Review the complete upstream changelog before accepting a version update.
 
-## 2026-10-07 update (sdk 1.53.0, servo 0.7.0)
+## 2026-10-07 update (sdk 1.53.0, servo 0.7.0, node base)
 
 | Component | From -> to | Changelog review decision |
 | --- | --- | --- |
 | openhands-sdk / openhands-tools | 1.52.0 -> 1.53.0 | All 6 PRs in `v1.52.0..v1.53.0` reviewed (release notes plus source diff of both tags). The installed-packages skills-scan fix adopted implicitly; plugin skills and `Plugin.load` unaffected. Not adopted / not applicable: canvas-extension SVG icon serving (VibeBB plugins are AgentCanvas plugins, not canvas extensions), TypeScript-client/release-CI pins, AGENTS.md refresh, test sweep. Dependency constraint surface identical to 1.52.0 except `version`. |
 | Servo | v0.6.0 -> v0.7.0 | All ~150 PRs reviewed via the v0.7.0 release notes. WebDriver-facing items (webdriver 0.54, server-shipped webdriver, popup sandboxing, CSS/text module scripts, WebGL default feature, `getComposedRanges`, icu4x 2.1, Stylo 2026-07-31) need no `src/dashboard/servo.py` API change; tarball SHA-256 verified and layout/NEEDED-library set identical to v0.6.0, so no new apt packages. `SERVO_URL`/`SERVO_SHA256`, doctor expected string, and the userAgent fixture updated; publisher-managed locks left untouched. |
 | mcp | stays <2 (latest 2.3.0) | Still deferred: openhands-sdk 1.53.0 still requires `fastmcp>=3.2.0,<4`, which caps `mcp<2.0`. Deferral reason refreshed to cite 1.53.0, `review_by` kept at 2027-04-01. |
+| `node:26-trixie-slim` base digest | `sha256:ec7758ee` -> `sha256:930557a2` | Node.js 26.11 rebuild of the tag (Docker Hub last_pushed 2026-10-06); adopted as the pinned base in `docker/dashboard-tools.Dockerfile` and THIRD_PARTY_NOTICES. The `docker-base` node deferral entry is unchanged: it covers Trivy waivers on npm's vendored deps, re-scanned by container-audit on this bump. |
 
 ## 2026-10-05 update (sdk 1.52.0)
 
