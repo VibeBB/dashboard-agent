@@ -10,6 +10,7 @@
 - [MCP server and all 16 tools](mcp.md)
 - [Hooks and canonical hashes](hooks.md)
 - [Contracts and serialized artifacts](contracts.md)
+- [Agent Canvas app](canvas-app.md)
 - [Records and vision review](records-and-vision.md)
 - [Sister-agent cooperation](sister-cooperation.md)
 - [Performance and limits](performance-and-limits.md)
@@ -28,6 +29,7 @@
 - [Dependency upgrade review, October 2026](research/dependency-upgrades-2026-10.md)
 - [SDK v1.50.1 feature evaluation](research/sdk-v1.50.1-feature-evaluation.md)
 - [SDK v1.53.0 feature evaluation](research/sdk-v1.53.0-feature-evaluation.md)
+- [AgentCanvas Apps evaluation](research/canvas-apps-evaluation.md)
 - [Agent Canvas v1.25 feature evaluation](research/ac-v1.25-feature-evaluation.md)
 
 ## Architecture decision records

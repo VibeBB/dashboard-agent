@@ -36,7 +36,7 @@ reasons so future bumps re-check against them.
 | Marketplace registration | deferred (future plan) | Requires upstream write access to the marketplace catalog; tracked on the site roadmap. |
 | Cloud `/launch` links | deferred (future plan) | `app.all-hands.dev/launch?plugins=…` is Cloud-only and VibeBB tools need host Docker, which cloud sandboxes do not provide; a launch link would hand users a broken session. |
 | Docker conversation-runtime full support | deferred (future plan) | Two paths exist — (a) host docker-socket sharing defeats the isolation the runtime is for and hits the host's rootless uid-mapping issue; (b) a custom conversation image bundling every tool stack fights the per-repo digest-pin design. Design conversations stay on `local`; revisit if VibeBB moves to a shared multi-user canvas. |
-| Apps / canvas extensions | adopted separately | Tracked as this plugin's own canvas-surface change — the generated `out/` browser app is the dashboard's canvas. No `CanvasExtensionManifest` is declared today (see the SDK v1.53.0 evaluation's canvas-extension row). |
+| Apps / canvas extensions | adopted separately | Implemented as its own change: the `dashboard-reports` canvas extension (`plugins/dashboard/app/`, `canvas-extension.json` schema_version 1) browses workspace gate reports in-Canvas — see [canvas-apps-evaluation.md](canvas-apps-evaluation.md). |
 
 ## Notes
 
