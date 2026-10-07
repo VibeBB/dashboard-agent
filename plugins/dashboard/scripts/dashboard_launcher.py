@@ -91,7 +91,9 @@ def _lock_ref(lock_path: Path) -> ImagePin | None:
     data = cast(dict[str, object], data)
     entry = data.get("dashboard_tools")
     if not isinstance(entry, dict):
-        return None
+        # Installed plugins ship a flat tools-image.json without the
+        # `dashboard_tools` wrapper key used by docker/image-digests.json.
+        entry = data
     entry = cast(dict[str, object], entry)
     image = entry.get("image")
     if not isinstance(image, str) or not image:

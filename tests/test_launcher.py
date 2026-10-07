@@ -461,3 +461,66 @@ def test_explicit_docker_mode_with_image_runs_docker(monkeypatch: MonkeyPatch) -
     assert _run_launcher(monkeypatch, "doctor") == 0
     assert commands[0][:2] == ["docker", "run"]
     assert "dashboard-tools:test" in commands[0]
+
+
+def test_lock_ref_accepts_flat_installed_form(tmp_path: Path) -> None:
+    """Installed plugins ship flat tools-image.json without dashboard_tools."""
+    flat = tmp_path / "tools-image.json"
+    flat.write_text(
+        json.dumps(
+            {
+                "image": "ghcr.io/vibebb/dashboard-tools",
+                "digest": "sha256:abc123",
+                "tag": "v1-tools",
+                "attestation": "https://example.com/att",
+            }
+        ),
+        encoding="utf-8",
+    )
+    pin = _lock_ref(flat)
+    assert pin is not None
+    assert pin["ref"] == "ghcr.io/vibebb/dashboard-tools@sha256:abc123"
+    assert pin["digest"] == "sha256:abc123"
+    assert pin["attestation"] == "https://example.com/att"
+
+    # Wrapped form still wins when both are present.
+    wrapped = tmp_path / "image-digests.json"
+    wrapped.write_text(
+        json.dumps(
+            {
+                "dashboard_tools": {
+                    "image": "ghcr.io/vibebb/dashboard-tools",
+                    "digest": "sha256:wrapped",
+                },
+                "image": "ghcr.io/decoy",
+            }
+        ),
+        encoding="utf-8",
+    )
+    pin = _lock_ref(wrapped)
+    assert pin is not None
+    assert pin["digest"] == "sha256:wrapped"
+
+
+def test_build_codec_parity_resolves_relative_output(
+    monkeypatch: MonkeyPatch, tmp_path: Path
+) -> None:
+    """emcc gets an absolute -o path even when output is relative."""
+    from dashboard import wasm
+
+    seen: list[str] = []
+
+    def fake_run(command: list[str], cwd: Path, timeout: int = 300) -> wasm.WasmResult:
+        if "-o" in command:
+            seen.append(command[command.index("-o") + 1])
+        return wasm.WasmResult(ok=True, detail="ok")
+
+    def fake_which(name: str) -> str:
+        return f"/usr/bin/{name}"
+
+    monkeypatch.setattr(wasm.shutil, "which", fake_which)
+    monkeypatch.setattr(wasm, "_run", fake_run)
+    result = wasm.build_codec_parity(tmp_path / "root", tmp_path / "out")
+    assert result.ok
+    assert Path(seen[0]).is_absolute()
+    assert seen[0] == str((tmp_path / "out" / "dash-codec.mjs").resolve())

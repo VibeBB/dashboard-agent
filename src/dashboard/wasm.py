@@ -38,6 +38,9 @@ def build_codec_parity(root: Path, output: Path) -> WasmResult:
     if emcc is None or node is None:
         missing = [name for name, value in (("emcc", emcc), ("node", node)) if value is None]
         return WasmResult(ok=False, detail=f"required tool not found: {', '.join(missing)}")
+    # Resolve before mkdir: emcc runs with cwd=root, so a relative output
+    # path would point somewhere else inside the build.
+    output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     module = output / "dash-codec.mjs"
     built = _run(
@@ -73,6 +76,7 @@ def build_module(
     if emcc is None or node is None:
         missing = [name for name, value in (("emcc", emcc), ("node", node)) if value is None]
         return WasmResult(ok=False, detail=f"required tool not found: {', '.join(missing)}")
+    output = output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     module = output / "module.mjs"
     names = ",".join(f"_{name}" for name in exports)
