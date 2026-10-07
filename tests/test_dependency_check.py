@@ -51,10 +51,14 @@ def test_checker_covers_required_dependency_surfaces() -> None:
         "github-actions",
         "git-clone",
         "docker-base",
+        "docker-npm",
         "servo",
         "workflow-download",
     } <= surfaces
     assert any(status.name == "typescript" and status.surface == "npm" for status in statuses)
+    assert any(
+        status.name == "source-map-js" and status.surface == "docker-npm" for status in statuses
+    )
     assert any(status.name == "tauri" and status.surface == "tauri-scaffold" for status in statuses)
     assert any(
         status.name == "transitive-lib" and status.surface == "pypi-lock" for status in statuses
@@ -259,6 +263,47 @@ def test_workflow_download_checksum_must_be_sha256(tmp_path: Path) -> None:
     checksum = next(status for status in statuses if status.name.endswith("checksum"))
     assert checksum.outdated is True
     assert checksum.latest == "invalid"
+
+
+def test_docker_npm_pins_reported(tmp_path: Path) -> None:
+    docker = tmp_path / "docker"
+    docker.mkdir()
+    (docker / "tools.Dockerfile").write_text(
+        "RUN npm --prefix /opt/tool install --no-save @scope/lib@2.0.0 \\\n"
+        "    && node -p \"require('/opt/tool/package.json').version\"\n"
+        "RUN npm install left-pad@1.0.0\n",
+        encoding="utf-8",
+    )
+
+    statuses = check_dependency_updates_module._docker_npm_statuses(
+        tmp_path, fetch_json=_fetch_json
+    )
+
+    by_name = {status.name: status for status in statuses}
+    assert set(by_name) == {"@scope/lib", "left-pad"}
+    assert by_name["@scope/lib"].current == "2.0.0"
+    assert by_name["@scope/lib"].latest == "99.0.0"
+    assert by_name["@scope/lib"].outdated is True
+    assert by_name["@scope/lib"].source == "docker/tools.Dockerfile"
+
+
+def test_docker_npm_fetch_failure(tmp_path: Path) -> None:
+    docker = tmp_path / "docker"
+    docker.mkdir()
+    (docker / "tools.Dockerfile").write_text(
+        "RUN npm install left-pad@1.0.0\n",
+        encoding="utf-8",
+    )
+
+    def failed(_url: str) -> object:
+        raise OSError("offline")
+
+    statuses = check_dependency_updates_module._docker_npm_statuses(tmp_path, fetch_json=failed)
+
+    assert len(statuses) == 1
+    assert statuses[0].latest == "?"
+    assert statuses[0].fetch_failed is True
+    assert statuses[0].outdated is False
 
 
 def test_markdown_report_includes_surface_and_status() -> None:

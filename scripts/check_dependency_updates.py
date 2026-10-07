@@ -2,7 +2,9 @@
 """Report updates across dashboard Python, image, runtime, and scaffold pins.
 
 Surfaces include `git clone --branch` pins inside workflows (e.g. the
-pinned CISOfy/lynis checkout in container-audit.yml).
+pinned CISOfy/lynis checkout in container-audit.yml) and `npm install`
+pins vendored inside Dockerfiles (e.g. the source-map-js upgrade layered
+onto the vendored emsdk toolchain).
 """
 
 from __future__ import annotations
@@ -34,6 +36,7 @@ DEPENDENCY_SURFACES = {
     "github-actions",
     "git-clone",
     "docker-base",
+    "docker-npm",
     "servo",
     "workflow-download",
     "python-version",
@@ -785,6 +788,45 @@ def _docker_statuses(root: Path, fetch_json: FetchJson) -> list[DependencyStatus
     return statuses
 
 
+_DOCKER_NPM_INSTALL = re.compile(r"\bnpm\s+(?:[^\n\\]|\\[^\n])*?\binstall\b")
+_DOCKER_NPM_PIN = re.compile(
+    r"(?<![\w./-])(@?[\w]+(?:[\w.-]*[\w])?(?:/[\w.-]+)?)@(\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?)"
+)
+_DOCKER_NPM_PIN_END = re.compile(r"[&;|\\\n]")
+
+
+def _docker_npm_statuses(root: Path, fetch_json: FetchJson) -> list[DependencyStatus]:
+    """Inline `npm install name@x.y.z` pins inside Dockerfiles — vendored
+    packages that package.json and uv.lock never see (e.g. source-map-js
+    layered onto the vendored emsdk toolchain)."""
+    statuses: list[DependencyStatus] = []
+    seen: set[tuple[str, str]] = set()
+    for dockerfile in sorted((root / "docker").glob("*.Dockerfile")):
+        text = dockerfile.read_text(encoding="utf-8")
+        source = dockerfile.relative_to(root).as_posix()
+        for match in _DOCKER_NPM_INSTALL.finditer(text):
+            tail = text[match.end() :]
+            args = _DOCKER_NPM_PIN_END.split(tail, maxsplit=1)[0]
+            for name, current in _DOCKER_NPM_PIN.findall(args):
+                if (name, current) in seen:
+                    continue
+                seen.add((name, current))
+                latest = _npm_latest(fetch_json, name, current)
+                statuses.append(
+                    DependencyStatus(
+                        "docker-npm",
+                        name,
+                        current,
+                        latest or "?",
+                        source,
+                        latest is not None and latest != current,
+                        "" if latest else "fetch failed",
+                        fetch_failed=latest is None,
+                    )
+                )
+    return statuses
+
+
 def load_deferrals(root: Path) -> list[DependencyDeferral]:
     path = root / "scripts/dependency_update_deferrals.json"
     payload: Any = json.loads(path.read_text(encoding="utf-8"))
@@ -876,6 +918,7 @@ def check_dependency_updates(
         *check_workflow_tool_versions(root, list_remote_tags=cached_tags),
         *check_python_versions(root, list_remote_tags=cached_tags),
         *_docker_statuses(root, fetch_json),
+        *_docker_npm_statuses(root, fetch_json),
     ]
 
 
@@ -884,6 +927,7 @@ def render_markdown(statuses: list[DependencyStatus]) -> str:
         "git-clone": "Workflow git clones",
         "workflow-download": "Workflow direct-download pins",
         "python-version": "Python version",
+        "docker-npm": "Dockerfile vendored npm pins",
     }
     lines = ["# Dependency update check report", ""]
     for surface in sorted(DEPENDENCY_SURFACES):
