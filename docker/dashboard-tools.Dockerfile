@@ -36,8 +36,8 @@ COPY --from=emscripten /emsdk /emsdk
 # CVE-2026-103111); apply --only-upgrade inside the build regardless of
 # which snapshot the pinned digest carries (idempotent when already fixed).
 RUN for attempt in 1 2 3 4 5; do \
-        apt-get -o Acquire::Retries=5 update \
-        && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
+        apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update \
+        && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y \
             ca-certificates \
             curl \
             git \
@@ -63,7 +63,7 @@ RUN for attempt in 1 2 3 4 5; do \
             fonts-dejavu-core \
             xz-utils \
             libatomic1 \
-        && apt-get -o Acquire::Retries=5 install --only-upgrade --no-install-recommends -y \
+        && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --only-upgrade --no-install-recommends -y \
             libpcre2-8-0 \
         && rm -rf /var/lib/apt/lists/* \
         && break; \
