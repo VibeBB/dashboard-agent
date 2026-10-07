@@ -1,0 +1,10 @@
+{
+  "name": "@vibebb/dashboard-reports-app",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Agent Canvas app that renders VibeBB dashboard gate reports",
+  "scripts": {
+    "test": "node --test extension.test.js"
+  }
+}
