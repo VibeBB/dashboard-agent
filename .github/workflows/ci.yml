@@ -24,6 +24,8 @@ jobs:
   changes:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    # No actions/cache usage: forbid restore and save entirely.
+    cache-mode: none
     outputs:
       code: ${{ steps.scope.outputs.code }}
     steps:
@@ -87,36 +89,49 @@ jobs:
         id: sync-dependencies
         continue-on-error: ${{ matrix.experimental || false }}
         run: uv sync --locked
+      # The check legs are independent of each other and every id is
+      # referenced by the canary report below, so they stay top-level
+      # background steps (actionlint cannot resolve ids inside parallel
+      # groups) joined by wait-all before the report.
       - name: Ruff
         id: ruff
         continue-on-error: ${{ matrix.experimental || false }}
+        background: true
         run: uv run ruff check . && uv run ruff format --check .
       - name: Pyright
         id: pyright
         continue-on-error: ${{ matrix.experimental || false }}
+        background: true
         run: uv run pyright
       - name: Pytest
         id: pytest
         continue-on-error: ${{ matrix.experimental || false }}
+        background: true
         run: uv run python scripts/structural_coverage.py run --json out/structural-coverage.json
       - name: Shared hooks
         id: shared-hooks
         continue-on-error: ${{ matrix.experimental || false }}
+        background: true
         run: uv run python scripts/check_shared_hooks.py
       - name: Check shared workflows
         id: check-shared-workflows
         continue-on-error: ${{ matrix.experimental || false }}
+        background: true
         run: uv run python scripts/check_shared_workflows.py
       - name: Plugin load (OpenHands SDK)
         id: plugin-load-openhands-sdk
         continue-on-error: ${{ matrix.experimental || false }}
+        background: true
         env:
           OPENHANDS_SUPPRESS_BANNER: "1"
         run: uv run --group sdk-check python scripts/check_plugin_load.py
       - name: Docs
         id: docs
         continue-on-error: ${{ matrix.experimental || false }}
+        background: true
         run: uv run python scripts/verify_docs.py
+      - name: Wait for check legs
+        wait-all:
 
       - name: Report 3.15 canary outcome
         if: matrix.experimental && (steps.setup-uv.outcome == 'failure' || steps.sync-dependencies.outcome == 'failure' || steps.ruff.outcome == 'failure' || steps.pyright.outcome == 'failure' || steps.pytest.outcome == 'failure' || steps.shared-hooks.outcome == 'failure' || steps.check-shared-workflows.outcome == 'failure' || steps.plugin-load-openhands-sdk.outcome == 'failure' || steps.docs.outcome == 'failure')
@@ -139,13 +154,24 @@ jobs:
           node-version: 26
           cache: npm
           cache-dependency-path: runtime/package-lock.json
-      - name: Runtime typecheck and tests
+      - name: Install runtime dependencies
         working-directory: runtime
-        run: npm ci && npx tsc -p . && node --test test/
+        run: npm ci
+      # Typecheck and the Node test suite only read node_modules, so they
+      # run as a parallel group after npm ci (implicit wait at the end).
+      - parallel:
+          - name: Runtime typecheck
+            working-directory: runtime
+            run: npx tsc -p .
+          - name: Runtime tests
+            working-directory: runtime
+            run: node --test test/
 
   dockerfile-lint:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    # No actions/cache usage: forbid restore and save entirely.
+    cache-mode: none
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:
@@ -155,7 +181,11 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.sha }}
           persist-credentials: false
+      # Hadolint is read-only on docker/**: overlap it with the BuildKit
+      # setup + --check and join it before the job ends.
       - name: Lint Dockerfiles with hadolint
+        id: hadolint
+        background: true
         uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387 # v3.5.0
         with:
           dockerfile: docker/dashboard-tools.Dockerfile
@@ -163,12 +193,16 @@ jobs:
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       - name: Run BuildKit checks
         run: docker build --check -f docker/dashboard-tools.Dockerfile .
+      - name: Wait for hadolint
+        wait: hadolint
 
   e2e-examples:
     needs: changes
     if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    # No actions/cache usage: forbid restore and save entirely.
+    cache-mode: none
     outputs:
       contracts: ${{ steps.list.outputs.contracts }}
     steps:
@@ -374,6 +408,8 @@ jobs:
     if: always()
     runs-on: ubuntu-26.04
     timeout-minutes: 5
+    # No actions/cache usage: forbid restore and save entirely.
+    cache-mode: none
     steps:
       - uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
         with:

@@ -19,6 +19,8 @@ jobs:
   check-lock:
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    # No actions/cache usage: forbid restore and save entirely.
+    cache-mode: none
     outputs:
       present: ${{ steps.lock.outputs.present }}
       image: ${{ steps.lock.outputs.image }}
@@ -167,37 +169,41 @@ jobs:
           python-version: "3.14"
           cache-suffix: locked-dashboard-image
       - run: uv sync --locked
-      - name: Warn that tools image has no attestation metadata
-        if: needs.check-lock.outputs.attestation == ''
-        run: echo "::warning::dashboard_tools image lock has no attestation metadata; skipping provenance verification."
-      - name: Verify tools image provenance
-        if: needs.check-lock.outputs.attestation != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE: ${{ needs.check-lock.outputs.image }}
-          DIGEST: ${{ needs.check-lock.outputs.digest }}
-        run: |
-          gh attestation verify "oci://${IMAGE}@${DIGEST}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml"
-          echo "- image provenance attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
-      - name: Warn when tools image has no SBOM attestation
-        if: needs.check-lock.outputs.sbom_attestation == ''
-        run: echo "::warning::dashboard_tools image lock has no SBOM attestation; continuing"
-      - name: Verify tools image SBOM attestation
-        if: needs.check-lock.outputs.sbom_attestation != ''
-        env:
-          GH_TOKEN: ${{ github.token }}
-          IMAGE: ${{ needs.check-lock.outputs.image }}
-          DIGEST: ${{ needs.check-lock.outputs.digest }}
-        run: |
-          gh attestation verify "oci://${IMAGE}@${DIGEST}" \
-            --repo "$GITHUB_REPOSITORY" \
-            --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml" \
-            --predicate-type https://spdx.dev/Document/v2.3
-          echo "- image SBOM attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
-      - name: Pull locked dashboard image
-        run: uv run python scripts/pull_locked_image.py --entry dashboard_tools
+      # The attestation verifications and the image pull only need the lock
+      # contents — not each other — so they run as one parallel group and
+      # the pulled image is guaranteed present by the implicit wait.
+      - parallel:
+          - name: Warn that tools image has no attestation metadata
+            if: needs.check-lock.outputs.attestation == ''
+            run: echo "::warning::dashboard_tools image lock has no attestation metadata; skipping provenance verification."
+          - name: Verify tools image provenance
+            if: needs.check-lock.outputs.attestation != ''
+            env:
+              GH_TOKEN: ${{ github.token }}
+              IMAGE: ${{ needs.check-lock.outputs.image }}
+              DIGEST: ${{ needs.check-lock.outputs.digest }}
+            run: |
+              gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+                --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml"
+              echo "- image provenance attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
+          - name: Warn when tools image has no SBOM attestation
+            if: needs.check-lock.outputs.sbom_attestation == ''
+            run: echo "::warning::dashboard_tools image lock has no SBOM attestation; continuing"
+          - name: Verify tools image SBOM attestation
+            if: needs.check-lock.outputs.sbom_attestation != ''
+            env:
+              GH_TOKEN: ${{ github.token }}
+              IMAGE: ${{ needs.check-lock.outputs.image }}
+              DIGEST: ${{ needs.check-lock.outputs.digest }}
+            run: |
+              gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+                --repo "$GITHUB_REPOSITORY" \
+                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml" \
+                --predicate-type https://spdx.dev/Document/v2.3
+              echo "- image SBOM attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
+          - name: Pull locked dashboard image
+            run: uv run python scripts/pull_locked_image.py --entry dashboard_tools
       - name: Full gates through launcher
         env:
           GH_TOKEN: ${{ github.token }}
