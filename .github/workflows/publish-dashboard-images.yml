@@ -127,24 +127,62 @@ jobs:
           else
             echo "ref=ghcr.io/${IMAGE_OWNER}/dashboard-tools@${BUILT_DIGEST}" >> "$GITHUB_OUTPUT"
           fi
-      - name: Scan tools image (Trivy JSON)
-        # Runs before the SARIF gate so the JSON report exists even when the
-        # gate fails the run. On dry_run dispatch it scans the locally loaded
-        # rehearsal tag; plain dispatch builds nothing to scan.
-        if: github.event_name == 'push' || inputs.dry_run == true
-        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-        env:
-          # Shared cache so the Trivy scans reuse one DB download.
-          TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
+      # Attestation only needs the pushed digest: run it as a background
+      # step overlapping every post-build leg and join it before the
+      # digest-lock update that reads its attestation-url output.
+      - name: Attest dashboard tools image provenance
+        id: attest
+        if: github.event_name == 'push' && inputs.dry_run != true
+        background: true
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
-          scan-type: image
-          scan-ref: ${{ steps.scan-ref.outputs.ref }}
-          version: v0.75.0
-          scanners: vuln,secret,misconfig,license
-          ignore-unfixed: false
-          exit-code: '0'
-          format: json
-          output: trivy-image.json
+          subject-name: ghcr.io/vibebb/dashboard-tools
+          subject-digest: ${{ steps.tools.outputs.digest }}
+          push-to-registry: true
+      # Independent post-build legs run as a parallel group; the implicit
+      # wait at the group end still lands the full JSON scan before the
+      # SARIF gate, so the diagnostic report exists even when the gate
+      # fails — exactly when it is needed.
+      - parallel:
+          - name: Scan tools image (Trivy JSON)
+            # The SARIF gate follows this group so the JSON report exists
+            # even when the gate fails the run. On dry_run dispatch it
+            # scans the locally loaded rehearsal tag; plain dispatch
+            # builds nothing to scan.
+            if: github.event_name == 'push' || inputs.dry_run == true
+            uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+            env:
+              # Shared cache so the Trivy scans reuse one DB download.
+              TRIVY_CACHE_DIR: ${{ runner.temp }}/trivy-cache
+            with:
+              scan-type: image
+              scan-ref: ${{ steps.scan-ref.outputs.ref }}
+              version: v0.75.0
+              scanners: vuln,secret,misconfig,license
+              ignore-unfixed: false
+              exit-code: '0'
+              format: json
+              output: trivy-image.json
+          - name: Generate tools SPDX SBOM
+            if: github.event_name == 'push' || inputs.dry_run == true
+            uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
+            env:
+              # Registry pulls on publish; a dry_run image exists only in
+              # the local docker daemon.
+              SYFT_SOURCE_IMAGE_DEFAULT_PULL_SOURCE: ${{ inputs.dry_run == true && 'docker' || 'registry' }}
+              TMPDIR: ${{ runner.temp }}
+              SYFT_FILE_METADATA_SELECTION: none
+            with:
+              image: ${{ steps.scan-ref.outputs.ref }}
+              format: spdx-json
+              output-file: ${{ runner.temp }}/dashboard-tools.full.spdx.json
+              upload-artifact: false
+              upload-release-assets: false
+          - name: Measure published tools
+            if: github.event_name == 'push' || inputs.dry_run == true
+            env:
+              IMAGE_REF: ${{ steps.scan-ref.outputs.ref }}
+            run: uv run python scripts/measure_image_tools.py --image-ref "$IMAGE_REF" --out "$RUNNER_TEMP/dashboard-tools.json"
       - name: Scan tools image (Trivy SARIF)
         id: trivy-scan
         if: github.event_name == 'push' || inputs.dry_run == true
@@ -195,14 +233,6 @@ jobs:
           name: dashboard-tools-trivy
           path: trivy-image.json
           retention-days: 30
-      - name: Attest dashboard tools image provenance
-        id: attest
-        if: github.event_name == 'push' && inputs.dry_run != true
-        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
-        with:
-          subject-name: ghcr.io/vibebb/dashboard-tools
-          subject-digest: ${{ steps.tools.outputs.digest }}
-          push-to-registry: true
       - id: image
         env:
           IMAGE_OWNER: ${{ steps.owner.outputs.name }}
@@ -215,21 +245,6 @@ jobs:
             echo "tag=${GITHUB_SHA}-tools"
             echo "digest=${BUILT_DIGEST}"
           } >> "$GITHUB_OUTPUT"
-      - name: Generate tools SPDX SBOM
-        if: github.event_name == 'push' || inputs.dry_run == true
-        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c # v0.24.3
-        env:
-          # Registry pulls on publish; a dry_run image exists only in the
-          # local docker daemon.
-          SYFT_SOURCE_IMAGE_DEFAULT_PULL_SOURCE: ${{ inputs.dry_run == true && 'docker' || 'registry' }}
-          TMPDIR: ${{ runner.temp }}
-          SYFT_FILE_METADATA_SELECTION: none
-        with:
-          image: ${{ steps.scan-ref.outputs.ref }}
-          format: spdx-json
-          output-file: ${{ runner.temp }}/dashboard-tools.full.spdx.json
-          upload-artifact: false
-          upload-release-assets: false
       - name: Package tools SPDX SBOM
         if: github.event_name == 'push' || inputs.dry_run == true
         run: |
@@ -262,9 +277,11 @@ jobs:
           if sbom.get("spdxVersion") != "SPDX-2.3":
               raise SystemExit("tools SBOM must use SPDX-2.3")
           PY
+      # Overlaps the smoke run below; joined before the digest-lock update.
       - name: Attest tools SBOM
         id: attest_sbom
         if: github.event_name == 'push' && inputs.dry_run != true
+        background: true
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4.2.2
         with:
           subject-name: ghcr.io/vibebb/dashboard-tools
@@ -279,11 +296,6 @@ jobs:
           path: ${{ runner.temp }}/dashboard-tools.full.spdx.json
           retention-days: 90
           if-no-files-found: error
-      - name: Measure published tools
-        if: github.event_name == 'push' || inputs.dry_run == true
-        env:
-          IMAGE_REF: ${{ steps.scan-ref.outputs.ref }}
-        run: uv run python scripts/measure_image_tools.py --image-ref "$IMAGE_REF" --out "$RUNNER_TEMP/dashboard-tools.json"
       - name: Smoke published tools through the launcher
         if: github.event_name == 'push' || inputs.dry_run == true
         env:
@@ -375,6 +387,8 @@ jobs:
             echo "- **tag**: \`$IMAGE_TAG\`"
             echo "- **workflow run**: ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           } >> "$GITHUB_STEP_SUMMARY"
+      - name: Wait for attestations
+        wait: [attest, attest_sbom]
       - name: Update digest lock and merge PR
         if: github.event_name == 'push' && inputs.dry_run != true
         env:
