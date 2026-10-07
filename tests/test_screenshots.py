@@ -256,6 +256,73 @@ def test_capture_fails_for_subprocess_timeout_or_error(
     assert "failed" in result.detail
 
 
+def test_capture_retries_transient_screenshot_failure(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    generated, output = _setup(tmp_path, monkeypatch)
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        calls.append(command)
+        if len(calls) == 1:
+            return subprocess.CompletedProcess(command, 1, "", "protocol error")
+        screens = Path(command[command.index("--out") + 1])
+        screens.mkdir(parents=True, exist_ok=True)
+        for name, width, height in (("desktop", 1280, 800), ("mobile", 390, 844)):
+            (screens / f"{name}.png").write_bytes(_png(width, height))
+        viewports: list[dict[str, object]] = [
+            {
+                "name": name,
+                "browser": "chromium",
+                "browser_version": "test-version",
+                "width": width,
+                "height": height,
+                "file": f"{name}.png",
+                "page_errors": [],
+                "console_errors": [],
+            }
+            for name, width, height in (("desktop", 1280, 800), ("mobile", 390, 844))
+        ]
+        (screens / "screens.json").write_text(
+            json.dumps(
+                {
+                    "browser": "chromium",
+                    "browser_version": "test-version",
+                    "viewports": viewports,
+                }
+            ),
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr(screenshots.subprocess, "run", run)
+
+    result = screenshots.capture(generated, output)
+
+    assert result.ok is True
+    assert len(calls) == 2
+    assert [image.name for image in result.images] == ["desktop", "mobile"]
+
+
+def test_capture_reports_both_attempts_when_retry_exhausted(
+    tmp_path: Path,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    generated, output = _setup(tmp_path, monkeypatch)
+
+    def run(command: list[str], **_kwargs: object) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(command, 1, "", "protocol error")
+
+    monkeypatch.setattr(screenshots.subprocess, "run", run)
+
+    result = screenshots.capture(generated, output)
+
+    assert result.ok is False
+    assert "attempt 1" in result.detail
+    assert "attempt 2" in result.detail
+
+
 def _chromium_available() -> bool:
     node = screenshots.shutil.which("node")
     if node is None or not screenshots.PLAYWRIGHT_PACKAGE.is_dir():
