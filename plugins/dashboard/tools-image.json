@@ -1,22 +1,22 @@
 {
-  "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53653038",
-  "digest": "sha256:961c96c62b0a7c32d2564185460a08a7dd5aa29ce0c1ef1ce16526eceba7bbab",
+  "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53661025",
+  "digest": "sha256:f8d03817a4322ac2e5bb27eca06eaea31e0522b5a975ff4f00029d0df0830b19",
   "dockerfile": "docker/dashboard-tools.Dockerfile",
   "image": "ghcr.io/vibebb/dashboard-tools",
-  "published_at": "2026-10-07T17:44:01Z",
-  "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53653900",
-  "tag": "892d17654cdbf05d7cf78b49a874a88a0ed56d4c-tools",
+  "published_at": "2026-10-07T18:11:11Z",
+  "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/53661786",
+  "tag": "d405401b8d4eb09ae64ece6c4831992d855248e4-tools",
   "tools": {
     "chromium": "153.0.8010.12",
     "dashboard_agent": "0.1.0",
     "emcc": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.10 (d6c521a7f05449857c76bd99e396895583cf2083)\nCopyright (C) 2026 the Emscripten authors (see AUTHORS.txt)\nThis is free and open source software under the MIT license.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
-    "node": "v26.10.0",
-    "npm": "11.19.1",
+    "node": "v26.11.0",
+    "npm": "11.20.0",
     "playwright": "1.63.0",
     "python": "Python 3.14.8",
     "servoshell": "Version: Servo 0.7.0-aac43a3f3",
     "typescript": "Version 7.1.0-dev.20261003.1",
     "uv": "uv 0.12.23 (x86_64-unknown-linux-musl)"
   },
-  "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/37660058673"
+  "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/37662314803"
 }
