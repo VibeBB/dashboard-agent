@@ -35,36 +35,42 @@ COPY --from=emscripten /emsdk /emsdk
 # Debian slim snapshots lag the pcre2 security update (10.46-1~deb13u3,
 # CVE-2026-103111); apply --only-upgrade inside the build regardless of
 # which snapshot the pinned digest carries (idempotent when already fixed).
-RUN apt-get -o Acquire::Retries=5 update \
-    && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
-        ca-certificates \
-        curl \
-        git \
-        python3 \
-        python3-venv \
-        libdbus-1-3 \
-        libegl1 \
-        libgl1-mesa-dri \
-        libgstreamer1.0-0 \
-        libgstreamer-gl1.0-0 \
-        libgstreamer-plugins-bad1.0-0 \
-        libgstreamer-plugins-base1.0-0 \
-        libgtk-3-0 \
-        libwayland-client0 \
-        libx11-6 \
-        libxcomposite1 \
-        libxdamage1 \
-        libxext6 \
-        libxfixes3 \
-        libxkbcommon0 \
-        libxrandr2 \
-        libxrender1 \
-        fonts-dejavu-core \
-        xz-utils \
-        libatomic1 \
-    && apt-get -o Acquire::Retries=5 install --only-upgrade --no-install-recommends -y \
-        libpcre2-8-0 \
-    && rm -rf /var/lib/apt/lists/*
+RUN for attempt in 1 2 3 4 5; do \
+        apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update \
+        && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y \
+            ca-certificates \
+            curl \
+            git \
+            python3 \
+            python3-venv \
+            libdbus-1-3 \
+            libegl1 \
+            libgl1-mesa-dri \
+            libgstreamer1.0-0 \
+            libgstreamer-gl1.0-0 \
+            libgstreamer-plugins-bad1.0-0 \
+            libgstreamer-plugins-base1.0-0 \
+            libgtk-3-0 \
+            libwayland-client0 \
+            libx11-6 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxext6 \
+            libxfixes3 \
+            libxkbcommon0 \
+            libxrandr2 \
+            libxrender1 \
+            fonts-dejavu-core \
+            xz-utils \
+            libatomic1 \
+        && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --only-upgrade --no-install-recommends -y \
+            libpcre2-8-0 \
+        && rm -rf /var/lib/apt/lists/* \
+        && break; \
+        [ "$attempt" = 5 ] && exit 1; \
+        echo "::warning::apt update+install attempt ${attempt} failed; retrying"; \
+        sleep $((attempt * 30)); \
+    done
 
 # Node.js official tarball — the same sha256-verified external-download
 # pattern as the other tools in this image (and the ux-tools migration).

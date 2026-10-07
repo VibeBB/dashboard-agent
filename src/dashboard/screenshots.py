@@ -71,6 +71,24 @@ def _contained_image(output: Path, value: str) -> Path | None:
     return path
 
 
+def _run_screenshot_once(node: str, app: Path, output: Path, timeout: int) -> str | None:
+    """Run one screenshot subprocess; return its failure detail or None."""
+    try:
+        result = subprocess.run(
+            [node, str(SCREENSHOT_SCRIPT), "--app", str(app), "--out", str(output)],
+            cwd=_ROOT,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        return str(exc)
+    if result.returncode != 0:
+        return (result.stderr + result.stdout).strip() or f"exit code {result.returncode}"
+    return None
+
+
 def capture(generated_dir: Path, out_dir: Path, *, timeout: int = 180) -> CaptureResult:
     node = shutil.which("node")
     if node is None:
@@ -102,20 +120,26 @@ def capture(generated_dir: Path, out_dir: Path, *, timeout: int = 180) -> Captur
         return _failure("generation manifest has no valid contract_sha256")
 
     output = out_dir.resolve() / f"{app.name}.screens"
-    try:
-        output.mkdir(parents=True, exist_ok=True)
-        result = subprocess.run(
-            [node, str(SCREENSHOT_SCRIPT), "--app", str(app), "--out", str(output)],
-            cwd=_ROOT,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
+    # A transient Chromium driver failure (protocol error, process crash)
+    # earns one retry; content-level validation failures stay single-attempt.
+    errors: list[str] = []
+    for _ in range(2):
+        try:
+            output.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            return _failure(f"Chromium screenshot failed: {exc}")
+        error = _run_screenshot_once(node, app, output, timeout)
+        if error is None:
+            break
+        errors.append(error)
+    else:
+        detail = (
+            errors[-1]
+            if len(errors) == 1
+            else "; ".join(
+                f"attempt {number}: {error}" for number, error in enumerate(errors, start=1)
+            )
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return _failure(f"Chromium screenshot failed: {exc}")
-    if result.returncode != 0:
-        detail = (result.stderr + result.stdout).strip() or f"exit code {result.returncode}"
         return _failure(f"Chromium screenshot failed: {detail}")
 
     screens_path = output / "screens.json"
