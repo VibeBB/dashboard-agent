@@ -10,7 +10,7 @@ from pydantic import ValidationError
 
 from . import doctor
 from .contract import load_contract
-from .gates import FAIL, PASS, generated_freshness, run_gates
+from .gates import FAIL, PASS, generated_freshness, run_gates, vision_point_for_image
 from .generate import generate
 from .interchange import sha256_file
 from .liaison import ux_inbox, ux_respond
@@ -67,24 +67,11 @@ def generate_payload(contract_path: Path, out_dir: Path | None = None) -> Json:
 
 
 def _vision_review_payload(images: list[str]) -> list[dict[str, str]]:
-    checklists = {
-        "desktop.png": "dashboard-desktop",
-        "mobile.png": "dashboard-mobile",
-        "servo.png": "servo-render",
-    }
     reviews: list[dict[str, str]] = []
     for image in images:
-        path = Path(image)
-        if not path.is_file():
-            continue
-        reviews.append(
-            {
-                "image_path": image,
-                "sha256": sha256_file(path),
-                "checklist": checklists.get(path.name.lower(), "dashboard-image"),
-                "record_with": "dashboard_record_vision_review",
-            }
-        )
+        point = vision_point_for_image(image)
+        if point is not None:
+            reviews.append(point.model_dump())
     return reviews
 
 
