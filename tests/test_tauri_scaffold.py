@@ -66,24 +66,24 @@ def test_smart_kettle_tauri_scaffold_is_pinned_complete_and_deterministic() -> N
     }
     assert package["dependencies"] == {
         "@mnlphlp/plugin-blec": "0.17.0",
-        "@tauri-apps/api": "2.11.1",
+        "@tauri-apps/api": "2.12.1",
         "tauri-plugin-serialplugin-api": "3.0.7",
     }
     assert package["devDependencies"] == {
-        "@tauri-apps/cli": "2.11.5",
+        "@tauri-apps/cli": "2.12.1",
         "esbuild": "0.28.2",
     }
 
     cargo = tomllib.loads(first["src-tauri/Cargo.toml"].decode())
     assert cargo["dependencies"] == {
-        "tauri": {"version": "=2.11.6"},
-        "tauri-runtime": {"version": "=2.11.3"},
-        "tauri-runtime-wry": {"version": "=2.11.4"},
-        "tauri-macros": {"version": "=2.6.3"},
+        "tauri": {"version": "=2.12.1"},
+        "tauri-runtime": {"version": "=2.12.1"},
+        "tauri-runtime-wry": {"version": "=2.12.1"},
+        "tauri-macros": {"version": "=2.7.1"},
         "tauri-plugin-blec": {"version": "=0.17.0"},
         "tauri-plugin-serialplugin": {"version": "=3.0.7"},
     }
-    assert cargo["build-dependencies"] == {"tauri-build": {"version": "=2.6.3"}}
+    assert cargo["build-dependencies"] == {"tauri-build": {"version": "=2.7.1"}}
     assert cargo["lib"]["crate-type"] == ["staticlib", "cdylib", "rlib"]
     assert first["rust-toolchain.toml"] == b'[toolchain]\nchannel = "1.98.1"\n'
 
@@ -129,7 +129,7 @@ def test_websocket_only_tauri_scaffold_omits_native_plugins() -> None:
     capabilities = json.loads(files["src-tauri/capabilities/default.json"])
     bridge = files["src/bridge.ts"].decode()
 
-    assert package["dependencies"] == {"@tauri-apps/api": "2.11.1"}
+    assert package["dependencies"] == {"@tauri-apps/api": "2.12.1"}
     assert set(cargo["dependencies"]) == {
         "tauri",
         "tauri-runtime",
