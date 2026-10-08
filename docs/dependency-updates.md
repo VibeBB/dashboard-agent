@@ -47,6 +47,12 @@ uv run python scripts/check_dependency_updates.py \
 
 Review the complete upstream changelog before accepting a version update.
 
+## 2026-10-08 update (node 26.11.1)
+
+| Component | From -> to | Changelog review decision |
+| --- | --- | --- |
+| Node.js tarball | `26.11.0` -> `26.11.1` (`NODE_VERSION` + `NODE_SHA256`) | Adopted. The 26.11.1 release (Current line, 2026-10-07) contains only three reverts of documentation build tooling (`build: toggle doc-kit verbosity based on V`, `build, doc: move to redesign`, `tools: bump the doc group in /tools/doc`) — no runtime, API, or security changes. Bundled npm stays 11.20.0, so the `node` docker-base deferral (npm's vendored brace-expansion/undici Trivy waivers) still applies; re-scan on the next bump as recorded. Nothing to adopt. |
+
 ## 2026-10-07 update (node install method)
 
 | Component | From -> to | Changelog review decision |

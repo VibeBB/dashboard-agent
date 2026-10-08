@@ -5,9 +5,9 @@ FROM emscripten/emsdk:6.0.10@sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b2661
 FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
 ARG IMAGE_REVISION=unknown
-ARG NODE_VERSION=26.11.0
-# sha256 of https://nodejs.org/dist/v26.11.0/node-v26.11.0-linux-x64.tar.xz
-ARG NODE_SHA256=db6342d36ebdb3cbd72103d0ce5ccc528620f6c9df72a11f4ccb384bf1bef678
+ARG NODE_VERSION=26.11.1
+# sha256 of https://nodejs.org/dist/v26.11.1/node-v26.11.1-linux-x64.tar.xz
+ARG NODE_SHA256=3883bfc73f9a680ca4eab04b196068aaaab1373ffa77d8fc1a4408222495b651
 ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.7.0/servo-x86_64-linux-gnu.tar.gz
 ARG SERVO_SHA256=728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333
 
