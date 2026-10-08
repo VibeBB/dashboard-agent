@@ -141,7 +141,7 @@ def test_image_smokes_use_ci_runners_and_upload_diagnostics() -> None:
         assert "set +e" in workflow
         assert "status=$?" in workflow
         assert "diagnostics_status" in workflow
-        assert "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a" in workflow
+        assert "actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9" in workflow
         assert "if: always()" in workflow
     for workflow in (publish, locked, ci):
         assert "examples/*/out/*.dash-report.json" in workflow

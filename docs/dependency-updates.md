@@ -34,9 +34,11 @@ Short-lived reviewed exceptions are recorded in
 `scripts/dependency_update_deferrals.json`. Each exception has a review date;
 expired entries stop suppressing candidates automatically. Current deferrals
 cover `mcp` 2.x (blocked by the SDK's `fastmcp<4` requirement; recheck
-2027-04-01), the Tauri API/CLI and Rust crate releases available on 2026-09-30
-(recheck 2026-10-07), and the digest-pinned `emscripten/emsdk` and `node` base
-images awaiting re-scan on their next releases (2027-01-03).
+2027-04-01), the Tauri scaffold's pre-release-only 3.0.0-alpha.* line (stable
+2.x pins applied; recheck 2027-01-08), the Python floor pins on `pyproject.toml`
+and the `ci.yml` required legs (3.12/3.13 floor with 3.14+ covered by canary
+legs; recheck 2027-01-08), and the digest-pinned `emscripten/emsdk` and `node`
+base images awaiting re-scan on their next releases (2027-01-03).
 
 To generate a report locally:
 
@@ -46,6 +48,18 @@ uv run python scripts/check_dependency_updates.py \
 ```
 
 Review the complete upstream changelog before accepting a version update.
+
+## 2026-10-08 update (actions, tauri 2.12.x, typescript dev)
+
+| Component | From -> to | Changelog review decision |
+| --- | --- | --- |
+| step-security/harden-runner | v2.21.1 -> v2.22.1 | v2.22.0 adds Linux ARM64 (community tier), GHES self-hosted VM support, and macOS/Windows runner deny lists (both enterprise tier); v2.22.1 fixes security-rule initialization and GHES connectivity in block mode. All new items target tiers/runners this repo does not use — audit-mode egress on `ubuntu-26.04` is unchanged. Adopted as sha+comment swap across 16 workflows; canon EXPECTED hashes refreshed. |
+| actions/upload-artifact | v7.0.1 -> v7.0.2 | `@actions/artifact` 6.3.1 improves download retries on HTTP 429 with valid `Retry-After` handling; adopted implicitly — benefits diagnostics report uploads in publish/locked-image/ci/mutation/container-audit/scorecard. |
+| actions/download-artifact | v8.0.1 -> v8.0.2 | Same `@actions/artifact` 6.3.1 retry improvement plus a readme update; only `scorecard.yml` consumes it. |
+| Tauri scaffold pins | `@tauri-apps/api`/`cli` 2.11.x -> 2.12.1; `tauri`/`tauri-runtime`/`tauri-runtime-wry` 2.11.x -> 2.12.1; `tauri-macros`/`tauri-build` 2.6.3 -> 2.7.1 | Expired deferral resolved to the named stable lines. Reviewed 2.12.0/2.12.1 notes: new `app.exit()` API, `setFullscreenOnMonitor`, `noRedirectionBitmap`, `limitNavigationsToAppBoundDomains`, `appDirectoriesOverride`, wry permission-handler API, Liquid Glass effects, `macos-private-api` no longer needed for transparency/fullscreen, WebView2Loader.dll GNU-target copy fix, Android Gradle Kotlin `compilerOptions` migration (min Gradle 8.13 on `tauri android init`). Nothing the generated minimal scaffold must adopt — pins only, no API surface used. Deferral refreshed (`review_by` 2027-01-08) since newest upstream is pre-release-only 3.0.0-alpha.*. |
+| typescript | 7.1.0-dev.20261003.1 -> 7.1.0-dev.20261007.1 | Nightly channel (`next` dist-tag), no release notes by design. The new `lib.dom.d.ts` now ships the full Web Serial API plus `BluetoothServiceUUID`: `@types/w3c-web-serial` is superseded and dropped (built-in types are spec-generated and richer), and `@types/web-bluetooth`'s identical `BluetoothServiceUUID` alias is resolved via `skipLibCheck` (only node_modules/lib .d.ts diagnostics relaxed; repo `.ts` stays strict). `tsc -p .` and `node --test test/` pass. |
+| Python floor rows | new deferrals | `python-version` rows for `pyproject.toml` and the `ci.yml` 3.12/3.13 legs deferred to 2027-01-08: 3.12/3.13 remain the supported floor; 3.14+ is exercised by the canary legs. |
+| openhands-sdk/tools 1.53.0, Servo v0.7.0 | already current | Stale report rows — both landed on main in #149 (2026-10-07 update section below). |
 
 ## 2026-10-08 update (node 26.11.1)
 

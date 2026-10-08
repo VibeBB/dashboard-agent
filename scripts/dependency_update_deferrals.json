@@ -11,8 +11,22 @@
       "surface": "tauri-scaffold",
       "name": "*tauri*",
       "latest": "*",
-      "review_by": "2026-10-07",
-      "reason": "Recheck API/CLI 2.12.1, tauri/runtime/runtime-wry 2.12.1, and tauri-macros/build 2.7.1 on 2026-10-07."
+      "review_by": "2027-01-08",
+      "reason": "Stable 2.x pins applied (API/CLI 2.12.1, tauri/runtime/runtime-wry 2.12.1, tauri-macros/build 2.7.1); newest upstream releases are 3.0.0-alpha.* pre-releases. Recheck when a stable 3.x ships."
+    },
+    {
+      "surface": "python-version",
+      "name": "Python version (pyproject.toml)",
+      "latest": "3.14",
+      "review_by": "2027-01-08",
+      "reason": "3.12/3.13 remain the supported floor; 3.14+ is exercised by the canary legs"
+    },
+    {
+      "surface": "python-version",
+      "name": "Python version (.github/workflows/ci.yml)",
+      "latest": "3.14",
+      "review_by": "2027-01-08",
+      "reason": "3.12/3.13 remain the supported floor; 3.14+ is exercised by the canary legs"
     },
     {
       "surface": "docker-base",

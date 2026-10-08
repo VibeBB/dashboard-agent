@@ -364,7 +364,7 @@ def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
     transport_kinds = {transport.kind for transport in contract.transports}
     has_ble = "tauri_ble" in transport_kinds
     has_serial = "tauri_serial" in transport_kinds
-    dependencies: dict[str, str] = {"@tauri-apps/api": "2.11.1"}
+    dependencies: dict[str, str] = {"@tauri-apps/api": "2.12.1"}
     if has_ble:
         dependencies["@mnlphlp/plugin-blec"] = "0.17.0"
     if has_serial:
@@ -380,7 +380,7 @@ def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
         },
         "dependencies": dependencies,
         "devDependencies": {
-            "@tauri-apps/cli": "2.11.5",
+            "@tauri-apps/cli": "2.12.1",
             "esbuild": "0.28.2",
         },
     }
@@ -390,10 +390,10 @@ def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
     if has_serial:
         permissions.append("serialplugin:default")
     cargo_dependencies = [
-        'tauri = { version = "=2.11.6" }',
-        'tauri-runtime = { version = "=2.11.3" }',
-        'tauri-runtime-wry = { version = "=2.11.4" }',
-        'tauri-macros = { version = "=2.6.3" }',
+        'tauri = { version = "=2.12.1" }',
+        'tauri-runtime = { version = "=2.12.1" }',
+        'tauri-runtime-wry = { version = "=2.12.1" }',
+        'tauri-macros = { version = "=2.7.1" }',
     ]
     if has_ble:
         cargo_dependencies.append('tauri-plugin-blec = { version = "=0.17.0" }')
@@ -482,7 +482,7 @@ await writeFile(
             'crate-type = ["staticlib", "cdylib", "rlib"]\n'
             "\n"
             "[build-dependencies]\n"
-            'tauri-build = { version = "=2.6.3" }\n'
+            'tauri-build = { version = "=2.7.1" }\n'
             "\n"
             "[dependencies]\n" + "\n".join(cargo_dependencies) + "\n"
         ).encode(),
