@@ -42,6 +42,15 @@ class Check(BaseModel):
     evidence: list[str] = []
 
 
+class VisionPoint(BaseModel):
+    model_config = ConfigDict(frozen=True, extra="forbid")
+
+    image_path: str
+    sha256: str
+    checklist: str
+    record_with: str
+
+
 class GateReport(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
@@ -52,6 +61,44 @@ class GateReport(BaseModel):
     contract_sha256: str | None
     verdict: Literal["pass", "fail"]
     checks: list[Check]
+    vision_points: list[VisionPoint] = []
+
+
+_VISION_CHECKLISTS = {
+    "desktop.png": "dashboard-desktop",
+    "mobile.png": "dashboard-mobile",
+    "servo.png": "servo-render",
+}
+
+
+def vision_point_for_image(image: str) -> VisionPoint | None:
+    """Advisory vision-review entry for a rendered raster, or None when absent."""
+    path = Path(image)
+    if not path.is_file():
+        return None
+    return VisionPoint(
+        image_path=image,
+        sha256=sha256_file(path),
+        checklist=_VISION_CHECKLISTS.get(path.name.lower(), "dashboard-image"),
+        record_with="dashboard_record_vision_review",
+    )
+
+
+def vision_points_for_checks(checks: list[Check]) -> list[VisionPoint]:
+    """Rendered rasters in check evidence a vision reviewer must look at."""
+    points: list[VisionPoint] = []
+    seen: set[str] = set()
+    for check in checks:
+        if check.id not in {"visual.capture", "smoke.servo"}:
+            continue
+        for evidence in check.evidence:
+            if evidence in seen or not evidence.lower().endswith((".png", ".jpg", ".jpeg")):
+                continue
+            seen.add(evidence)
+            point = vision_point_for_image(evidence)
+            if point is not None:
+                points.append(point)
+    return points
 
 
 def _check(check_id: str, problems: list[str], evidence: list[str] | None = None) -> Check:
@@ -626,6 +673,7 @@ def run_gates(contract_path: Path, out_dir: Path, *, full: bool = False) -> Gate
         contract_sha256=sha256_file(path),
         verdict=FAIL if any(check.status == FAIL for check in checks) else PASS,
         checks=checks,
+        vision_points=vision_points_for_checks(checks) if full else [],
     )
 
 
@@ -642,6 +690,12 @@ def report_markdown(report: GateReport) -> str:
     for check in report.checks:
         detail = (check.detail or "; ".join(check.evidence[:3])).replace("|", "\\|")
         lines.append(f"| {check.id} | {check.status} | {detail} |")
+    if report.vision_points:
+        lines += ["", "## Vision points (advisory)", ""]
+        lines += [
+            f"- `{point.image_path}` — checklist `{point.checklist}`"
+            for point in report.vision_points
+        ]
     return "\n".join(lines) + "\n"
 
 

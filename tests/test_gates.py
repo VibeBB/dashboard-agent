@@ -216,3 +216,43 @@ def test_tauri_matrix_rejects_ios_serial_and_chromeos_tauri_routes() -> None:
     assert route_check.status == "fail"
     assert "ios/tauri/tauri_serial" in route_check.detail
     assert "chromeos/tauri/tauri_ble" in route_check.detail
+
+
+def test_vision_points_list_rendered_rasters(tmp_path: Path) -> None:
+    image = tmp_path / "desktop.png"
+    image.write_bytes(b"png-bytes")
+    checks = [
+        Check(id="visual.capture", status="pass", evidence=[str(image)]),
+        Check(
+            id="smoke.servo",
+            status="pass",
+            evidence=[str(tmp_path / "missing.png"), str(image)],
+        ),
+        Check(id="contract.schema", status="pass", evidence=[str(image)]),
+    ]
+
+    points = gates_module.vision_points_for_checks(checks)
+
+    assert [point.checklist for point in points] == ["dashboard-desktop"]
+    assert points[0].image_path == str(image)
+    assert points[0].record_with == "dashboard_record_vision_review"
+    assert points[0].sha256 == sha256_file(image)
+
+
+def test_report_markdown_lists_vision_points(tmp_path: Path) -> None:
+    image = tmp_path / "mobile.png"
+    image.write_bytes(b"png-bytes")
+    checks = [Check(id="visual.capture", status="pass", evidence=[str(image)])]
+    report = gates_module.GateReport(
+        design="kettle",
+        scope="full",
+        contract_sha256="a" * 64,
+        verdict="pass",
+        checks=checks,
+        vision_points=gates_module.vision_points_for_checks(checks),
+    )
+
+    markdown = gates_module.report_markdown(report)
+
+    assert "## Vision points (advisory)" in markdown
+    assert "`dashboard-mobile`" in markdown
