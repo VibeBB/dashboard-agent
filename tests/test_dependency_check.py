@@ -73,10 +73,10 @@ def test_checker_covers_required_dependency_surfaces() -> None:
 def test_current_dependency_deferrals_have_review_dates() -> None:
     deferrals = load_deferrals(ROOT)
 
-    assert len(deferrals) == 4
+    assert len(deferrals) == 6
     assert {item.review_by for item in deferrals} == {
-        date(2026, 10, 7),
         date(2027, 1, 3),
+        date(2027, 1, 8),
         date(2027, 4, 1),
     }
     assert {item.name for item in deferrals} == {
@@ -84,6 +84,8 @@ def test_current_dependency_deferrals_have_review_dates() -> None:
         "mcp",
         "emscripten/emsdk",
         "node",
+        "Python version (pyproject.toml)",
+        "Python version (.github/workflows/ci.yml)",
     }
     mcp = next(item for item in deferrals if item.name == "mcp")
     assert mcp.latest == "2.3.0"

@@ -12,14 +12,13 @@ includes or invokes the following third-party software:
 | Pydantic | `pydantic>=2` | MIT |
 | MCP Python SDK | `mcp>=1.29,<2` | MIT |
 | OpenHands SDK and tools | 1.53.0 (development plugin check) | MIT |
-| TypeScript | 7.1.0-dev.20261003.1 | Apache-2.0 |
+| TypeScript | 7.1.0-dev.20261007.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
 | Playwright | 1.63.0 | Apache-2.0 |
 | Chromium | Playwright 1.63.0 browser build | BSD-3-Clause and bundled notices |
 | `@types/node` | 26.6.4 | MIT |
 | `@types/web-bluetooth` | 0.0.21 | MIT |
 | `@types/w3c-web-usb` | 1.0.14 | MIT |
-| `@types/w3c-web-serial` | 1.0.8 | MIT |
 | Emscripten SDK | 6.0.10, image digest `sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65` | MIT / UIUC |
 | Servo | v0.7.0, SHA-256 `728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333` | MPL-2.0; unmodified binary invoked as a subprocess |
 | GStreamer runtime packages | Debian 13 | LGPL-2.1-or-later |

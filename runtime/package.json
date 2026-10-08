@@ -12,7 +12,6 @@
   "devDependencies": {
     "@playwright/test": "1.63.0",
     "@types/node": "26.6.4",
-    "@types/w3c-web-serial": "1.0.8",
     "@types/w3c-web-usb": "1.0.14",
     "@types/web-bluetooth": "0.0.21",
     "esbuild": "0.28.2",
