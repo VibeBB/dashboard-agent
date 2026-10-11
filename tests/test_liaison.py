@@ -11,6 +11,7 @@ from mcp import types
 from pydantic import ValidationError
 from pytest import CaptureFixture, MonkeyPatch
 
+from _vrp_refs import chained_refs
 from dashboard import cli, liaison, mcp_server, records, service
 
 _NOW = "2025-01-02T03:04:05Z"
@@ -141,16 +142,15 @@ def _write_response(
 
 
 def _record_refs(root: Path) -> None:
-    directory = records.records_dir(root)
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / records.LOG_FILES["decision"]).write_text(
-        json.dumps({"event_id": _DECISION_ID}) + "\n",
-        encoding="utf-8",
-    )
-    (directory / records.LOG_FILES["stage_impression"]).write_text(
-        json.dumps({"event_id": _IMPRESSION_ID}) + "\n",
-        encoding="utf-8",
-    )
+    chained_refs(root)
+
+
+def _logged_id(report: Path, kind: str, fallback: str) -> str:
+    for parent in report.parents:
+        log = records.records_dir(parent) / records.LOG_FILES[kind]
+        if log.is_file():
+            return str(json.loads(log.read_text(encoding="utf-8").splitlines()[0])["event_id"])
+    return fallback
 
 
 def _write_gate_report(
@@ -193,8 +193,8 @@ def _done_payload(report: Path, **overrides: object) -> dict[str, object]:
         "reason": "The dashboard implementation and validation are complete.",
         "artifacts": [str(report)],
         "gate_verdicts": [{"gate": "ui.full", "verdict": "pass"}],
-        "decision_refs": [_DECISION_ID],
-        "impression_refs": [_IMPRESSION_ID],
+        "decision_refs": [_logged_id(report, "decision", _DECISION_ID)],
+        "impression_refs": [_logged_id(report, "stage_impression", _IMPRESSION_ID)],
     }
     payload.update(overrides)
     return payload
@@ -613,3 +613,17 @@ def test_family_request_id_with_dot_and_underscore_is_accepted(tmp_path: Path) -
     assert inbox["verdict"] == "pass"
     assert request["id"] == "kettle.panel_v2"
     assert request["state"] == "new"
+
+
+def test_respond_refuses_refs_into_broken_chain(tmp_path: Path) -> None:
+    _write_request(tmp_path, "review-ui", inputs=False)
+    _record_refs(tmp_path)
+    report = _write_gate_report(tmp_path)
+    payload = _done_payload(report)
+    log = records.records_dir(tmp_path) / "decisions.jsonl"
+    last = json.loads(log.read_text(encoding="utf-8").splitlines()[-1])
+    with log.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(last | {"event_id": "f" * 64}) + "\n")
+    result = liaison.ux_respond(payload, root=tmp_path)
+    assert result["verdict"] == "fail"
+    assert "fails integrity" in cast(str, result["detail"])

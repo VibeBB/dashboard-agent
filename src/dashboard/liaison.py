@@ -22,7 +22,7 @@ from pydantic import (
     model_validator,
 )
 
-from . import records
+from . import _vrp, records
 from .gates import GateReport
 from .workspace import workspace_path, workspace_root
 
@@ -468,22 +468,24 @@ def _valid_done_dependency(request_id: str, directory: Path, root: Path) -> bool
     return not _stale_inputs(request, _input_snapshots(request, root), response)
 
 
+_LOG_KINDS = {
+    "decisions.jsonl": "decision",
+    "impressions.jsonl": "stage_impression",
+    "vision-reviews.jsonl": "vision_review",
+}
+
+
+def _intact_event_ids(log: Path) -> set[str]:
+    """Event ids from an intact VRP v2 log; a broken chain refuses every ref."""
+    kind = _LOG_KINDS[log.name]
+    records, problems = _vrp.verify_log(log, kind)
+    if problems:
+        raise ValueError(f"VRP {kind} log fails integrity: {problems[0]}")
+    return {str(record.get("event_id")) for record in records}
+
+
 def _event_ids(path: Path) -> set[str]:
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return set()
-    found: set[str] = set()
-    for line in lines:
-        try:
-            value: object = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(value, dict):
-            event_id = cast(dict[str, object], value).get("event_id")
-            if isinstance(event_id, str):
-                found.add(event_id)
-    return found
+    return _intact_event_ids(path)
 
 
 def _artifact_reference(value: str, root: Path) -> tuple[HashedPath, Path]:

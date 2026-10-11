@@ -9,6 +9,7 @@ from typing import cast
 from mcp import types
 from pytest import CaptureFixture, MonkeyPatch
 
+from _vrp_refs import chained_refs
 from dashboard import cli, mcp_server, service
 from dashboard.contract import ImportRef
 from dashboard.requests import write_request
@@ -33,13 +34,8 @@ def _workspace_contract(root: Path, *, firmware: bool) -> Path:
     return contract_path
 
 
-def _write_decision(root: Path, event_id: str = _DECISION_ID) -> None:
-    directory = root / "observations" / "dashboard"
-    directory.mkdir(parents=True, exist_ok=True)
-    (directory / "decisions.jsonl").write_text(
-        json.dumps({"event_id": event_id}) + "\n",
-        encoding="utf-8",
-    )
+def _write_decision(root: Path) -> str:
+    return chained_refs(root)[0]
 
 
 def test_outbound_request_is_schema_v2_with_hashed_contract_inputs(
@@ -48,7 +44,7 @@ def test_outbound_request_is_schema_v2_with_hashed_contract_inputs(
 ) -> None:
     monkeypatch.setenv("OPENHANDS_PROJECT_DIR", str(tmp_path))
     contract = _workspace_contract(tmp_path, firmware=True)
-    _write_decision(tmp_path)
+    decision_id = _write_decision(tmp_path)
 
     request, path = write_request(
         contract,
@@ -59,13 +55,13 @@ def test_outbound_request_is_schema_v2_with_hashed_contract_inputs(
         change="Add display scaling",
         rationale="Align the display with the calibrated signal range.",
         failing_checks=["widgets.binding"],
-        decision_refs=[_DECISION_ID],
+        decision_refs=[decision_id],
     )
     serialized = json.loads(path.read_text(encoding="utf-8"))
 
     assert serialized["schema_version"] == 2
     assert serialized["target"] == "fpga"
-    assert serialized["decision_refs"] == [_DECISION_ID]
+    assert serialized["decision_refs"] == [decision_id]
     assert [(item["path"], item["sha256"]) for item in serialized["inputs"]] == [
         ("demo.dash.json", hashlib.sha256(contract.read_bytes()).hexdigest()),
         (

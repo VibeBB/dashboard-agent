@@ -41,7 +41,10 @@ It contains the requested change/rationale, risk, failed gate IDs, dashboard
 contract SHA-256, input path/hash records, and VRP decision event IDs. The
 dashboard contract is always bound; a linked firmware contract is included
 when configured. Decision refs must exist in `observations/dashboard/
-decisions.jsonl`; high-risk requests require at least one.
+decisions.jsonl`; high-risk requests require at least one. Refs resolve only
+against an intact VRP v2 chain: a log that fails `verify_log` (forged, edited
+or truncated lines) refuses every ref into it, for requests and liaison
+responses alike.
 
 Never change sister input files to make a request pass. `failing_checks`
 describes observed deterministic evidence; it does not authorize a gate
