@@ -10,7 +10,7 @@ Top-level fields: `schema_version: 1`, `system: "dashboard"`,
 `artifact_kind: "dashboard_contract"`, slug `name`, non-empty `description`,
 `device`, `protocol`, non-empty `transports`, non-empty `platforms`, non-empty
 `widgets`, optional/defaulted `session`, optional `shell`, `wasm`, and
-`webmcp`, and default-empty `imports`.
+`webmcp`, `i18n`, and default-empty `imports`.
 
 | Model | Fields and invariants |
 | --- | --- |
@@ -27,6 +27,7 @@ Top-level fields: `schema_version: 1`, `system: "dashboard"`,
 | `Route` | Browser plus a declared transport ID and `acknowledged_caveats`. |
 | `PlatformDecl` | OS, status `supported` or `unsupported`, routes, optional reason. Supported declarations require routes and no reason; unsupported declarations require a reason and no routes. |
 | `Widget` | Slug `id`; kind `value`, `gauge`, `chart`, `indicator`, `fault`, `button`, `toggle`, or `slider`; non-empty `label`; optional telemetry `source`, command and field; `hazard` and `confirm` booleans. Display widgets use device-to-host `message.field`; controls use host-to-device commands. Hazardous controls require `confirm=true`. |
+| `I18n` | Optional `i18n`: BCP 47 `default_locale` (the language of `Widget.label`) and `labels`, a map of other locales to widget-id → label. The generated page sets `<html lang>` to the default; the runtime picks the first `navigator.languages` entry that matches a locale exactly or by primary language, falls back to the default, and translates widget card names, gauge and chart labels. Connection, hazard and diagnostic UI text stays English. |
 | `SessionConfig` | `connect_timeout_ms` default 10,000 (range 1,000–60,000), `ack_timeout_ms` default 1,000 (50–10,000), and `reconnect`. |
 | `Reconnect` | `max_attempts` default 5 (0–20), `backoff_ms` default 1,000 (100–60,000). |
 | `ShellConfig` / `TauriShellConfig` | Optional `tauri` object with non-empty `identifier` and `product_name`, semantic `version`, and a non-empty unique target list from `windows`, `macos`, `linux`, `android`, `ios`. The `tauri.identifier` gate requires reverse-DNS style. iPadOS routes map to the iOS target. |
@@ -70,12 +71,18 @@ platform.declared           platform.route-known        platform.caveats-acknowl
 platform.unsupported-reason
 tauri.identifier            tauri.targets-routes        tauri.transport-requires-shell
 widget.refs                 widget.hazard-confirm       widget.ids-unique
+i18n.labels                 a11y.names
 imports.sha256              firmware.link               service.faults
 webmcp.tool-names           webmcp.hazard-consequential webmcp.schema
 ```
 
 When WebMCP is not configured, its three checks are `not_applicable`.
 `service.faults` is `not_applicable` without a `fault` widget.
+`i18n.labels` is `not_applicable` without an `i18n` section; otherwise every
+locale must label every widget and name no unknown widget. `a11y.names` fails
+when two widgets share an accessible name (case- and space-folded) in the
+default labels or in any locale, because screen readers announce the card
+label.
 
 Full checks add `generated.fresh`, `runtime.typecheck`, `runtime.test`,
 `wasm.parity`, `wasm.modules`, `e2e.chromium`, `visual.capture`, and

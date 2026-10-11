@@ -4,6 +4,7 @@ import {
   describeFault,
   formatFieldLabel,
   formatFieldValue,
+  pickLocale,
   renderTelemetry,
 } from '../src/ui.ts';
 
@@ -62,4 +63,13 @@ test('fault readouts decode codes through the pinned fault table', () => {
   const output = { value: '', dataset: { message: 'status', field: 'error_code', fault: '' }, parentElement: null };
   renderTelemetry({ querySelectorAll: () => [output] }, { status: { error_code: 2 } }, faults);
   assert.equal(output.value, 'scale (warning): Descale the kettle');
+});
+
+test('locale choice prefers exact tags, then the primary language, then the default', () => {
+  assert.equal(pickLocale('en', ['ja', 'de-CH'], ['ja-JP', 'en']), 'ja');
+  assert.equal(pickLocale('en', ['ja', 'de-CH'], ['de-CH']), 'de-CH');
+  assert.equal(pickLocale('en', ['ja', 'de-CH'], ['de-AT']), 'de-CH');
+  assert.equal(pickLocale('en', ['ja'], ['en-GB', 'ja']), 'en');
+  assert.equal(pickLocale('en', ['ja'], ['fr']), 'en');
+  assert.equal(pickLocale('en', ['ja'], []), 'en');
 });

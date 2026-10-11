@@ -105,6 +105,7 @@ export interface WidgetConfig {
 
 export interface DashboardContract {
   name: string;
+  i18n?: { default_locale: string; labels: Record<string, Record<string, string>> } | null;
   description: string;
   protocol: {
     max_frame_bytes: number;
