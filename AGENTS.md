@@ -4,7 +4,7 @@
 
 - Python 3.12 code under `src/dashboard/` owns contract validation, generation,
   gates, reports, protocol export, sibling requests, the dashboard-local SLP v2
-  liaison implementation, and VRP v1 record writers.
+  liaison implementation, and VRP v2 record writers.
 - A `<name>.dash.json` contract is the source of truth. Files under
   `examples/*/out/` and `out/` are generated projections; do not edit them by
   hand.

@@ -18,7 +18,15 @@ from mcp.server.stdio import stdio_server
 
 from . import __version__, service
 from .liaison import UxRespondInput
-from .records import DecisionInput, StageImpressionInput, VisionReviewInput
+from .records import (
+    DecisionInput,
+    InsightStatusInput,
+    ReadInput,
+    ReconcileInput,
+    SongReceiptInput,
+    StageImpressionInput,
+    VisionReviewInput,
+)
 from .workspace import workspace_path
 
 server: Server = Server(f"dashboard-mcp/{__version__}")
@@ -126,14 +134,65 @@ TOOLS: dict[str, tuple[str, dict[str, object], bool]] = {
         False,
     ),
     "dashboard_record_impression": (
-        "Record a long-form stage impression bound to dashboard artifacts",
+        "Record the impression that closes a stage: 400+ chars and 3+ sentences, facets "
+        "(observed, works, concerns, maker/user feelings, next_actions), 2+ claims quoting "
+        "exact artifact tokens, optional insights, and an upstream answer for every sister "
+        "impression taken in; near copies of earlier impressions fail",
         StageImpressionInput.model_json_schema(),
         False,
     ),
     "dashboard_record_vision_review": (
-        "Record an advisory review bound to a dashboard image or vision event",
+        "Record an advisory review of a dashboard image: impression body, findings and a "
+        "lookback per claim; reviewer is primary, blind or tiebreak",
         VisionReviewInput.model_json_schema(),
         False,
+    ),
+    "dashboard_record_reconcile": (
+        "Compare independent reviews of one image: [primary, blind] (round 1) or "
+        "[primary, blind, tiebreak] (round 2, the last); a round-2 split stays unknown",
+        ReconcileInput.model_json_schema(),
+        False,
+    ),
+    "dashboard_record_insight": (
+        "Move an impression insight through tried/adopted/rejected/deferred/superseded; "
+        "a rejected insight returns only with revisits and new evidence",
+        InsightStatusInput.model_json_schema(),
+        False,
+    ),
+    "dashboard_record_song_receipt": (
+        "Receive a bard song addressed to dashboard; a receipt never feeds a gate and "
+        "never asks bard for another song",
+        SongReceiptInput.model_json_schema(),
+        False,
+    ),
+    "dashboard_record_read": (
+        "Record that a sister artifact was taken in; resolves the impressions bound to it",
+        ReadInput.model_json_schema(),
+        False,
+    ),
+    "dashboard_records_digest": (
+        "Family-wide impression digest: integrity per plugin, open concerns, disputes, "
+        "unanswered reads, insights, split reviews and undelivered songs",
+        _schema({}, []),
+        True,
+    ),
+    "dashboard_records_search": (
+        "Search every plugin's impressions by text, plugin, stage, artifact, severity or "
+        "open concerns; logs with broken integrity are listed separately",
+        _schema(
+            {
+                "query": {"type": "string"},
+                "system": {"type": "string"},
+                "kind": {"type": "string", "enum": ["stage_impression", "vision_review"]},
+                "stage": {"type": "string"},
+                "artifact": {"type": "string"},
+                "severity": {"type": "string", "enum": ["info", "warning", "error"]},
+                "open_only": {"type": "boolean"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 200},
+            },
+            [],
+        ),
+        True,
     ),
     "dashboard_records_status": (
         "Show dashboard record counts and the last Stop-hook verdict",
@@ -236,7 +295,13 @@ def dispatch(name: str, arguments: dict[str, object]) -> service.Json:
         "dashboard_record_vision_review": lambda: service.record_payload(
             "vision-review", arguments
         ),
+        "dashboard_record_reconcile": lambda: service.record_payload("reconcile", arguments),
+        "dashboard_record_insight": lambda: service.record_payload("insight", arguments),
+        "dashboard_record_song_receipt": lambda: service.record_payload("song-receipt", arguments),
+        "dashboard_record_read": lambda: service.record_payload("read", arguments),
         "dashboard_records_status": service.records_status_payload,
+        "dashboard_records_digest": service.records_digest_payload,
+        "dashboard_records_search": lambda: service.records_search_payload(arguments),
     }
     handler = handlers.get(name)
     if handler is None:

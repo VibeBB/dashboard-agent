@@ -47,3 +47,4 @@
 - [ADR-0012: Attest published tools images](adr/ADR-0012-attest-published-tools-images.md)
 - [ADR-0013: VRP v1 records and SLP v2 liaison](adr/ADR-0013-vrp-and-slp-v2.md)
 - [ADR-0014: Structural coverage gate (C0, C1, C2, MC/DC, boundaries)](adr/ADR-0014-structural-coverage.md)
+- [ADR-0015: VRP v2 records and blind screenshot review](adr/ADR-0015-vrp-v2-records.md)

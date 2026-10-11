@@ -27,6 +27,7 @@ def test_plugin_assets_have_expected_manifest_and_entry_points() -> None:
     assert {path.stem for path in (PLUGIN / "agents").glob("*.md")} == {
         "dashboard-architect",
         "dashboard-developer",
+        "dashboard-blind-review",
         "dashboard-review",
     }
     assert {path.stem for path in (PLUGIN / "commands").glob("*.md")} == {

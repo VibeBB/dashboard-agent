@@ -1,7 +1,8 @@
 # Records and vision review
 
-VibeBB Record Protocol v1 provides structured evidence for design choices,
-stage outcomes, and visual inspection. Records and model judgments are
+VibeBB Record Protocol (VRP) v2 provides structured evidence for design
+choices, stage outcomes, and visual inspection; the family specification is
+`wire-agent` `docs/records-protocol.md`. Records and model judgments are
 advisory. They cannot change a deterministic gate's `pass` or `fail` verdict.
 
 ## Required record stages
@@ -16,10 +17,16 @@ stage:
 5. `liaison` — answer UX requests and bind the evidence.
 6. `handoff` — summarize final outputs and open questions.
 
-Bind each impression to the relevant final artifact paths. It must contain at
-least 400 characters and three distinct sentences addressing what was noticed,
-what works, what worries the reviewer, how a maker or end user operating the
-device would read it, and what should happen next.
+Bind each impression to the relevant final artifact paths. It needs:
+
+- prose of at least 400 characters and three distinct sentences, refused when
+  it nearly duplicates an earlier impression of the same stage;
+- `facets`: two or more `observed`, `works`, `concerns` (id, severity,
+  `about`, anchor), `feelings.maker` / `feelings.user`, and `next_actions`;
+- two or more `claims`, each quoting an exact token (`anchor`) of a cited
+  artifact (a widget label, unit, or command name), checked against the bytes;
+- `confidence`, `unknowns`, optional `insights`, and an `upstream` answer for
+  every sister impression taken in.
 
 ## Decision examples
 
@@ -112,3 +119,42 @@ protects VRP logs/status and `liaison/*.ux-response.json`. Use generation,
 `dashboard_ux_respond`, and the VRP record tools/CLI writers. Artifact patterns
 and ignored trees are listed in `records-policy.json` and
 [Contracts](contracts.md#recordspolicyjson).
+
+## VRP v2 logs
+
+`observations/dashboard/` holds `decisions.jsonl`, `impressions.jsonl`,
+`vision-reviews.jsonl`, `reconciles.jsonl`, `insights.jsonl`, `reads.jsonl`,
+and `song-receipts.jsonl`. Every line carries `schema_version` 2, `sequence`,
+`prev_event_id`, `writer`, and `event_id` (the SHA-256 of the canonical
+record). The writer verifies the chain before appending and refuses a log that
+was edited, truncated, or reordered; readers report such a log under
+`integrity_problems` and never resolve references into it. A log written
+entirely by VRP v1 is renamed to `<name>.v1.jsonl` on the first v2 write.
+
+`dashboard_records_digest` lists open sister concerns, disputes, unanswered
+reads, insights, split reviews, and undelivered songs;
+`dashboard_records_search` filters every plugin's impressions. Answer each
+sister impression acted on in `upstream` (`adopted`, `deferred`, `disputed`, or
+`noted`) or with `dashboard_record_read`. A disputed concern cannot be raised
+again while the artifact bytes are unchanged, and a rejected insight returns
+only with `revisits` and a reason (`dashboard_record_insight`).
+
+## Blind second review of screenshots
+
+`dual_review_globs` (`**/*.screens/*.png`) make every desktop/mobile
+screenshot a dual-review image. After the primary review, the
+`dashboard-blind-review` sub-agent records a `blind` review behind the
+`blind-guard` hook, which hides earlier reviews, records, advisory reports,
+liaison answers, and bard songs. `dashboard_record_reconcile` compares
+`[primary, blind]`; a split gets one `tiebreak` round (at most two rounds) and
+stays `unknown` when unresolved. The Stop hook owes the blind review and the
+reconcile until both exist for the current image bytes.
+
+## Songs from bard
+
+bard may deliver `liaison/<id>.bard-song.json` addressed to `dashboard`. The
+dashboard answers with `dashboard_record_song_receipt`; the receipt is
+advisory, never feeds a gate, and never asks bard for another song, so the
+exchange cannot loop. The `protect-generated` hook denies hand edits to song
+deliveries.
+

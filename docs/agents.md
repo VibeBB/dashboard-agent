@@ -1,6 +1,6 @@
 # Agents
 
-All three agent definitions configure the same `dashboard` stdio MCP server
+All four agent definitions configure the same `dashboard` stdio MCP server
 through `plugins/dashboard/scripts/dashboard_launcher.py mcp_server`. Each
 declares its own pre/post-tool hooks; OpenHands plugin-level lifecycle hooks do
 not automatically propagate to sub-agents.
@@ -9,6 +9,7 @@ not automatically propagate to sub-agents.
 | --- | --- | --- | --- | --- | --- |
 | `dashboard-architect` | `vibebb-author` | 40 / 3.0 | `terminal`, `file_editor`, `grep`, `glob`, `task_tracker`, `task_tool_set` | Pre: `protect-generated`, `safety-rail`. Post: `record-vision-tool-event`, `record-image-observation`. | Owns the `.dash.json` brief and contract: protocol, transport/platform routes, caveats, widgets, safety declarations, validation, and static-gate resolution. It is the liaison lead for UX-creator requests. |
 | `dashboard-developer` | `vibebb-author` | 40 / 3.0 | `terminal`, `file_editor`, `grep`, `glob`, `task_tracker` | Pre: `protect-generated`, `safety-rail`. Post: `record-vision-tool-event`, `record-image-observation`. | Implements runtime behavior and integration, preserves contract-driven generation and safety, runs focused tests and full gates, and records implementation decisions/evidence. |
+| `dashboard-blind-review` | `vibebb-review` | see frontmatter | `terminal`, `file_editor`, `grep`, `glob` | Pre: `blind-guard`, `safety-rail`. Post: `record-vision-tool-event`. | Records an independent `blind` (or `tiebreak`) review of one screenshot without seeing earlier reviews; never compares reviews or issues verdicts. |
 | `dashboard-review` | `vibebb-review` | 30 / 2.0 | `terminal`, `file_editor`, `grep`, `glob`, `task_tracker` | Pre: `protect-generated`, `safety-rail`. Post: `record-vision-tool-event`, `record-image-observation`. | Independently reviews contract, gates, runtime safety, protocol compatibility, generated-file freshness, and desktop/mobile/Servo/intake visuals. Reports reproducible evidence and does not edit a contract merely to hide a failure. |
 
 The `ensure-llm-profiles` SessionStart hook copies the current OpenHands

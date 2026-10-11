@@ -196,12 +196,17 @@ and validates all claims and referenced records; see
 `questions_for_user`, and optional `liaison_dir`. The input reason is trimmed;
 the `UxResponse` applies the minimum-length and `done` constraints.
 
-## VRP v1 records
+## VRP v2 records
 
-Records use strict frozen models and append-only JSON Lines under
-`observations/dashboard/`. Every envelope has `schema_version: 1`,
-`plugin: "dashboard"`, positive `sequence`, SHA-256 `event_id`, and
-`recorded_at`.
+Records use strict frozen models and append-only, hash-chained JSON Lines
+under `observations/dashboard/`. Every envelope has `schema_version: 2`,
+`plugin: "dashboard"`, positive `sequence`, `prev_event_id`, `writer`,
+SHA-256 `event_id`, and `recorded_at`. Impressions and vision reviews also
+carry `facets`, grounded `claims`, `confidence`, and `unknowns`; vision
+reviews add `reviewer` and per-claim `lookback`. The v2 kinds
+`review_reconcile`, `insight_status`, `upstream_read`, and `song_receipt`
+follow the wire-agent `docs/records-protocol.md` specification; see
+[Records and vision review](records-and-vision.md).
 
 - **Decision:** `kind: "decision"` plus slug `id` and `stage`, 10+ character
   `question`, non-empty `principles` (each at least 12 characters), at least
@@ -219,17 +224,18 @@ Records use strict frozen models and append-only JSON Lines under
   `note`), and long-form `impression`. Input must bind either an image or
   source event.
 
-For all three record kinds, the envelope fields are `schema_version: 1`,
+For the v1-era record kinds, the envelope fields are `schema_version: 2`,
 `plugin: "dashboard"`, `sequence` (starting at 1), SHA-256 `event_id`,
-UTC `recorded_at`, and `kind`. The event ID is the SHA-256 of compact,
-key-sorted JSON containing the kind, sequence, and record body. Decision file
+UTC `recorded_at`, and `kind`. The event ID is the SHA-256 of the canonical
+record, including `prev_event_id`. Decision file
 evidence is converted to `{path, sha256}` by the writer; a non-file reference
 is `{reference}`. Impression artifact paths are converted to `{path, sha256}`.
 Vision input image paths are hashed from image bytes; the stored record
 contains `image_sha256` and an image or source-event binding.
 
-Writers append to `decisions.jsonl`, `impressions.jsonl`, and
-`vision-reviews.jsonl`. Directory hashes use sorted relative paths and file
+Writers append to `decisions.jsonl`, `impressions.jsonl`,
+`vision-reviews.jsonl`, `reconciles.jsonl`, `insights.jsonl`, `reads.jsonl`,
+and `song-receipts.jsonl`. Directory hashes use sorted relative paths and file
 hashes while skipping `.git`, `.venv`, `node_modules`, `__pycache__`, and
 `.pytest_cache`.
 
@@ -241,7 +247,7 @@ has `plugin`, `session_id`, epoch-seconds `checked_at`, `verdict` (`pass` or
 
 ## `records-policy.json`
 
-Policy schema v1 names plugin `dashboard`, directory
+Policy schema v2 names plugin `dashboard`, directory
 `observations/dashboard`, artifact globs:
 
 ```text
@@ -257,8 +263,9 @@ Policy schema v1 names plugin `dashboard`, directory
 **/liaison/*.ux-response.json
 ```
 
-It ignores `examples/**`, `tests/**`, `.devin/**`, and `runtime/**`, permits
-two Stop denials, and instructs agents to use the three VRP MCP tools or
-`python -m dashboard record decision|impression|vision-review --json <file>`.
-Impressions must be 400+ characters and three sentences about observations,
-what works/raises concern, user interpretation, and next action.
+It ignores `examples/**`, `tests/**`, `.devin/**`, and `runtime/**`, marks
+`**/*.screens/*.png` as `dual_review_globs`, permits two Stop denials, and
+instructs agents to use the VRP MCP tools or
+`python -m dashboard record <kind> --json <file>` (kinds `decision`,
+`impression`, `vision-review`, `reconcile`, `insight`, `song-receipt`,
+`read`, `search`; `status` and `digest` take no file).

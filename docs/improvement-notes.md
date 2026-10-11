@@ -7,7 +7,9 @@ This file tracks completed improvements and open follow-ups.
 - Removed `auto` from `DASHBOARD_LAUNCH_MODE`; supported modes are `docker`
   (default) and explicit developer-only `host`.
 - Removed the unused `protocol_sha` projection.
-- Added VRP v1 and SLP v2 as local, validated dashboard-side implementations.
+- Added VRP v1 and SLP v2 as local, validated dashboard-side implementations;
+  VRP v2 (chained logs, grounded impressions, blind screenshot review, bard
+  song receipts) replaced VRP v1 in ADR-0015.
 - Added advisory vision-review hints without changing MCP image-path or gate
   verdict behavior.
 - Render contract units in telemetry values, gauge/chart readouts, and

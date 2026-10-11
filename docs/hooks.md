@@ -58,8 +58,13 @@ SHA-256 digests (not raw file hashes):
 | `ensure_agent_profiles.py` | `81cf8a503e249c29e4a67901b58004bde0037e4e7d969b3287f5087ca7e25152` | Yes |
 | `_provenance.py` | `129bc2a98d85c300026ef50dabe90940c4b3c0e7054fb02d52d1d1dee3b18672` | No |
 | `safety_rail.py` | `1a9f3f72fec383f046db2ca8805a7190c33daa86daf42f06c3cd27e3f8be245b` | Yes |
-| `_records.py` | `f793baeb1f3194b3e519ddc86c01928439a84a5531925303593b11dc473b65ad` | Yes |
-| `require_records.py` | `f16ef9a9e8a53a3228d386246bb81564bb94ccf7cbfe4ac694f1ff03098680cf` | Yes |
+| `_records.py` | `0c04e50f44a7a54f28843d853a183fe77506ee8f64182d54d11bf878ac867413` | Yes |
+| `require_records.py` | `1867b1e0d391da292c17b3f2f0c2aad9bc5744da1fbaf0554d1189c046e43cff` | Yes |
+
+`_records.py`, `require_records.py`, and `blind_guard.py` are byte-identical
+copies of the wire-agent VRP v2 hooks (`src/dashboard/_vrp.py` mirrors
+`_records.py`); `blind_guard.py` runs only as the `dashboard-blind-review`
+agent's pre-tool hook.
 
 Changes to shared hooks must preserve the canonical hash across the VibeBB
 plugin family and update `EXPECTED` in the check script. Attachment intake,

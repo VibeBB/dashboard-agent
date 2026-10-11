@@ -57,7 +57,18 @@ def _parser() -> argparse.ArgumentParser:
     record = sub.add_parser("record")
     record.add_argument(
         "kind",
-        choices=("decision", "impression", "vision-review", "status"),
+        choices=(
+            "decision",
+            "impression",
+            "vision-review",
+            "reconcile",
+            "insight",
+            "song-receipt",
+            "read",
+            "status",
+            "digest",
+            "search",
+        ),
     )
     record.add_argument("--json", type=Path)
     return parser
@@ -84,12 +95,18 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.command == "record":
         if args.kind == "status":
             return _emit(service.records_status_payload())
+        if args.kind == "digest":
+            return _emit(service.records_digest_payload())
+        if args.kind == "search" and args.json is None:
+            return _emit(service.records_search_payload({}))
         if args.json is None:
             _parser().error(f"record {args.kind} requires --json")
         try:
             value: object = json.loads(args.json.read_text(encoding="utf-8"))
             if not isinstance(value, dict):
                 raise ValueError("record JSON must be an object")
+            if args.kind == "search":
+                return _emit(service.records_search_payload(cast(dict[str, object], value)))
             return _emit(service.record_payload(args.kind, cast(dict[str, object], value)))
         except (OSError, ValueError, json.JSONDecodeError) as exc:
             return _emit({"verdict": "fail", "stage": "record", "detail": str(exc)})
