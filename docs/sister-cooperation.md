@@ -123,6 +123,13 @@ SHA-256 and drives its UART commands over a `web_serial` transport from the
 generated page. prodeng owns the spec: regenerate and re-pin it rather than
 editing it, and `factory.spec` fails when the pinned bytes change.
 
+The pinned spec must also carry prodeng's interchange envelope v3 sidecar,
+`factory-test-spec.provenance.json`. A malformed sidecar, another producer,
+other artifact bytes, a changed source, or a `decision_refs` id missing
+from prodeng's intact VRP log fails `factory.spec`; because a factory run
+drives real hardware, a missing sidecar or unreadable source fails it too
+(`provenance unknown: ...`).
+
 ## Change control (ECR/ECO)
 
 A change to a file that another agent pins by sha256 goes through

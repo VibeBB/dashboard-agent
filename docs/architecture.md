@@ -19,6 +19,7 @@ records are advisory evidence and never alter a deterministic gate verdict.
 | `matrix.py` | Browser/OS/transport support facts and route caveats. |
 | `generate.py` | Builds the app, runtime configuration, protocol projections, WebMCP definitions, optional Tauri scaffold, and SHA-256 manifest. |
 | `protocol.py`, `interchange.py` | Protocol interchange object and file hashing. |
+| `_envelope.py` | Interchange envelope v3 sidecar check for pinned sister artifacts (the prodeng factory-test spec). |
 | `webmcp.py` | Generates safety-aware WebMCP tool definitions and validates their schemas. |
 | `gates.py`, `report.py` | Static/full deterministic gates and JSON/Markdown reports. |
 | `screenshots.py` | Chromium desktop/mobile capture and metadata validation. |
