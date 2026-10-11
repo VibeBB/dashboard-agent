@@ -7,8 +7,10 @@ from typing import Any
 
 import pytest
 
+from dashboard.contract import load_contract
+from dashboard.factory import load_factory
 from dashboard.gates import run_gates
-from dashboard.generate import generate
+from dashboard.generate import build_config, generate
 
 EXAMPLE = Path(__file__).parents[1] / "examples" / "smart-kettle" / "smart-kettle.dash.json"
 SPEC = Path(__file__).parent / "fixtures" / "prodeng" / "factory-test-spec.json"
@@ -88,10 +90,12 @@ def test_command_timeout_must_be_positive(tmp_path: Path, timeout_ms: int, statu
     assert _factory(_contract(tmp_path, commands=commands))[0] == status
 
 
-def test_generate_embeds_the_commands_and_refuses_a_broken_spec(tmp_path: Path) -> None:
+def test_config_embeds_the_commands_and_generate_refuses_a_broken_spec(tmp_path: Path) -> None:
     path = _contract(tmp_path)
-    output, _ = generate(path, tmp_path / "out")
-    config = json.loads((output / "dashboard.config.json").read_text(encoding="utf-8"))
+    contract = load_contract(path)
+    factory, problems = load_factory(contract, path)
+    assert problems == []
+    config: dict[str, Any] = build_config(contract, "0" * 64, factory)
     assert config["factory"]["transport"] == "kettle-serial"
     assert [item["id"] for item in config["factory"]["commands"]] == ["TC-01", "TC-02"]
     (tmp_path / "factory-test-spec.json").write_text("{}", encoding="utf-8")

@@ -17,6 +17,21 @@ export function formatFieldValue(value: string | number | boolean, unit?: string
   return unit ? `${rendered} ${unit}` : rendered;
 }
 
+export function pickLocale(
+  defaultLocale: string,
+  available: readonly string[],
+  preferred: readonly string[],
+): string {
+  const primary = (tag: string): string => tag.split("-")[0].toLowerCase();
+  for (const wanted of preferred) {
+    if (wanted === defaultLocale || available.includes(wanted)) return wanted;
+    if (primary(defaultLocale) === primary(wanted)) return defaultLocale;
+    const match = available.find((item) => primary(item) === primary(wanted));
+    if (match) return match;
+  }
+  return defaultLocale;
+}
+
 export function formatFieldLabel(name: string, unit?: string | null): string {
   const rendered = name.replaceAll("_", " ");
   return unit ? `${rendered} (${unit})` : rendered;

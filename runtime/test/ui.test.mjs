@@ -3,6 +3,7 @@ import test from 'node:test';
 import {
   formatFieldLabel,
   formatFieldValue,
+  pickLocale,
   renderTelemetry,
 } from '../src/ui.ts';
 
@@ -49,4 +50,13 @@ test('telemetry readouts append units for values, gauges, and charts', () => {
   ]);
   assert.equal(meter.value, 23.5);
   assert.equal(outputs[2].dataset.history, '[23.5]');
+});
+
+test('locale choice prefers exact tags, then the primary language, then the default', () => {
+  assert.equal(pickLocale('en', ['ja', 'de-CH'], ['ja-JP', 'en']), 'ja');
+  assert.equal(pickLocale('en', ['ja', 'de-CH'], ['de-CH']), 'de-CH');
+  assert.equal(pickLocale('en', ['ja', 'de-CH'], ['de-AT']), 'de-CH');
+  assert.equal(pickLocale('en', ['ja'], ['en-GB', 'ja']), 'en');
+  assert.equal(pickLocale('en', ['ja'], ['fr']), 'en');
+  assert.equal(pickLocale('en', ['ja'], []), 'en');
 });

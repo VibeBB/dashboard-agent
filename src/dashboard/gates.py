@@ -111,6 +111,38 @@ def _check(check_id: str, problems: list[str], evidence: list[str] | None = None
     )
 
 
+def _label_checks(contract: DashboardContract) -> list[Check]:
+    """Every locale labels every widget, and no two widgets share an accessible name."""
+    ids = [widget.id for widget in contract.widgets]
+    names: dict[str, list[str]] = {"default": [widget.label for widget in contract.widgets]}
+    checks: list[Check] = []
+    if contract.i18n is None:
+        checks.append(Check(id="i18n.labels", status="not_applicable", detail="no i18n section"))
+    else:
+        problems: list[str] = []
+        for locale, labels in sorted(contract.i18n.labels.items()):
+            missing = [item for item in ids if not labels.get(item, "").strip()]
+            unknown = sorted(set(labels) - set(ids))
+            if missing:
+                problems.append(f"{locale}: no label for {', '.join(missing)}")
+            if unknown:
+                problems.append(f"{locale}: unknown widgets {', '.join(unknown)}")
+            names[locale] = [labels.get(item, "") for item in ids]
+        evidence = [
+            f"locales: {contract.i18n.default_locale} (default), "
+            + ", ".join(sorted(contract.i18n.labels))
+        ]
+        checks.append(_check("i18n.labels", problems, evidence))
+    clashes: list[str] = []
+    for locale, labels in names.items():
+        folded = [" ".join(label.casefold().split()) for label in labels if label.strip()]
+        duplicates = _duplicates(folded)
+        if duplicates:
+            clashes.append(f"{locale}: widgets share the accessible name {', '.join(duplicates)}")
+    checks.append(_check("a11y.names", clashes))
+    return checks
+
+
 def _duplicates(values: list[str]) -> list[str]:
     return sorted({value for value in values if values.count(value) > 1})
 
@@ -433,6 +465,8 @@ def check_contract(contract: DashboardContract, contract_path: Path) -> list[Che
             [f"duplicate widget ids: {', '.join(duplicates)}"] if duplicates else [],
         )
     )
+
+    checks.extend(_label_checks(contract))
 
     import_problems: list[str] = []
     for item in contract.imports:

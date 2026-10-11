@@ -20,6 +20,7 @@ SLUG = r"^[a-z0-9][a-z0-9-]{0,62}$"
 SNAKE = r"^[a-z][a-z0-9_]*$"
 UUID_PATTERN = r"^(?:0x[0-9a-f]{4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$"
 SHA256 = r"^[0-9a-f]{64}$"
+LOCALE = r"^[a-z]{2,3}(-[A-Z][a-z]{3})?(-[A-Z]{2}|-[0-9]{3})?$"
 SEMVER = (
     r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
     r"(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
@@ -312,6 +313,24 @@ class FactoryConfig(StrictModel):
     transport: Name
 
 
+class I18n(StrictModel):
+    """Widget labels per BCP 47 locale; ``label`` is the ``default_locale`` text."""
+
+    default_locale: str = Field(pattern=LOCALE)
+    labels: dict[str, dict[str, str]] = Field(default_factory=dict[str, dict[str, str]])
+
+    @model_validator(mode="after")
+    def validate_locales(self) -> I18n:
+        for locale in self.labels:
+            if not re.fullmatch(LOCALE, locale):
+                raise ValueError(
+                    f"locale {locale!r} is not a BCP 47 language[-Script][-REGION] tag"
+                )
+            if locale == self.default_locale:
+                raise ValueError(f"{locale} is the default locale; its text is Widget.label")
+        return self
+
+
 class DashboardContract(StrictModel):
     schema_version: Literal[1]
     system: Literal["dashboard"]
@@ -328,6 +347,7 @@ class DashboardContract(StrictModel):
     wasm: WasmConfig | None = None
     webmcp: WebMcpConfig | None = None
     factory: FactoryConfig | None = None
+    i18n: I18n | None = None
     imports: list[ImportRef] = Field(default_factory=list[ImportRef])
 
 

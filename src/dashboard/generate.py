@@ -560,9 +560,10 @@ def _html(contract: DashboardContract) -> str:
         if contract.webmcp and contract.webmcp.origin_trial_token
         else ""
     )
+    lang = contract.i18n.default_locale if contract.i18n else "en"
     return (
         "<!doctype html>\n"
-        '<html lang="en">\n<head>\n<meta charset="utf-8">\n'
+        f'<html lang="{lang}">\n<head>\n<meta charset="utf-8">\n'
         '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
         f'<meta http-equiv="Content-Security-Policy" content="{content_security_policy}">\n'
         f"{token}"
