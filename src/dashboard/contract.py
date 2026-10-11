@@ -304,6 +304,14 @@ class Device(StrictModel):
         return self
 
 
+class FactoryConfig(StrictModel):
+    """Factory-test view over the hash-pinned prodeng ``factory-test-spec.json``."""
+
+    spec: str = Field(min_length=1)
+    spec_sha256: str = Field(pattern=SHA256)
+    transport: Name
+
+
 class DashboardContract(StrictModel):
     schema_version: Literal[1]
     system: Literal["dashboard"]
@@ -319,6 +327,7 @@ class DashboardContract(StrictModel):
     shell: ShellConfig | None = None
     wasm: WasmConfig | None = None
     webmcp: WebMcpConfig | None = None
+    factory: FactoryConfig | None = None
     imports: list[ImportRef] = Field(default_factory=list[ImportRef])
 
 

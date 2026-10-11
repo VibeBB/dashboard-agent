@@ -23,6 +23,7 @@ from .contract import (
     load_contract,
     resolve,
 )
+from .factory import load_factory
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
 from .screenshots import capture
@@ -461,6 +462,11 @@ def check_contract(contract: DashboardContract, contract_path: Path) -> list[Che
             except (OSError, json.JSONDecodeError) as exc:
                 firmware_problems.append(f"{firmware_path}: invalid JSON: {exc}")
     checks.append(_check("firmware.link", firmware_problems))
+
+    if contract.factory is None:
+        checks.append(Check(id="factory.spec", status="not_applicable", detail="no factory view"))
+    else:
+        checks.append(_check("factory.spec", load_factory(contract, contract_path)[1]))
 
     webmcp_tools = definitions(contract)
     if contract.webmcp is None:

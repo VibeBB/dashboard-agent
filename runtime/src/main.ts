@@ -1,5 +1,7 @@
 import { detectEnvironment, selectRoutes, type RouteSelection } from "./capabilities.ts";
 import { DashboardSession } from "./session.ts";
+import { lineIo, placeholders, runFactory, type FactoryConfig } from "./factory.ts";
+import { createTransport } from "./transports/index.ts";
 import type { DashboardConfig, TransportConfig } from "./types.ts";
 import {
   filterTauriBleDevices,
@@ -445,6 +447,54 @@ Object.defineProperty(window, "__dashboard", {
     get last_seen() { return session.lastSeen; },
   },
 });
+
+function renderFactory(factory: FactoryConfig): void {
+  const section = make("section");
+  section.id = "factory";
+  section.setAttribute("aria-label", "Factory test");
+  section.append(make("h2", "Factory test"));
+  const inputs = new Map<string, HTMLInputElement>();
+  for (const name of placeholders(factory.commands)) {
+    const label = make("label", name.replaceAll("_", " "));
+    const input = make("input");
+    input.id = `factory-${name}`;
+    label.htmlFor = input.id;
+    inputs.set(name, input);
+    section.append(label, input);
+  }
+  const run = make("button", "Run factory test");
+  const verdict = make("p");
+  verdict.setAttribute("aria-live", "polite");
+  const steps = make("ol");
+  run.addEventListener("click", async () => {
+    const transportConfig = config.contract.transports.find((item) => item.id === factory.transport);
+    if (!transportConfig) return;
+    run.disabled = true;
+    steps.replaceChildren();
+    verdict.textContent = "Running";
+    const transport = createTransport(transportConfig);
+    try {
+      const io = lineIo(transport);
+      await transport.open(new AbortController().signal);
+      const values = Object.fromEntries([...inputs].map(([name, input]) => [name, input.value]));
+      const results = await runFactory(io, factory.commands, values, (command) =>
+        window.confirm(`Run destructive step ${command.id} ${command.name}?`));
+      for (const result of results) steps.append(make("li", `${result.id} ${result.status}: ${result.line}`));
+      const passed = results.length === factory.commands.length && results.every((item) => item.status === "pass");
+      verdict.textContent = passed ? "PASS" : "FAIL";
+    } catch (error) {
+      verdict.textContent = `FAIL: ${error instanceof Error ? error.message : String(error)}`;
+    } finally {
+      await transport.close().catch(() => undefined);
+      run.disabled = false;
+    }
+  });
+  section.append(run, verdict, steps);
+  if (factory.exit) section.append(make("p", factory.exit));
+  dashboard.append(section);
+}
+
+if (config.factory) renderFactory(config.factory);
 
 session.addEventListener("statechange", () => {
   renderConnection();

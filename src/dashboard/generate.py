@@ -20,6 +20,7 @@ from .contract import (
     WebSocketTransport,
     load_contract,
 )
+from .factory import load_factory
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
 from .protocol import protocol_export
@@ -117,7 +118,11 @@ def _protocol_header(contract: DashboardContract) -> str:
     return "\n".join(lines)
 
 
-def build_config(contract: DashboardContract, contract_sha256: str) -> dict[str, object]:
+def build_config(
+    contract: DashboardContract,
+    contract_sha256: str,
+    factory: dict[str, object] | None = None,
+) -> dict[str, object]:
     routes: list[dict[str, object]] = []
     by_id = {transport.id: transport for transport in contract.transports}
     for platform in contract.platforms:
@@ -150,6 +155,7 @@ def build_config(contract: DashboardContract, contract_sha256: str) -> dict[str,
         "contract": contract.model_dump(mode="json", exclude={"shell"}),
         "routes": routes,
         "webmcp_tools": definitions(contract),
+        "factory": factory,
     }
 
 
@@ -592,10 +598,13 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
             previous_names = [
                 name for name in cast(dict[object, object], previous_files) if isinstance(name, str)
             ]
+    factory, factory_problems = load_factory(contract, contract_path)
+    if factory_problems:
+        raise ValueError("factory spec unusable: " + "; ".join(factory_problems))
     source_root = Path(__file__).resolve().parents[2]
     artifacts: dict[str, bytes] = {
         "index.html": _html(contract).encode(),
-        "dashboard.config.json": _json(build_config(contract, contract_sha)).encode(),
+        "dashboard.config.json": _json(build_config(contract, contract_sha, factory)).encode(),
         "manifest.webmanifest": _json(
             {
                 "name": contract.name,

@@ -7,6 +7,7 @@ export interface Transport {
   send(frame: Uint8Array): Promise<void>;
   close(): Promise<void>;
   onFrame(callback: (frame: Uint8Array) => void): void;
+  onBytes?(callback: (bytes: Uint8Array) => void): void;
   onClose(callback: () => void): void;
 }
 
@@ -14,6 +15,7 @@ export abstract class BaseTransport implements Transport {
   abstract readonly kind: TransportKind;
   protected frameHandler: (frame: Uint8Array) => void = () => undefined;
   protected closeHandler: () => void = () => undefined;
+  protected bytesHandler: (bytes: Uint8Array) => void = () => undefined;
   protected readonly splitter = new FrameSplitter();
 
   abstract open(signal: AbortSignal): Promise<void>;
@@ -24,11 +26,16 @@ export abstract class BaseTransport implements Transport {
     this.frameHandler = callback;
   }
 
+  onBytes(callback: (bytes: Uint8Array) => void): void {
+    this.bytesHandler = callback;
+  }
+
   onClose(callback: () => void): void {
     this.closeHandler = callback;
   }
 
   protected acceptBytes(bytes: Uint8Array): void {
+    this.bytesHandler(bytes);
     for (const frame of this.splitter.push(bytes)) this.frameHandler(frame);
   }
 }
