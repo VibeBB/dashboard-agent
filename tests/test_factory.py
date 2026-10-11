@@ -81,6 +81,13 @@ def test_unusable_spec_fails(
     assert problem in detail
 
 
+@pytest.mark.parametrize(("timeout_ms", "status"), [(-1, "fail"), (0, "fail"), (1, "pass")])
+def test_command_timeout_must_be_positive(tmp_path: Path, timeout_ms: int, status: str) -> None:
+    spec = json.loads(SPEC.read_text(encoding="utf-8"))
+    commands = [{**spec["commands"][0], "timeout_ms": timeout_ms}]
+    assert _factory(_contract(tmp_path, commands=commands))[0] == status
+
+
 def test_generate_embeds_the_commands_and_refuses_a_broken_spec(tmp_path: Path) -> None:
     path = _contract(tmp_path)
     output, _ = generate(path, tmp_path / "out")
