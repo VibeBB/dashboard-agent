@@ -7,8 +7,10 @@ import re
 from pathlib import Path
 from typing import cast
 
+from ._envelope import check_envelope
 from .contract import DashboardContract
 from .interchange import sha256_file
+from .workspace import workspace_root
 
 BAUD = re.compile(r"(\d+)\s*baud")
 
@@ -27,6 +29,9 @@ def load_factory(
         return None, [f"{config.spec}: file not found"]
     if sha256_file(path) != config.spec_sha256:
         return None, [f"{config.spec}: sha256 mismatch"]
+    status, detail = check_envelope(path, "prodeng", workspace_root(), config.spec_sha256)
+    if status != "pass":
+        return None, [f"{config.spec}: provenance {status}: {detail}"]
     try:
         document: object = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:

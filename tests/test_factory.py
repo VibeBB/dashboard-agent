@@ -7,6 +7,7 @@ from typing import Any
 
 import pytest
 
+from dashboard._envelope import sidecar_path, write_envelope
 from dashboard.contract import load_contract
 from dashboard.factory import load_factory
 from dashboard.gates import run_gates
@@ -21,6 +22,7 @@ def _contract(tmp_path: Path, transport: str = "kettle-serial", **spec_changes: 
     spec.update(spec_changes)
     raw = json.dumps(spec).encode()
     (tmp_path / "factory-test-spec.json").write_bytes(raw)
+    write_envelope(tmp_path / "factory-test-spec.json", "prodeng", [], tmp_path)
     data = json.loads(EXAMPLE.read_text(encoding="utf-8"))
     data["factory"] = {
         "spec": "factory-test-spec.json",
@@ -101,3 +103,15 @@ def test_config_embeds_the_commands_and_generate_refuses_a_broken_spec(tmp_path:
     (tmp_path / "factory-test-spec.json").write_text("{}", encoding="utf-8")
     with pytest.raises(ValueError, match="factory spec unusable"):
         generate(path, tmp_path / "out")
+
+
+def test_spec_provenance_missing_or_foreign_fails(tmp_path: Path) -> None:
+    path = _contract(tmp_path)
+    sidecar = sidecar_path(tmp_path / "factory-test-spec.json")
+    body = json.loads(sidecar.read_text(encoding="utf-8"))
+    sidecar.write_text(json.dumps(body | {"producer": "firmware"}), encoding="utf-8")
+    status, detail = _factory(path)
+    assert status == "fail" and "provenance fail" in detail
+    sidecar.unlink()
+    status, detail = _factory(path)
+    assert status == "fail" and "provenance unknown" in detail
