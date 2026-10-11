@@ -1,3 +1,4 @@
+import type { FactoryConfig } from "./factory.ts";
 import type { FaultEntry } from "./ui.ts";
 export type WireType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32" | "bool";
 export type MessageDirection = "device_to_host" | "host_to_device";
@@ -127,6 +128,7 @@ export interface DashboardContract {
 }
 
 export interface DashboardConfig {
+  factory?: FactoryConfig | null;
   contract_sha256: string;
   contract: DashboardContract;
   routes: Array<{

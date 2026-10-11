@@ -20,6 +20,7 @@ from .contract import (
     WebSocketTransport,
     load_contract,
 )
+from .factory import load_factory
 from .faults import load_faults
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
@@ -122,6 +123,7 @@ def build_config(
     contract: DashboardContract,
     contract_sha256: str,
     faults: list[dict[str, object]] | None = None,
+    factory: dict[str, object] | None = None,
 ) -> dict[str, object]:
     routes: list[dict[str, object]] = []
     by_id = {transport.id: transport for transport in contract.transports}
@@ -155,6 +157,7 @@ def build_config(
         "contract": contract.model_dump(mode="json", exclude={"shell"}),
         "routes": routes,
         "webmcp_tools": definitions(contract),
+        "factory": factory,
         "faults": faults,
     }
 
@@ -602,10 +605,15 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
             previous_names = [
                 name for name in cast(dict[object, object], previous_files) if isinstance(name, str)
             ]
+    factory, factory_problems = load_factory(contract, contract_path)
+    if factory_problems:
+        raise ValueError("factory spec unusable: " + "; ".join(factory_problems))
     source_root = Path(__file__).resolve().parents[2]
     artifacts: dict[str, bytes] = {
         "index.html": _html(contract).encode(),
-        "dashboard.config.json": _json(build_config(contract, contract_sha, faults)).encode(),
+        "dashboard.config.json": _json(
+            build_config(contract, contract_sha, faults=faults, factory=factory)
+        ).encode(),
         "manifest.webmanifest": _json(
             {
                 "name": contract.name,

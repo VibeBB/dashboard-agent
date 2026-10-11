@@ -305,6 +305,14 @@ class Device(StrictModel):
         return self
 
 
+class FactoryConfig(StrictModel):
+    """Factory-test view over the hash-pinned prodeng ``factory-test-spec.json``."""
+
+    spec: str = Field(min_length=1)
+    spec_sha256: str = Field(pattern=SHA256)
+    transport: Name
+
+
 class I18n(StrictModel):
     """Widget labels per BCP 47 locale; ``label`` is the ``default_locale`` text."""
 
@@ -338,6 +346,7 @@ class DashboardContract(StrictModel):
     shell: ShellConfig | None = None
     wasm: WasmConfig | None = None
     webmcp: WebMcpConfig | None = None
+    factory: FactoryConfig | None = None
     i18n: I18n | None = None
     imports: list[ImportRef] = Field(default_factory=list[ImportRef])
 

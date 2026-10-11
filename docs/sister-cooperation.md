@@ -112,3 +112,10 @@ Responses can be overwritten to progress a request. Agent instructions
 recommend `accepted` → `in_progress` → a final/blocked outcome, ask user
 questions through `questions_for_user`, re-read stale inputs, and prohibit
 hand-editing `.ux-response.json`.
+
+## prodeng factory test spec
+
+A contract `factory` section pins prodeng's `factory-test-spec.json` by
+SHA-256 and drives its UART commands over a `web_serial` transport from the
+generated page. prodeng owns the spec: regenerate and re-pin it rather than
+editing it, and `factory.spec` fails when the pinned bytes change.
