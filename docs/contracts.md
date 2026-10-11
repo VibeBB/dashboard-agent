@@ -26,7 +26,7 @@ Top-level fields: `schema_version: 1`, `system: "dashboard"`,
 | `WebRtcTransport` | `id`, `kind`, non-empty `signaling_url` (the gate requires `wss://`), `data_channel` default `dash`, `ordered` default true, and an optional `ice_servers` list (default empty; each `IceServer.urls` list is non-empty and uses `stun:`, `turn:`, or `turns:`). Signaling uses the dashboard offerer JSON protocol. |
 | `Route` | Browser plus a declared transport ID and `acknowledged_caveats`. |
 | `PlatformDecl` | OS, status `supported` or `unsupported`, routes, optional reason. Supported declarations require routes and no reason; unsupported declarations require a reason and no routes. |
-| `Widget` | Slug `id`; kind `value`, `gauge`, `chart`, `indicator`, `button`, `toggle`, or `slider`; non-empty `label`; optional telemetry `source`, command and field; `hazard` and `confirm` booleans. Display widgets use device-to-host `message.field`; controls use host-to-device commands. Hazardous controls require `confirm=true`. |
+| `Widget` | Slug `id`; kind `value`, `gauge`, `chart`, `indicator`, `fault`, `button`, `toggle`, or `slider`; non-empty `label`; optional telemetry `source`, command and field; `hazard` and `confirm` booleans. Display widgets use device-to-host `message.field`; controls use host-to-device commands. Hazardous controls require `confirm=true`. |
 | `I18n` | Optional `i18n`: BCP 47 `default_locale` (the language of `Widget.label`) and `labels`, a map of other locales to widget-id → label. The generated page sets `<html lang>` to the default; the runtime picks the first `navigator.languages` entry that matches a locale exactly or by primary language, falls back to the default, and translates widget card names, gauge and chart labels. Connection, hazard and diagnostic UI text stays English. |
 | `SessionConfig` | `connect_timeout_ms` default 10,000 (range 1,000–60,000), `ack_timeout_ms` default 1,000 (50–10,000), and `reconnect`. |
 | `Reconnect` | `max_attempts` default 5 (0–20), `backoff_ms` default 1,000 (100–60,000). |
@@ -72,11 +72,12 @@ platform.unsupported-reason
 tauri.identifier            tauri.targets-routes        tauri.transport-requires-shell
 widget.refs                 widget.hazard-confirm       widget.ids-unique
 i18n.labels                 a11y.names
-imports.sha256              firmware.link
+imports.sha256              firmware.link               service.faults
 webmcp.tool-names           webmcp.hazard-consequential webmcp.schema
 ```
 
 When WebMCP is not configured, its three checks are `not_applicable`.
+`service.faults` is `not_applicable` without a `fault` widget.
 `i18n.labels` is `not_applicable` without an `i18n` section; otherwise every
 locale must label every widget and name no unknown widget. `a11y.names` fails
 when two widgets share an accessible name (case- and space-folded) in the

@@ -315,7 +315,7 @@ function renderWidgets(): void {
         ),
       );
     }
-    if (["value", "gauge", "chart", "indicator"].includes(widget.kind)) {
+    if (["value", "gauge", "chart", "indicator", "fault"].includes(widget.kind)) {
       const value = make("output", "—");
       const [messageName, fieldName] = widget.source?.split(".", 2) ?? ["", ""];
       value.dataset.message = messageName;
@@ -324,6 +324,7 @@ function renderWidgets(): void {
         .find((item) => item.name === messageName)
         ?.fields.find((item) => item.name === fieldName);
       value.dataset.unit = fieldConfig?.unit ?? "";
+      if (widget.kind === "fault") value.dataset.fault = "";
       value.setAttribute("aria-live", "polite");
       if (widget.kind === "gauge") {
         const gauge = make("meter");
@@ -459,7 +460,7 @@ session.addEventListener("statechange", () => {
   setControlsEnabled(widgetsRoot, session.state);
   renderDiagnostics();
 });
-session.addEventListener("telemetry", () => updateTelemetry(widgetsRoot, session.telemetry));
+session.addEventListener("telemetry", () => updateTelemetry(widgetsRoot, session.telemetry, config.faults ?? []));
 session.addEventListener("protocolerror", (event) => {
   const alert = make("p", String((event as CustomEvent<unknown>).detail), "notice");
   alert.setAttribute("role", "alert");

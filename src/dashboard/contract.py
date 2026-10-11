@@ -224,7 +224,7 @@ class PlatformDecl(StrictModel):
 
 class Widget(StrictModel):
     id: Name
-    kind: Literal["value", "gauge", "chart", "indicator", "button", "toggle", "slider"]
+    kind: Literal["value", "gauge", "chart", "indicator", "fault", "button", "toggle", "slider"]
     label: str = Field(min_length=1)
     source: str | None = None
     command: SnakeName | None = None

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
+  describeFault,
   formatFieldLabel,
   formatFieldValue,
   pickLocale,
@@ -50,6 +51,18 @@ test('telemetry readouts append units for values, gauges, and charts', () => {
   ]);
   assert.equal(meter.value, 23.5);
   assert.equal(outputs[2].dataset.history, '[23.5]');
+});
+
+test('fault readouts decode codes through the pinned fault table', () => {
+  const faults = [{ code: 2, name: 'scale', severity: 'warning', action: 'Descale the kettle' }];
+  assert.equal(describeFault(0, faults), 'No fault');
+  assert.equal(describeFault(2, faults), 'scale (warning): Descale the kettle');
+  assert.equal(describeFault(3, faults), 'Unknown fault code 3');
+  assert.equal(describeFault(-1, faults), 'Invalid fault code -1');
+  assert.equal(describeFault(true, faults), 'Invalid fault code true');
+  const output = { value: '', dataset: { message: 'status', field: 'error_code', fault: '' }, parentElement: null };
+  renderTelemetry({ querySelectorAll: () => [output] }, { status: { error_code: 2 } }, faults);
+  assert.equal(output.value, 'scale (warning): Descale the kettle');
 });
 
 test('locale choice prefers exact tags, then the primary language, then the default', () => {
