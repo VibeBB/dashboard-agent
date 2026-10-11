@@ -1,3 +1,4 @@
+import type { FaultEntry } from "./ui.ts";
 export type WireType = "u8" | "i8" | "u16" | "i16" | "u32" | "i32" | "f32" | "bool";
 export type MessageDirection = "device_to_host" | "host_to_device";
 export type TransportKind =
@@ -93,7 +94,7 @@ export interface PlatformConfig {
 
 export interface WidgetConfig {
   id: string;
-  kind: "value" | "gauge" | "chart" | "indicator" | "button" | "toggle" | "slider";
+  kind: "value" | "gauge" | "chart" | "indicator" | "fault" | "button" | "toggle" | "slider";
   label: string;
   source?: string | null;
   command?: string | null;
@@ -137,6 +138,7 @@ export interface DashboardConfig {
     caveat_text: Record<string, string>;
   }>;
   webmcp_tools: WebMcpToolDefinition[];
+  faults?: FaultEntry[] | null;
 }
 
 export interface WebMcpToolDefinition {

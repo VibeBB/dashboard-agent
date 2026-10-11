@@ -20,6 +20,7 @@ from .contract import (
     WebSocketTransport,
     load_contract,
 )
+from .faults import load_faults
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
 from .protocol import protocol_export
@@ -117,7 +118,11 @@ def _protocol_header(contract: DashboardContract) -> str:
     return "\n".join(lines)
 
 
-def build_config(contract: DashboardContract, contract_sha256: str) -> dict[str, object]:
+def build_config(
+    contract: DashboardContract,
+    contract_sha256: str,
+    faults: list[dict[str, object]] | None = None,
+) -> dict[str, object]:
     routes: list[dict[str, object]] = []
     by_id = {transport.id: transport for transport in contract.transports}
     for platform in contract.platforms:
@@ -150,6 +155,7 @@ def build_config(contract: DashboardContract, contract_sha256: str) -> dict[str,
         "contract": contract.model_dump(mode="json", exclude={"shell"}),
         "routes": routes,
         "webmcp_tools": definitions(contract),
+        "faults": faults,
     }
 
 
@@ -577,6 +583,9 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     contract_path = contract_path.resolve()
     contract = load_contract(contract_path)
     contract_sha = sha256_file(contract_path)
+    faults, fault_problems = load_faults(contract, contract_path)
+    if fault_problems:
+        raise ValueError("fault table unusable: " + "; ".join(fault_problems))
     output = out_root.resolve() / contract.name
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = output / "dash-manifest.json"
@@ -595,7 +604,7 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     source_root = Path(__file__).resolve().parents[2]
     artifacts: dict[str, bytes] = {
         "index.html": _html(contract).encode(),
-        "dashboard.config.json": _json(build_config(contract, contract_sha)).encode(),
+        "dashboard.config.json": _json(build_config(contract, contract_sha, faults)).encode(),
         "manifest.webmanifest": _json(
             {
                 "name": contract.name,

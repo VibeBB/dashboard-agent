@@ -26,7 +26,7 @@ Top-level fields: `schema_version: 1`, `system: "dashboard"`,
 | `WebRtcTransport` | `id`, `kind`, non-empty `signaling_url` (the gate requires `wss://`), `data_channel` default `dash`, `ordered` default true, and an optional `ice_servers` list (default empty; each `IceServer.urls` list is non-empty and uses `stun:`, `turn:`, or `turns:`). Signaling uses the dashboard offerer JSON protocol. |
 | `Route` | Browser plus a declared transport ID and `acknowledged_caveats`. |
 | `PlatformDecl` | OS, status `supported` or `unsupported`, routes, optional reason. Supported declarations require routes and no reason; unsupported declarations require a reason and no routes. |
-| `Widget` | Slug `id`; kind `value`, `gauge`, `chart`, `indicator`, `button`, `toggle`, or `slider`; non-empty `label`; optional telemetry `source`, command and field; `hazard` and `confirm` booleans. Display widgets use device-to-host `message.field`; controls use host-to-device commands. Hazardous controls require `confirm=true`. |
+| `Widget` | Slug `id`; kind `value`, `gauge`, `chart`, `indicator`, `fault`, `button`, `toggle`, or `slider`; non-empty `label`; optional telemetry `source`, command and field; `hazard` and `confirm` booleans. Display widgets use device-to-host `message.field`; controls use host-to-device commands. Hazardous controls require `confirm=true`. |
 | `SessionConfig` | `connect_timeout_ms` default 10,000 (range 1,000–60,000), `ack_timeout_ms` default 1,000 (50–10,000), and `reconnect`. |
 | `Reconnect` | `max_attempts` default 5 (0–20), `backoff_ms` default 1,000 (100–60,000). |
 | `ShellConfig` / `TauriShellConfig` | Optional `tauri` object with non-empty `identifier` and `product_name`, semantic `version`, and a non-empty unique target list from `windows`, `macos`, `linux`, `android`, `ios`. The `tauri.identifier` gate requires reverse-DNS style. iPadOS routes map to the iOS target. |
@@ -70,11 +70,12 @@ platform.declared           platform.route-known        platform.caveats-acknowl
 platform.unsupported-reason
 tauri.identifier            tauri.targets-routes        tauri.transport-requires-shell
 widget.refs                 widget.hazard-confirm       widget.ids-unique
-imports.sha256              firmware.link
+imports.sha256              firmware.link               service.faults
 webmcp.tool-names           webmcp.hazard-consequential webmcp.schema
 ```
 
 When WebMCP is not configured, its three checks are `not_applicable`.
+`service.faults` is `not_applicable` without a `fault` widget.
 
 Full checks add `generated.fresh`, `runtime.typecheck`, `runtime.test`,
 `wasm.parity`, `wasm.modules`, `e2e.chromium`, `visual.capture`, and
