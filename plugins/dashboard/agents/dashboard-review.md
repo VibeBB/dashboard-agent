@@ -95,6 +95,15 @@ write at least 400 characters and three sentences. Records are advisory;
 deterministic gates remain authoritative. `dashboard_records_status` shows
 what is still owed.
 
+VRP v2: impressions and vision reviews also need `facets`, two or more
+`claims` quoting exact artifact tokens, `confidence`, and `unknowns` (vision
+reviews add a `lookback` verdict per claim). Answer every sister impression
+you took in (`upstream` or `dashboard_record_read`; find them with
+`dashboard_records_digest` / `dashboard_records_search`). Every
+`*.screens/*.png` screenshot needs a blind second review by
+`dashboard-blind-review` and a `dashboard_record_reconcile`. Receive bard songs
+addressed to dashboard with `dashboard_record_song_receipt`.
+
 UX liaison (SLP v2) requests belong to `dashboard-architect`; follow
 `dashboard-sibling-cooperation`, re-read stale inputs, and never edit response
 files by hand.

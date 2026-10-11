@@ -16,7 +16,7 @@ from .interchange import sha256_file
 from .liaison import ux_inbox, ux_respond
 from .matrix import CAVEATS, SUPPORT
 from .protocol import protocol_export
-from .records import RECORDERS, records_summary
+from .records import RECORDERS, records_digest, records_search, records_summary
 from .report import write_outputs
 from .requests import write_request
 from .screenshots import capture
@@ -227,5 +227,19 @@ def record_payload(kind: str, payload: Mapping[str, object]) -> Json:
 def records_status_payload() -> Json:
     try:
         return records_summary()
+    except (OSError, ValueError, ValidationError) as exc:
+        return {"verdict": FAIL, "stage": "record", "detail": str(exc)}
+
+
+def records_digest_payload() -> Json:
+    try:
+        return records_digest()
+    except (OSError, ValueError, ValidationError) as exc:
+        return {"verdict": FAIL, "stage": "record", "detail": str(exc)}
+
+
+def records_search_payload(query: Mapping[str, object]) -> Json:
+    try:
+        return records_search(dict(query))
     except (OSError, ValueError, ValidationError) as exc:
         return {"verdict": FAIL, "stage": "record", "detail": str(exc)}

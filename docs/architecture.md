@@ -27,7 +27,7 @@ records are advisory evidence and never alter a deterministic gate verdict.
 | `mcp_server.py` | Stdio MCP tool declarations, dispatch, JSON responses, and inline screenshot attachments. |
 | `requests.py` | Outbound DashboardRequest v2 creation for sister agents. |
 | `liaison.py` | Dashboard-local SLP v2 inbox validation and response writing. |
-| `records.py` | Typed VRP v1 records, hashing, append-only writers, and status summary. |
+| `records.py` | Typed VRP v2 writers over the vendored `_vrp.py` validator, hash-chained logs, status, digest, and search. |
 | `workspace.py` | Resolves workspace roots and prevents paths from escaping the workspace. |
 
 See [Public function and CLI reference](reference.md) for every public function

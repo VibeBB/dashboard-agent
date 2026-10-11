@@ -9,7 +9,12 @@ from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
 PLUGIN = ROOT / "plugins" / "dashboard"
-EXPECTED_AGENTS = {"dashboard-architect", "dashboard-developer", "dashboard-review"}
+EXPECTED_AGENTS = {
+    "dashboard-architect",
+    "dashboard-blind-review",
+    "dashboard-developer",
+    "dashboard-review",
+}
 EXPECTED_SKILLS = {
     "dashboard-contract",
     "dashboard-contract-rules",

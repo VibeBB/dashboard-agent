@@ -27,11 +27,17 @@ still returning its complete report and evidence.
 | `dashboard_record_decision` | Write | VRP `DecisionInput` model schema | Appends a decision event; evidence files are hashed by the writer. |
 | `dashboard_record_impression` | Write | VRP `StageImpressionInput` model schema | Appends a long-form stage impression bound to file/tree hashes. |
 | `dashboard_record_vision_review` | Write | VRP `VisionReviewInput` model schema | Appends an advisory image/event-bound review. |
+| `dashboard_record_reconcile` | Write | VRP `ReconcileInput` model schema | Compares `[primary, blind]` (round 1) or `[primary, blind, tiebreak]` (round 2) reviews of one image. |
+| `dashboard_record_insight` | Write | VRP `InsightStatusInput` model schema | Moves an impression insight through its lifecycle; a rejected insight returns only with `revisits`. |
+| `dashboard_record_song_receipt` | Write | VRP `SongReceiptInput` model schema | Receives a bard song addressed to dashboard; never requests another song. |
+| `dashboard_record_read` | Write | VRP `ReadInput` model schema | Records that a sister artifact was taken in and resolves the impressions bound to it. |
 | `dashboard_records_status` | Read | None | Returns VRP log counts and the most recent Stop-hook verdict. |
+| `dashboard_records_digest` | Read | None | Family-wide digest: integrity, open concerns, disputes, unanswered reads, insights, split reviews, undelivered songs. |
+| `dashboard_records_search` | Read | Optional `query`, `system`, `kind`, `stage`, `artifact`, `severity`, `open_only`, `limit` | Searches every plugin's impressions; logs with broken integrity are listed separately. |
 
 Record input schemas are the Pydantic JSON schemas of their corresponding
 models. Their fields and validation requirements are summarized in
-[Contracts](contracts.md#vrp-v1-records).
+[Contracts](contracts.md#vrp-v2-records).
 
 ## Errors
 
@@ -52,7 +58,7 @@ return MCP image content. The first content block is always JSON text; its
 PNG/JPEG image content when eligible. At most eight images of at most 4 MiB
 each are attached per call. Oversized or excess files remain in the JSON
 metadata with their SHA-256 and a reason; missing files are marked unavailable.
-Other tools—including all three VRP record tools—are text-only.
+Other tools—including all VRP record tools—are text-only.
 
 The `vision_review` hints do not contain invented review prose. Each hint
 provides `image_path`, `sha256`, a checklist slug (`dashboard-desktop`,
