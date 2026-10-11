@@ -5,10 +5,11 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
-from typing import Literal, cast
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from . import _vrp
 from .contract import load_contract, resolve
 from .interchange import sha256_file
 from .liaison import HashedPath
@@ -55,22 +56,24 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")[:48] or "request"
 
 
+_LOG_KINDS = {
+    "decisions.jsonl": "decision",
+    "impressions.jsonl": "stage_impression",
+    "vision-reviews.jsonl": "vision_review",
+}
+
+
+def _intact_event_ids(log: Path) -> set[str]:
+    """Event ids from an intact VRP v2 log; a broken chain refuses every ref."""
+    kind = _LOG_KINDS[log.name]
+    records, problems = _vrp.verify_log(log, kind)
+    if problems:
+        raise ValueError(f"VRP {kind} log fails integrity: {problems[0]}")
+    return {str(record.get("event_id")) for record in records}
+
+
 def _event_ids(path: Path) -> set[str]:
-    try:
-        lines = path.read_text(encoding="utf-8").splitlines()
-    except OSError:
-        return set()
-    found: set[str] = set()
-    for line in lines:
-        try:
-            value: object = json.loads(line)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(value, dict):
-            event_id = cast(dict[str, object], value).get("event_id")
-            if isinstance(event_id, str):
-                found.add(event_id)
-    return found
+    return _intact_event_ids(path)
 
 
 def write_request(
