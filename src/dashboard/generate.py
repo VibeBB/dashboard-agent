@@ -21,6 +21,7 @@ from .contract import (
     load_contract,
 )
 from .factory import load_factory
+from .faults import load_faults
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
 from .protocol import protocol_export
@@ -121,6 +122,7 @@ def _protocol_header(contract: DashboardContract) -> str:
 def build_config(
     contract: DashboardContract,
     contract_sha256: str,
+    faults: list[dict[str, object]] | None = None,
     factory: dict[str, object] | None = None,
 ) -> dict[str, object]:
     routes: list[dict[str, object]] = []
@@ -156,6 +158,7 @@ def build_config(
         "routes": routes,
         "webmcp_tools": definitions(contract),
         "factory": factory,
+        "faults": faults,
     }
 
 
@@ -584,6 +587,9 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     contract_path = contract_path.resolve()
     contract = load_contract(contract_path)
     contract_sha = sha256_file(contract_path)
+    faults, fault_problems = load_faults(contract, contract_path)
+    if fault_problems:
+        raise ValueError("fault table unusable: " + "; ".join(fault_problems))
     output = out_root.resolve() / contract.name
     output.mkdir(parents=True, exist_ok=True)
     manifest_path = output / "dash-manifest.json"
@@ -605,7 +611,9 @@ def generate(contract_path: Path, out_root: Path) -> tuple[Path, list[Path]]:
     source_root = Path(__file__).resolve().parents[2]
     artifacts: dict[str, bytes] = {
         "index.html": _html(contract).encode(),
-        "dashboard.config.json": _json(build_config(contract, contract_sha, factory)).encode(),
+        "dashboard.config.json": _json(
+            build_config(contract, contract_sha, faults=faults, factory=factory)
+        ).encode(),
         "manifest.webmanifest": _json(
             {
                 "name": contract.name,

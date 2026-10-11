@@ -26,7 +26,7 @@ Top-level fields: `schema_version: 1`, `system: "dashboard"`,
 | `WebRtcTransport` | `id`, `kind`, non-empty `signaling_url` (the gate requires `wss://`), `data_channel` default `dash`, `ordered` default true, and an optional `ice_servers` list (default empty; each `IceServer.urls` list is non-empty and uses `stun:`, `turn:`, or `turns:`). Signaling uses the dashboard offerer JSON protocol. |
 | `Route` | Browser plus a declared transport ID and `acknowledged_caveats`. |
 | `PlatformDecl` | OS, status `supported` or `unsupported`, routes, optional reason. Supported declarations require routes and no reason; unsupported declarations require a reason and no routes. |
-| `Widget` | Slug `id`; kind `value`, `gauge`, `chart`, `indicator`, `button`, `toggle`, or `slider`; non-empty `label`; optional telemetry `source`, command and field; `hazard` and `confirm` booleans. Display widgets use device-to-host `message.field`; controls use host-to-device commands. Hazardous controls require `confirm=true`. |
+| `Widget` | Slug `id`; kind `value`, `gauge`, `chart`, `indicator`, `fault`, `button`, `toggle`, or `slider`; non-empty `label`; optional telemetry `source`, command and field; `hazard` and `confirm` booleans. Display widgets use device-to-host `message.field`; controls use host-to-device commands. Hazardous controls require `confirm=true`. |
 | `FactoryConfig` | Optional `factory`: `spec` path and `spec_sha256` of the prodeng `factory-test-spec.json`, plus the `transport` id that drives it. The transport must be a declared `web_serial` whose `baud_rate` equals the spec's `interface.settings` baud; the spec must be declared, use `uart`, and list well-formed commands. Generation embeds the commands in `dashboard.config.json` and refuses an unusable spec. The page then shows a Factory test section: operator inputs for each `<placeholder>`, and a Run button (a user gesture) that opens the port, sends each request as a UTF-8 line, and passes a step only when a reply line equals the filled `response_pattern` within `timeout_ms`. The run stops at the first failure, and destructive steps need in-page confirmation. Close any normal dashboard session on the same port first. |
 | `I18n` | Optional `i18n`: BCP 47 `default_locale` (the language of `Widget.label`) and `labels`, a map of other locales to widget-id → label. The generated page sets `<html lang>` to the default; the runtime picks the first `navigator.languages` entry that matches a locale exactly or by primary language, falls back to the default, and translates widget card names, gauge and chart labels. Connection, hazard and diagnostic UI text stays English. |
 | `SessionConfig` | `connect_timeout_ms` default 10,000 (range 1,000–60,000), `ack_timeout_ms` default 1,000 (50–10,000), and `reconnect`. |
@@ -74,12 +74,14 @@ tauri.identifier            tauri.targets-routes        tauri.transport-requires
 widget.refs                 widget.hazard-confirm       widget.ids-unique
 i18n.labels                 a11y.names
 imports.sha256              firmware.link               factory.spec
+service.faults
 webmcp.tool-names           webmcp.hazard-consequential webmcp.schema
 ```
 
 When WebMCP is not configured, its three checks are `not_applicable`.
 `factory.spec` is `not_applicable` without a `factory` section; a missing,
 changed, or unusable spec fails.
+`service.faults` is `not_applicable` without a `fault` widget.
 `i18n.labels` is `not_applicable` without an `i18n` section; otherwise every
 locale must label every widget and name no unknown widget. `a11y.names` fails
 when two widgets share an accessible name (case- and space-folded) in the

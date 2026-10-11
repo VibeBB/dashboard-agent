@@ -21,6 +21,17 @@ that the referenced JSON has `system: "firmware"` and
 requests use this explicit binding rather than assuming a firmware
 implementation from a product description.
 
+A `fault` widget shows a status field as a fault for the user or service
+technician. The firmware owns the table: `faults[]` in the pinned firmware
+contract (`code` 1–65535, `name`, `severity`, `action`). The
+`service.faults` gate fails when the widget has no firmware link, when the
+linked contract has changed or cannot be read, when the table is missing,
+empty, malformed or repeats a code, when the source field is not an unsigned
+integer, or when a code does not fit that field. The generator embeds the
+table as `faults` in `dashboard.config.json` and refuses an unusable one. At
+runtime, code `0` reads "No fault"; a known code reads
+`name (severity): action`; any other code reads "Unknown fault code N".
+
 ## Outbound DashboardRequest v2
 
 `dashboard request` / `dashboard_request` writes

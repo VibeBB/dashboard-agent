@@ -24,6 +24,7 @@ from .contract import (
     resolve,
 )
 from .factory import load_factory
+from .faults import fault_widgets, load_faults
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
 from .screenshots import capture
@@ -414,7 +415,7 @@ def check_contract(contract: DashboardContract, contract_path: Path) -> list[Che
     widget_problems: list[str] = []
     refs_seen: list[str] = []
     for widget in contract.widgets:
-        is_display = widget.kind in {"value", "gauge", "chart", "indicator"}
+        is_display = widget.kind in {"value", "gauge", "chart", "indicator", "fault"}
         if is_display:
             if widget.source is None or "." not in widget.source:
                 widget_problems.append(f"{widget.id}: display widgets require message.field source")
@@ -496,6 +497,10 @@ def check_contract(contract: DashboardContract, contract_path: Path) -> list[Che
             except (OSError, json.JSONDecodeError) as exc:
                 firmware_problems.append(f"{firmware_path}: invalid JSON: {exc}")
     checks.append(_check("firmware.link", firmware_problems))
+    if not fault_widgets(contract):
+        checks.append(Check(id="service.faults", status="not_applicable", detail="no fault widget"))
+    else:
+        checks.append(_check("service.faults", load_faults(contract, contract_path)[1]))
 
     if contract.factory is None:
         checks.append(Check(id="factory.spec", status="not_applicable", detail="no factory view"))

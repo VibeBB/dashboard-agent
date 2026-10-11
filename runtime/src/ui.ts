@@ -17,6 +17,22 @@ export function formatFieldValue(value: string | number | boolean, unit?: string
   return unit ? `${rendered} ${unit}` : rendered;
 }
 
+export interface FaultEntry {
+  code: number;
+  name: string;
+  severity: "info" | "warning" | "error" | "critical";
+  action: string;
+}
+
+export function describeFault(value: string | number | boolean, faults: readonly FaultEntry[]): string {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    return `Invalid fault code ${String(value)}`;
+  }
+  if (value === 0) return "No fault";
+  const fault = faults.find((entry) => entry.code === value);
+  return fault ? `${fault.name} (${fault.severity}): ${fault.action}` : `Unknown fault code ${value}`;
+}
+
 export function pickLocale(
   defaultLocale: string,
   available: readonly string[],
@@ -37,13 +53,21 @@ export function formatFieldLabel(name: string, unit?: string | null): string {
   return unit ? `${rendered} (${unit})` : rendered;
 }
 
-export function renderTelemetry(root: HTMLElement, values: TelemetryValues): void {
+export function renderTelemetry(
+  root: HTMLElement,
+  values: TelemetryValues,
+  faults: readonly FaultEntry[] = [],
+): void {
   for (const output of root.querySelectorAll<HTMLOutputElement>("output[data-message]")) {
     const message = output.dataset.message ?? "";
     const field = output.dataset.field ?? "";
     const messageValues = values[message];
     if (!messageValues || !(field in messageValues)) continue;
     const value = messageValues[field];
+    if (output.dataset.fault !== undefined) {
+      output.value = describeFault(value, faults);
+      continue;
+    }
     output.value = formatFieldValue(value, output.dataset.unit);
     const meter = output.parentElement?.querySelector("meter");
     if (meter && typeof value === "number") {

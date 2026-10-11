@@ -95,7 +95,7 @@ def test_config_embeds_the_commands_and_generate_refuses_a_broken_spec(tmp_path:
     contract = load_contract(path)
     factory, problems = load_factory(contract, path)
     assert problems == []
-    config: dict[str, Any] = build_config(contract, "0" * 64, factory)
+    config: dict[str, Any] = build_config(contract, "0" * 64, factory=factory)
     assert config["factory"]["transport"] == "kettle-serial"
     assert [item["id"] for item in config["factory"]["commands"]] == ["TC-01", "TC-02"]
     (tmp_path / "factory-test-spec.json").write_text("{}", encoding="utf-8")
