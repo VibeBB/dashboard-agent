@@ -12,6 +12,7 @@ import {
   element as make,
   formatFieldLabel,
   formatFieldValue,
+  pickLocale,
   renderTelemetry as updateTelemetry,
   setControlsEnabled,
 } from "./ui.ts";
@@ -55,6 +56,12 @@ const selection = selectRoutes(config, environment);
 const platform = selection.os;
 const platformConfig = config.contract.platforms.find((item) => item.os === platform);
 const platformRoutes = config.routes.filter((route) => route.os === platform && route.browser === environment.browser);
+const i18n = config.contract.i18n;
+const locale = i18n
+  ? pickLocale(i18n.default_locale, Object.keys(i18n.labels), navigator.languages ?? [navigator.language])
+  : "en";
+document.documentElement.lang = locale;
+const widgetLabels = i18n?.labels[locale] ?? {};
 let unregisterWebMcp = (): void => undefined;
 type PickerOption = { value: string; label: string };
 type PickerState = {
@@ -295,9 +302,10 @@ function renderConnection(): void {
 function renderWidgets(): void {
   widgetsRoot.replaceChildren();
   for (const widget of config.contract.widgets) {
+    const label = widgetLabels[widget.id] ?? widget.label;
     const card = make("article", undefined, widget.hazard ? "widget hazard" : "widget");
-    card.setAttribute("aria-label", widget.label);
-    card.append(make("h2", widget.label));
+    card.setAttribute("aria-label", label);
+    card.append(make("h2", label));
     if (widget.hazard) {
       card.append(
         make(
@@ -322,7 +330,7 @@ function renderWidgets(): void {
         gauge.min = fieldConfig?.min ?? 0;
         gauge.max = fieldConfig?.max ?? 100;
         gauge.value = gauge.min;
-        gauge.setAttribute("aria-label", widget.label);
+        gauge.setAttribute("aria-label", label);
         card.append(gauge);
       }
       if (widget.kind === "chart") {
@@ -330,7 +338,7 @@ function renderWidgets(): void {
         canvas.width = 600;
         canvas.height = 160;
         canvas.setAttribute("role", "img");
-        canvas.setAttribute("aria-label", `${widget.label} history`);
+        canvas.setAttribute("aria-label", `${label} history`);
         card.append(canvas);
       }
       card.append(value);
