@@ -24,6 +24,7 @@ from pydantic import (
 
 from . import _vrp, records
 from .gates import GateReport
+from .records import records_dir as _heads_records_dir
 from .workspace import workspace_path, workspace_root
 
 Target = Literal[
@@ -131,6 +132,7 @@ class UxResponse(StrictModel):
     decision_refs: list[str] = Field(default_factory=list[str])
     impression_refs: list[str] = Field(default_factory=list[str])
     questions_for_user: list[NonEmpty] = Field(default_factory=list[NonEmpty])
+    records_heads: dict[str, str] = Field(default_factory=dict[str, str])
     responded_at: AwareDatetime
 
     @field_validator("input_hashes")
@@ -513,6 +515,19 @@ def _gate_reports(artifacts: list[tuple[HashedPath, Path]]) -> list[GateReport]:
     return reports
 
 
+def _records_heads(root: Path) -> tuple[dict[str, str], list[str]]:
+    """Chain head per intact VRP log, plus the kinds whose chain is broken."""
+    heads: dict[str, str] = {}
+    broken: list[str] = []
+    for kind, filename in _vrp.LOG_FILES.items():
+        records, problems = _vrp.verify_log(_heads_records_dir(root) / filename, kind)
+        if problems:
+            broken.append(kind)
+        else:
+            heads[kind] = _vrp.chain_head(records)
+    return heads, broken
+
+
 def ux_respond(payload: Mapping[str, object], root: Path | None = None) -> dict[str, object]:
     try:
         request_input = UxRespondInput.model_validate(dict(payload))
@@ -589,6 +604,10 @@ def ux_respond(payload: Mapping[str, object], root: Path | None = None) -> dict[
                                 f"dashboard report status {check.status!r}"
                             )
 
+        heads, broken_logs = _records_heads(base)
+        if request_input.status == "done" and broken_logs:
+            raise ValueError(f"refusing 'done': VRP logs fail integrity ({', '.join(broken_logs)})")
+
         response = UxResponse(
             request=request.id,
             responder="dashboard",
@@ -600,6 +619,7 @@ def ux_respond(payload: Mapping[str, object], root: Path | None = None) -> dict[
             decision_refs=request_input.decision_refs,
             impression_refs=request_input.impression_refs,
             questions_for_user=request_input.questions_for_user,
+            records_heads=heads,
             responded_at=datetime.now(UTC),
         )
         directory.mkdir(parents=True, exist_ok=True)
