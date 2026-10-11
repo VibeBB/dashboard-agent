@@ -256,3 +256,29 @@ def test_report_markdown_lists_vision_points(tmp_path: Path) -> None:
 
     assert "## Vision points (advisory)" in markdown
     assert "`dashboard-mobile`" in markdown
+
+
+def test_import_sidecar_checked_when_present(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
+    import shutil
+
+    from dashboard._envelope import sidecar_path, write_envelope
+
+    example = tmp_path / "smart-kettle"
+    shutil.copytree(ROOT / "examples/smart-kettle", example)
+    monkeypatch.setenv("OPENHANDS_PROJECT_DIR", str(tmp_path))
+    contract = example / "smart-kettle.dash.json"
+    artifact = example / "firmware/smart-kettle.fw.json"
+
+    def imports() -> Check:
+        report = run_gates(contract, example / "out", full=False)
+        return _check_by_id(report.checks, "imports.sha256")
+
+    assert imports().status == "pass"  # authored contracts carry no sidecar
+    write_envelope(artifact, "firmware", [], tmp_path)
+    assert imports().status == "pass"
+    sidecar = sidecar_path(artifact)
+    body = json.loads(sidecar.read_text(encoding="utf-8"))
+    sidecar.write_text(json.dumps(body | {"producer": "mech"}), encoding="utf-8")
+    failed = imports()
+    assert failed.status == "fail"
+    assert "provenance fail" in failed.detail

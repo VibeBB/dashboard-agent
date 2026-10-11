@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, ValidationError
 
+from ._envelope import check_envelope, sidecar_path
 from .contract import (
     REVERSE_DNS,
     WIRE_TYPES,
@@ -30,6 +31,7 @@ from .matrix import CAVEATS, route_caveats, route_support
 from .screenshots import capture
 from .wasm import build_codec_parity, build_module
 from .webmcp import definitions, has_hazard, json_schema_valid
+from .workspace import workspace_root
 
 PASS = "pass"
 FAIL = "fail"
@@ -476,6 +478,11 @@ def check_contract(contract: DashboardContract, contract_path: Path) -> list[Che
             import_problems.append(f"{item.path}: file not found")
         elif sha256_file(path) != item.sha256:
             import_problems.append(f"{item.path}: sha256 mismatch")
+        elif sidecar_path(path).is_file():
+            # Authored sister contracts carry no sidecar; generated projections do.
+            status, detail = check_envelope(path, item.from_system, workspace_root(), item.sha256)
+            if status != "pass":
+                import_problems.append(f"{item.path}: provenance {status}: {detail}")
     checks.append(_check("imports.sha256", import_problems))
 
     firmware_problems: list[str] = []
