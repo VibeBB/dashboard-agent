@@ -11,7 +11,11 @@ Contract `imports[]` accepts `from_system` values `firmware`, `circuit`,
 Each entry identifies a copied artifact and its lowercase SHA-256. Relative
 paths resolve from the `.dash.json` file; absolute paths pass through
 unchanged. Static gate `imports.sha256` checks that the file exists and still
-matches.
+matches. When the artifact has an interchange envelope v3 sidecar
+(`<artifact>.provenance.json`), the gate also checks it against the pinned
+sha256, its sources and the `from_system` producer's intact VRP decision log;
+any non-pass status fails. Authored sister contracts carry no sidecar and are
+pinned by sha256 alone.
 
 `device.firmware_contract` and `device.firmware_sha256` must be set together.
 Relative firmware paths resolve from the `.dash.json` file; absolute paths
