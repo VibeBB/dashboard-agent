@@ -6,3 +6,8 @@ fill = 0
   puts "kettle fill #{fill}%"
 end
 puts "kettle ready"
+
+# Device-API stub calls: logged to the transcript by the generated
+# dash_api_stub bindings so `expect` entries can assert them.
+LED.set(part: :led1, state: true)
+LED.toggle(:led1)

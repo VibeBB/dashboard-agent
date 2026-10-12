@@ -667,12 +667,19 @@ def _run_full(contract_path: Path, out_dir: Path, contract: DashboardContract) -
             out_dir / "wasm-mrubyc",
             [resolve(contract_path, source) for source in mrubyc.sources],
             mrubyc.memory_size,
+            resolve(contract_path, mrubyc.api_spec) if mrubyc.api_spec else None,
         )
         problems = [built.detail] if not built.ok else []
         if built.ok:
             ran = run_mrubyc_module(root, out_dir / "wasm-mrubyc" / "module.mjs")
             if not ran.ok:
                 problems = [ran.detail]
+            else:
+                problems += [
+                    f"transcript missing {needle!r}"
+                    for needle in mrubyc.expect
+                    if needle not in ran.detail
+                ]
         checks.append(
             Check(
                 id="wasm.mrubyc",
