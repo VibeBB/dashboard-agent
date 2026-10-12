@@ -38,11 +38,11 @@ RUN curl --fail --location --silent --show-error \
     && echo "${MRUBYC_SHA256}  /tmp/mrubyc.tar.gz" | sha256sum --check \
     && mkdir -p /opt/mrubyc \
     && tar -xzf /tmp/mrubyc.tar.gz -C /opt/mrubyc --strip-components=1 \
-    && make -C /opt/mrubyc autogen \
     && rm /tmp/mruby.tar.gz /tmp/mrubyc.tar.gz
 
 WORKDIR /opt/mruby-src
-RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc
+RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc \
+    && PATH=/opt/mruby/bin:$PATH make -C /opt/mrubyc
 
 FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
