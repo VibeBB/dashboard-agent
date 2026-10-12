@@ -40,6 +40,7 @@
 - [ADR-0004: Dashboard tools image and pins](adr/ADR-0004-tools-image-and-pins.md)
 - [ADR-0005: Servo and Emscripten roles](adr/ADR-0005-servo-and-emscripten.md)
 - [ADR-0016: mruby/c Emscripten WASM leg](adr/ADR-0016-mrubyc-emscripten-leg.md)
+- [ADR-0017: mruby/c device-API stubs](adr/ADR-0017-mruby-api-stub.md)
 - [ADR-0006: WebMCP tools](adr/ADR-0006-webmcp.md)
 - [ADR-0007: Tauri v2 native shell](adr/ADR-0007-tauri-v2.md)
 - [ADR-0009: Published image digest lock](adr/ADR-0009-published-image-digest-lock.md)

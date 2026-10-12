@@ -24,4 +24,13 @@ When a product embeds the mruby/c VM (firmware `mrubyc` contract), the same
 `memory_size` (default 64 KiB). The `wasm.mrubyc` gate compiles each source
 with the pinned `mrbc`, links it into the mruby/c WASM VM
 (`hal/emscripten`), and boots it under Node — the same toolchain CI uses.
+
+When the UX logic calls device APIs authored by UX-creator as
+`*.mruby-api.json`, declare `wasm.mrubyc.api_spec` (path relative to the
+`.dash.json`): `dash_api_stub` bindings are generated next to the module,
+log `API <Class>.<method>(<args>)` transcript lines, honor the spec's
+`system_task` vm_id gate and `arg_errors` semantics, and return neutral
+values. `wasm.mrubyc.expect` lists transcript substrings the gate asserts
+(e.g. `API LED.set(part=led1, state=true)`).
+
 Bytecode is generated into `out/`; never commit `*_bytecode.c` or the shim.

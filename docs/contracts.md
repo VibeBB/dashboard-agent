@@ -93,7 +93,10 @@ Full checks add `generated.fresh`, `runtime.typecheck`, `runtime.test`,
 `visual.capture`, and
 `smoke.servo`. WASM modules are not applicable if none are declared; the
 mruby/c leg is not applicable unless `wasm.mrubyc` declares `sources`
-(workspace-relative `.rb` files plus an optional `memory_size`); Servo
+(contract-relative `.rb` files plus an optional `memory_size`,
+`api_spec` — a UX-authored `*.mruby-api.json` rendered as
+`dash_api_stub` bindings that log `API <Class>.<method>(<args>)` calls —
+and `expect` transcript substrings); Servo
 smoke is not applicable unless a WebSocket transport exists.
 
 ## Generated configuration and manifest

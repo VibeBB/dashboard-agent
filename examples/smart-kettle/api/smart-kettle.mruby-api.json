@@ -1,0 +1,42 @@
+{
+  "artifact_kind": "mruby_api",
+  "schema_version": 1,
+  "product": "smart-kettle",
+  "symbols": [
+    { "name": "led1", "const": "kLed1" },
+    { "name": "led2", "const": "kLed2" }
+  ],
+  "system_task": { "vm_id": 1 },
+  "expert_define": "FW_DEBUG_API",
+  "classes": [
+    {
+      "name": "LED",
+      "doc": "Kettle status LEDs.",
+      "constants": [
+        { "name": "OFF", "value": 0 },
+        { "name": "ON", "value": 1 }
+      ],
+      "methods": [
+        {
+          "name": "set",
+          "doc": "Set one LED state by part.",
+          "kwargs": [
+            { "name": "part", "type": "symbol", "enum": ["led1", "led2"] },
+            { "name": "state", "type": "bool", "required": false, "default": false }
+          ],
+          "returns": { "type": "bool" },
+          "handler": "hw_led_set"
+        },
+        {
+          "name": "toggle",
+          "doc": "Toggle one LED, returning the new state.",
+          "params": [
+            { "name": "part", "type": "symbol", "enum": ["led1", "led2"] }
+          ],
+          "returns": { "type": "bool" },
+          "handler": "hw_led_toggle"
+        }
+      ]
+    }
+  ]
+}

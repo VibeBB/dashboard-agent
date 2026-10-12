@@ -253,6 +253,8 @@ class WasmModule(StrictModel):
 class WasmMrubyc(StrictModel):
     sources: list[str] = Field(min_length=1)
     memory_size: int = Field(default=64 * 1024, strict=True, ge=1024, le=4 * 1024 * 1024)
+    api_spec: str | None = None
+    expect: list[str] = Field(default_factory=list[str])
 
 
 class WasmConfig(StrictModel):

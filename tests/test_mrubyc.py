@@ -111,3 +111,64 @@ class TestRunMrubycModule:
         result = mrubyc.run_mrubyc_module(tmp_path, tmp_path / "module.mjs")
         assert not result.ok
         assert "vm fail" in result.detail
+
+
+class TestApiSpecStub:
+    def _spec(self, tmp_path: Path) -> Path:
+        api = tmp_path / "api"
+        api.mkdir(exist_ok=True)
+        path = api / "demo.mruby-api.json"
+        path.write_text(
+            (
+                '{"artifact_kind": "mruby_api", "schema_version": 1,'
+                ' "product": "demo", "symbols": [{"name": "led1"}],'
+                ' "classes": [{"name": "LED", "methods": ['
+                ' {"name": "toggle", "params":'
+                ' [{"name": "part", "type": "symbol"}],'
+                ' "returns": {"type": "bool"}, "handler": "hw"}]}]}'
+            ),
+            encoding="utf-8",
+        )
+        return path
+
+    def test_bad_spec_fails(
+        self, tmp_path: Path, mrubyc_tree: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _stub_mrbc(tmp_path, monkeypatch)
+        result = mrubyc.build_mrubyc_module(
+            tmp_path, tmp_path / "out", [], 64 * 1024, tmp_path / "none.json"
+        )
+        assert not result.ok
+        assert "api spec" in result.detail
+
+    def test_stub_written_and_shim_calls_define(
+        self, tmp_path: Path, mrubyc_tree: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        _stub_mrbc(tmp_path, monkeypatch)
+        source = tmp_path / "app.rb"
+        source.write_text("LED.toggle(:led1)\n", encoding="utf-8")
+        spec = self._spec(tmp_path)
+        output = tmp_path / "out"
+        result = mrubyc.build_mrubyc_module(tmp_path, output, [source], 64 * 1024, spec)
+        assert result.ok, result.detail
+        stub_c = output / "api/dash_api_stub.c"
+        assert stub_c.is_file()
+        text = stub_c.read_text(encoding="utf-8")
+        assert 'printf("API LED.toggle(part=%s)' in text
+        assert "mrbc_symid_to_str(v[1].sym_id)" in text
+        shim = (output / "mruby_ux_main.c").read_text(encoding="utf-8")
+        assert '#include "api/dash_api_stub.h"' in shim
+        assert "dash_api_define();" in shim
+
+
+class TestContractFields:
+    def test_wasm_mrubyc_accepts_api_spec_and_expect(self) -> None:
+        from dashboard.contract import WasmMrubyc
+
+        section = WasmMrubyc(
+            sources=["ux/app.rb"],
+            api_spec="api/x.mruby-api.json",
+            expect=["API LED.set(part=led1)"],
+        )
+        assert section.api_spec == "api/x.mruby-api.json"
+        assert section.expect == ["API LED.set(part=led1)"]
