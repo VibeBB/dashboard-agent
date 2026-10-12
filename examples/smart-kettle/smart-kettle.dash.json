@@ -433,6 +433,11 @@
     "mrubyc": {
       "sources": [
         "ux/app.rb"
+      ],
+      "api_spec": "api/smart-kettle.mruby-api.json",
+      "expect": [
+        "API LED.set(part=led1, state=true)",
+        "API LED.toggle(part=led1)"
       ]
     }
   }
