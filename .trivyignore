@@ -77,3 +77,13 @@ CVE-2026-56862 exp:2027-01-03
 # "Container hardening -> CIS baseline".
 AVD-DS-0002 exp:2027-01-04
 AVD-DS-0026 exp:2027-01-04
+
+# --- emsdk vendored tsgo Go-stdlib 1.26.9 line ----------------------------
+# New CVE IDs surfaced by the publish gate (run 38220410477): the vendored
+# @typescript/typescript-linux-x64 tsc binary is built with Go 1.26.4 —
+# including emsdk 6.0.12, verified by scanning emscripten/emsdk:6.0.12 —
+# so the stdlib HIGHs are unfixable until emscripten revendors tsgo on Go
+# >=1.26.9. Re-verified on each emsdk stage bump.
+CVE-2026-78667 exp:2027-01-12
+CVE-2026-78669 exp:2027-01-12
+CVE-2026-97031 exp:2027-01-12

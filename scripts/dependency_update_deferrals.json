@@ -5,7 +5,7 @@
       "name": "mcp",
       "latest": "2.3.0",
       "review_by": "2027-04-01",
-      "reason": "openhands-sdk 1.53.0 requires fastmcp>=3.2.0,<4, which requires mcp<2.0. Defer MCP 2.x until a supported SDK/fastmcp release removes that constraint."
+      "reason": "openhands-sdk 1.54.0 requires fastmcp>=3.2.0,<4, which requires mcp<2.0. Defer MCP 2.x until a supported SDK/fastmcp release removes that constraint."
     },
     {
       "surface": "tauri-scaffold",
@@ -13,20 +13,6 @@
       "latest": "*",
       "review_by": "2027-01-08",
       "reason": "Stable 2.x pins applied (API/CLI 2.12.1, tauri/runtime/runtime-wry 2.12.1, tauri-macros/build 2.7.1); newest upstream releases are 3.0.0-alpha.* pre-releases. Recheck when a stable 3.x ships."
-    },
-    {
-      "surface": "python-version",
-      "name": "Python version (pyproject.toml)",
-      "latest": "3.14",
-      "review_by": "2027-01-08",
-      "reason": "3.12/3.13 remain the supported floor; 3.14+ is exercised by the canary legs"
-    },
-    {
-      "surface": "python-version",
-      "name": "Python version (.github/workflows/ci.yml)",
-      "latest": "3.14",
-      "review_by": "2027-01-08",
-      "reason": "3.12/3.13 remain the supported floor; 3.14+ is exercised by the canary legs"
     },
     {
       "surface": "docker-base",
@@ -41,6 +27,13 @@
       "latest": "digest-pinned",
       "review_by": "2027-01-03",
       "reason": "the verified upstream Node tarball bundles npm's vendored deps (brace-expansion, undici) flagged by Trivy under expiring .trivyignore waivers; re-scan on the next NODE_VERSION bump."
+    },
+    {
+      "surface": "python-version",
+      "name": "*",
+      "latest": "3.15",
+      "review_by": "2027-01-08",
+      "reason": "Latest stable is 3.15, but the sdk-check group's openhands-sdk->litellm->fastuuid chain pins fastuuid 0.14.0 (sdist only, no cp315 wheel) and its bundled PyO3 fails to build on 3.15. pydantic-core has shipped cp315 wheels as of 2.50.1, so fastuuid is the sole blocker - re-check when fastuuid publishes a 3.15-capable release."
     }
   ]
 }
