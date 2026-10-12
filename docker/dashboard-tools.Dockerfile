@@ -25,14 +25,14 @@ RUN apt-get -o Acquire::Retries=5 update \
     && rm -rf /var/lib/apt/lists/*
 
 RUN curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/mruby.tar.gz \
         "https://github.com/mruby/mruby/archive/refs/tags/${MRUBY_VERSION}.tar.gz" \
     && echo "${MRUBY_SHA256}  /tmp/mruby.tar.gz" | sha256sum --check \
     && mkdir -p /opt/mruby-src /opt/mruby/bin \
     && tar -xzf /tmp/mruby.tar.gz -C /opt/mruby-src --strip-components=1 \
     && curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/mrubyc.tar.gz \
         "https://github.com/mrubyc/mrubyc/archive/${MRUBYC_REF}.tar.gz" \
     && echo "${MRUBYC_SHA256}  /tmp/mrubyc.tar.gz" | sha256sum --check \
@@ -123,7 +123,7 @@ RUN for attempt in 1 2 3 4 5; do \
 # above is required by the x64 node binary. The openssl archs prune mirrors
 # the upstream image's ~34MB header cleanup.
 RUN curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/node.tar.xz \
         "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
     && echo "${NODE_SHA256}  /tmp/node.tar.xz" | sha256sum --check \
@@ -149,7 +149,7 @@ RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fu
     && node -p "require('/emsdk/upstream/emscripten/node_modules/source-map-js/package.json').version" | grep -qx '1.2.2'
 
 RUN curl --fail --location --silent --show-error \
-        --retry 5 --retry-delay 10 --retry-all-errors \
+        --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
         --output /tmp/servo.tar.gz "${SERVO_URL}" \
     && echo "${SERVO_SHA256}  /tmp/servo.tar.gz" | sha256sum --check \
     && mkdir -p /opt/servo \
