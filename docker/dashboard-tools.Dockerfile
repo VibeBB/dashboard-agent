@@ -2,6 +2,47 @@ FROM ghcr.io/astral-sh/uv:0.12.23@sha256:61d393e44e249f2e4b526b6c7ddcecce2459468
 
 FROM emscripten/emsdk:6.0.10@sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65 AS emscripten
 
+# mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
+# that the Emscripten leg links into the mruby/c WASM VM. Mirrors the
+# pins in firmware-agent (mruby 4.0.0, mrubyc master for the
+# emscripten HAL).
+FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS mruby
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+ARG MRUBY_VERSION=4.0.0
+ARG MRUBY_SHA256=e2ea271dbed14e9f2b33df773ae447b747dbc242ce2675022c0a57efea85a7b4
+ARG MRUBYC_REF=2dec4802b09be1fc12f388d3c9267ffd9dc6c404
+ARG MRUBYC_SHA256=0860de6a2b4e8adf682e14f3e0f1df7114abdb8749be23ea39cf0133f5b16b84
+
+RUN apt-get -o Acquire::Retries=5 update \
+    && apt-get -o Acquire::Retries=5 install --no-install-recommends -y \
+        bison \
+        build-essential \
+        ca-certificates \
+        curl \
+        ruby \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl --fail --location --silent --show-error \
+        --retry 5 --retry-delay 10 --retry-all-errors \
+        --output /tmp/mruby.tar.gz \
+        "https://github.com/mruby/mruby/archive/refs/tags/${MRUBY_VERSION}.tar.gz" \
+    && echo "${MRUBY_SHA256}  /tmp/mruby.tar.gz" | sha256sum --check \
+    && mkdir -p /opt/mruby-src /opt/mruby/bin \
+    && tar -xzf /tmp/mruby.tar.gz -C /opt/mruby-src --strip-components=1 \
+    && curl --fail --location --silent --show-error \
+        --retry 5 --retry-delay 10 --retry-all-errors \
+        --output /tmp/mrubyc.tar.gz \
+        "https://github.com/mrubyc/mrubyc/archive/${MRUBYC_REF}.tar.gz" \
+    && echo "${MRUBYC_SHA256}  /tmp/mrubyc.tar.gz" | sha256sum --check \
+    && mkdir -p /opt/mrubyc \
+    && tar -xzf /tmp/mrubyc.tar.gz -C /opt/mrubyc --strip-components=1 \
+    && rm /tmp/mruby.tar.gz /tmp/mrubyc.tar.gz
+
+WORKDIR /opt/mruby-src
+RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc
+
 FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
 
 ARG IMAGE_REVISION=unknown
@@ -18,7 +59,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ENV EMSDK=/emsdk \
     EM_CACHE=/opt/emscripten-cache \
     HOME=/tmp \
-    PATH="/opt/dashboard/.venv/bin:/opt/servo/servo:/emsdk:/emsdk/upstream/emscripten:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    PATH="/opt/dashboard/.venv/bin:/opt/servo/servo:/opt/mruby/bin:/emsdk:/emsdk/upstream/emscripten:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin" \
+    DASHBOARD_MRUBYC_DIR=/opt/mrubyc \
     SERVO_BIN=/opt/servo/servo/servoshell \
     PYTHONPYCACHEPREFIX=/tmp/dashboard-pycache \
     PLAYWRIGHT_BROWSERS_PATH=/opt/playwright \
@@ -31,6 +73,8 @@ LABEL org.opencontainers.image.source="https://github.com/VibeBB/dashboard-agent
 
 COPY --from=uv /uv /uvx /usr/local/bin/
 COPY --from=emscripten /emsdk /emsdk
+COPY --from=mruby /opt/mruby /opt/mruby
+COPY --from=mruby /opt/mrubyc /opt/mrubyc
 
 # Debian slim snapshots lag the pcre2 security update (10.46-1~deb13u3,
 # CVE-2026-103111); apply --only-upgrade inside the build regardless of
@@ -170,6 +214,8 @@ RUN printf 'UMASK 027\n' >> /etc/login.defs
 RUN chmod -R a+rX \
         /emsdk \
         /opt/dashboard \
+        /opt/mruby \
+        /opt/mrubyc \
         /opt/emscripten-cache \
         /opt/playwright \
         /opt/servo \

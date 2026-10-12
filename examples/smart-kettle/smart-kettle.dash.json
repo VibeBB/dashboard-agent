@@ -13,7 +13,13 @@
       "identifier": "com.vibebb.smartkettle",
       "product_name": "Smart Kettle",
       "version": "1.0.0",
-      "targets": ["windows", "macos", "linux", "android", "ios"]
+      "targets": [
+        "windows",
+        "macos",
+        "linux",
+        "android",
+        "ios"
+      ]
     }
   },
   "protocol": {
@@ -25,10 +31,25 @@
         "name": "status",
         "direction": "device_to_host",
         "fields": [
-          { "name": "water_temp_c", "type": "i16", "unit": "°C", "scale": 0.1 },
-          { "name": "target_temp_c", "type": "u8", "unit": "°C" },
-          { "name": "heating", "type": "bool" },
-          { "name": "error_code", "type": "u8" }
+          {
+            "name": "water_temp_c",
+            "type": "i16",
+            "unit": "\u00b0C",
+            "scale": 0.1
+          },
+          {
+            "name": "target_temp_c",
+            "type": "u8",
+            "unit": "\u00b0C"
+          },
+          {
+            "name": "heating",
+            "type": "bool"
+          },
+          {
+            "name": "error_code",
+            "type": "u8"
+          }
         ]
       },
       {
@@ -36,7 +57,13 @@
         "name": "set_target",
         "direction": "host_to_device",
         "ack": true,
-        "fields": [{ "name": "target_temp_c", "type": "u8", "unit": "°C" }]
+        "fields": [
+          {
+            "name": "target_temp_c",
+            "type": "u8",
+            "unit": "\u00b0C"
+          }
+        ]
       },
       {
         "id": 3,
@@ -64,33 +91,93 @@
       "tx_characteristic": "12345678-1234-5678-1234-56789abcdef2",
       "name_prefix": "Kettle"
     },
-    { "id": "kettle-serial", "kind": "web_serial", "baud_rate": 115200 },
-    { "id": "kettle-tauri-serial", "kind": "tauri_serial", "baud_rate": 115200 },
-    { "id": "kettle-ws", "kind": "websocket", "url": "wss://kettle.local/ws" }
+    {
+      "id": "kettle-serial",
+      "kind": "web_serial",
+      "baud_rate": 115200
+    },
+    {
+      "id": "kettle-tauri-serial",
+      "kind": "tauri_serial",
+      "baud_rate": 115200
+    },
+    {
+      "id": "kettle-ws",
+      "kind": "websocket",
+      "url": "wss://kettle.local/ws"
+    }
   ],
   "platforms": [
     {
       "os": "windows",
       "status": "supported",
       "routes": [
-        { "browser": "chrome", "transport": "kettle-ble" },
-        { "browser": "chrome", "transport": "kettle-serial" },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "tauri", "transport": "kettle-tauri-ble" },
-        { "browser": "tauri", "transport": "kettle-tauri-serial" },
-        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        {
+          "browser": "chrome",
+          "transport": "kettle-ble"
+        },
+        {
+          "browser": "chrome",
+          "transport": "kettle-serial"
+        },
+        {
+          "browser": "chrome",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-ble"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-serial"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        }
       ]
     },
     {
       "os": "macos",
       "status": "supported",
       "routes": [
-        { "browser": "chrome", "transport": "kettle-ble" },
-        { "browser": "chrome", "transport": "kettle-serial" },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "tauri", "transport": "kettle-tauri-ble" },
-        { "browser": "tauri", "transport": "kettle-tauri-serial" },
-        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        {
+          "browser": "chrome",
+          "transport": "kettle-ble"
+        },
+        {
+          "browser": "chrome",
+          "transport": "kettle-serial"
+        },
+        {
+          "browser": "chrome",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-ble"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-serial"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        }
       ]
     },
     {
@@ -100,14 +187,24 @@
         {
           "browser": "chrome",
           "transport": "kettle-ble",
-          "acknowledged_caveats": ["chromeos-managed-device-apis"]
+          "acknowledged_caveats": [
+            "chromeos-managed-device-apis"
+          ]
         },
         {
           "browser": "chrome",
           "transport": "kettle-serial",
-          "acknowledged_caveats": ["chromeos-managed-device-apis"]
+          "acknowledged_caveats": [
+            "chromeos-managed-device-apis"
+          ]
         },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        {
+          "browser": "chrome",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        }
       ]
     },
     {
@@ -117,30 +214,82 @@
         {
           "browser": "chrome",
           "transport": "kettle-ble",
-          "acknowledged_caveats": ["linux-web-bluetooth-flag"]
+          "acknowledged_caveats": [
+            "linux-web-bluetooth-flag"
+          ]
         },
-        { "browser": "chrome", "transport": "kettle-serial" },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "tauri", "transport": "kettle-tauri-ble" },
-        { "browser": "tauri", "transport": "kettle-tauri-serial" },
-        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        {
+          "browser": "chrome",
+          "transport": "kettle-serial"
+        },
+        {
+          "browser": "chrome",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-ble"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-serial"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        }
       ]
     },
     {
       "os": "android",
       "status": "supported",
       "routes": [
-        { "browser": "chrome", "transport": "kettle-ble" },
+        {
+          "browser": "chrome",
+          "transport": "kettle-ble"
+        },
         {
           "browser": "chrome",
           "transport": "kettle-serial",
-          "acknowledged_caveats": ["android-web-serial-limited"]
+          "acknowledged_caveats": [
+            "android-web-serial-limited"
+          ]
         },
-        { "browser": "chrome", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "samsung_internet", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "tauri", "transport": "kettle-tauri-ble" },
-        { "browser": "tauri", "transport": "kettle-tauri-serial" },
-        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        {
+          "browser": "chrome",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "samsung_internet",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-ble"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-serial"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        }
       ]
     },
     {
@@ -150,12 +299,35 @@
         {
           "browser": "bluefy",
           "transport": "kettle-ble",
-          "acknowledged_caveats": ["bluefy-notifications"]
+          "acknowledged_caveats": [
+            "bluefy-notifications"
+          ]
         },
-        { "browser": "bluefy", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "tauri", "transport": "kettle-tauri-ble" },
-        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        {
+          "browser": "bluefy",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "safari",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-ble"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        }
       ]
     },
     {
@@ -165,12 +337,35 @@
         {
           "browser": "bluefy",
           "transport": "kettle-ble",
-          "acknowledged_caveats": ["bluefy-notifications"]
+          "acknowledged_caveats": [
+            "bluefy-notifications"
+          ]
         },
-        { "browser": "bluefy", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "safari", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] },
-        { "browser": "tauri", "transport": "kettle-tauri-ble" },
-        { "browser": "tauri", "transport": "kettle-ws", "acknowledged_caveats": ["local-network-access"] }
+        {
+          "browser": "bluefy",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "safari",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-tauri-ble"
+        },
+        {
+          "browser": "tauri",
+          "transport": "kettle-ws",
+          "acknowledged_caveats": [
+            "local-network-access"
+          ]
+        }
       ]
     }
   ],
@@ -187,8 +382,18 @@
       "label": "Target temperature",
       "source": "status.target_temp_c"
     },
-    { "id": "heating-status", "kind": "indicator", "label": "Heating", "source": "status.heating" },
-    { "id": "error-code", "kind": "value", "label": "Error code", "source": "status.error_code" },
+    {
+      "id": "heating-status",
+      "kind": "indicator",
+      "label": "Heating",
+      "source": "status.heating"
+    },
+    {
+      "id": "error-code",
+      "kind": "value",
+      "label": "Error code",
+      "source": "status.error_code"
+    },
     {
       "id": "set-target",
       "kind": "slider",
@@ -208,7 +413,10 @@
   "session": {
     "connect_timeout_ms": 10000,
     "ack_timeout_ms": 1000,
-    "reconnect": { "max_attempts": 5, "backoff_ms": 1000 }
+    "reconnect": {
+      "max_attempts": 5,
+      "backoff_ms": 1000
+    }
   },
   "imports": [
     {
@@ -217,5 +425,15 @@
       "sha256": "97a7e2b34da3356129d46997d84947c595e8a5ab0a338d77b3add18093cfc8ca"
     }
   ],
-  "webmcp": { "enabled": true, "expose_controls": true }
+  "webmcp": {
+    "enabled": true,
+    "expose_controls": true
+  },
+  "wasm": {
+    "mrubyc": {
+      "sources": [
+        "ux/app.rb"
+      ]
+    }
+  }
 }

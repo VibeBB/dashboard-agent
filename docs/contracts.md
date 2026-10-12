@@ -89,8 +89,11 @@ default labels or in any locale, because screen readers announce the card
 label.
 
 Full checks add `generated.fresh`, `runtime.typecheck`, `runtime.test`,
-`wasm.parity`, `wasm.modules`, `e2e.chromium`, `visual.capture`, and
-`smoke.servo`. WASM modules are not applicable if none are declared; Servo
+`wasm.parity`, `wasm.modules`, `wasm.mrubyc`, `e2e.chromium`,
+`visual.capture`, and
+`smoke.servo`. WASM modules are not applicable if none are declared; the
+mruby/c leg is not applicable unless `wasm.mrubyc` declares `sources`
+(workspace-relative `.rb` files plus an optional `memory_size`); Servo
 smoke is not applicable unless a WebSocket transport exists.
 
 ## Generated configuration and manifest

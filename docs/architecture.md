@@ -24,6 +24,7 @@ records are advisory evidence and never alter a deterministic gate verdict.
 | `gates.py`, `report.py` | Static/full deterministic gates and JSON/Markdown reports. |
 | `screenshots.py` | Chromium desktop/mobile capture and metadata validation. |
 | `servo.py`, `wasm.py` | Servo WebDriver smoke checks and Emscripten builds/parity checks. |
+| `mrubyc.py` | mruby/c Emscripten leg: mrbc bytecode plus WASM VM build and Node run. |
 | `service.py` | JSON-returning application functions shared by the CLI and MCP server. |
 | `mcp_server.py` | Stdio MCP tool declarations, dispatch, JSON responses, and inline screenshot attachments. |
 | `requests.py` | Outbound DashboardRequest v2 creation for sister agents. |

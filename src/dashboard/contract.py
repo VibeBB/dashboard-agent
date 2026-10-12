@@ -250,8 +250,14 @@ class WasmModule(StrictModel):
     exports: list[str] = Field(min_length=1)
 
 
+class WasmMrubyc(StrictModel):
+    sources: list[str] = Field(min_length=1)
+    memory_size: int = Field(default=64 * 1024, strict=True, ge=1024, le=4 * 1024 * 1024)
+
+
 class WasmConfig(StrictModel):
     modules: list[WasmModule] = Field(default_factory=list[WasmModule])
+    mrubyc: WasmMrubyc | None = None
 
 
 class ImportRef(StrictModel):

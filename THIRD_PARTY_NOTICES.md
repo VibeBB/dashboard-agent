@@ -20,6 +20,8 @@ includes or invokes the following third-party software:
 | `@types/web-bluetooth` | 0.0.21 | MIT |
 | `@types/w3c-web-usb` | 1.0.14 | MIT |
 | Emscripten SDK | 6.0.10, image digest `sha256:e077d54e2b8970575ebc4f185ac1de0b95c05f2b266134d4ba27449af7aebf65` | MIT / UIUC |
+| mruby | 4.0.0 tarball, sha256-verified at build (`MRUBY_VERSION`/`MRUBY_SHA256` args; provides `mrbc`) | MIT |
+| mruby/c | master `2dec4802b09be1fc12f388d3c9267ffd9dc6c404` tarball, sha256-verified at build (`MRUBYC_REF`/`MRUBYC_SHA256` args; the release4.0.0 tag predates the emscripten HAL) | BSD-3-Clause |
 | Servo | v0.7.0, SHA-256 `728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333` | MPL-2.0; unmodified binary invoked as a subprocess |
 | GStreamer runtime packages | Debian 13 | LGPL-2.1-or-later |
 

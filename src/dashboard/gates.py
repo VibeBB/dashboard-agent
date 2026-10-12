@@ -28,6 +28,7 @@ from .factory import load_factory
 from .faults import fault_widgets, load_faults
 from .interchange import sha256_file
 from .matrix import CAVEATS, route_caveats, route_support
+from .mrubyc import build_mrubyc_module, run_mrubyc_module
 from .screenshots import capture
 from .wasm import build_codec_parity, build_module
 from .webmcp import definitions, has_hazard, json_schema_valid
@@ -650,6 +651,36 @@ def _run_full(contract_path: Path, out_dir: Path, contract: DashboardContract) -
             id="wasm.modules", status="not_applicable", detail="contract declares no WASM modules"
         )
     )
+
+    mrubyc = contract.wasm.mrubyc if contract.wasm is not None else None
+    if mrubyc is None:
+        checks.append(
+            Check(
+                id="wasm.mrubyc",
+                status="not_applicable",
+                detail="contract declares no mruby/c WASM leg",
+            )
+        )
+    else:
+        built = build_mrubyc_module(
+            root,
+            out_dir / "wasm-mrubyc",
+            [resolve(contract_path, source) for source in mrubyc.sources],
+            mrubyc.memory_size,
+        )
+        problems = [built.detail] if not built.ok else []
+        if built.ok:
+            ran = run_mrubyc_module(root, out_dir / "wasm-mrubyc" / "module.mjs")
+            if not ran.ok:
+                problems = [ran.detail]
+        checks.append(
+            Check(
+                id="wasm.mrubyc",
+                status=PASS if not problems else FAIL,
+                detail="; ".join(problems),
+                evidence=[],
+            )
+        )
 
     playwright = root / "runtime/node_modules/.bin/playwright"
     if not playwright.is_file():
