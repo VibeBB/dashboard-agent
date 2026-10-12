@@ -64,6 +64,8 @@ and imported third-party functions are intentionally omitted.
 | `servo.smoke` | `generated_dir: Path` | Run the bounded Servo WebDriver smoke check with one transient retry when applicable. |
 | `wasm.build_codec_parity` | `root: Path, output: Path` | Build the C codec with Emscripten and compare runtime parity in Node. |
 | `wasm.build_module` | `root: Path, output: Path, sources: list[Path], exports: list[str]` | Build one declared C module and verify its exports. |
+| `mrubyc.build_mrubyc_module` | `root: Path, output: Path, sources: list[Path], memory_size: int` | Compile `.rb` sources with mrbc and link the mruby/c WASM VM. |
+| `mrubyc.run_mrubyc_module` | `root: Path, module: Path` | Boot the module in Node and run every mruby/c task to completion. |
 | `webmcp.definitions` | `contract: DashboardContract` | Build WebMCP status/telemetry and optional command definitions. |
 | `webmcp.has_hazard` | `contract: DashboardContract, command: str` | Determine whether a host command is exposed by a hazardous widget. |
 | `webmcp.json_schema_valid` | `value: object` | Validate the generated JSON Schema subset. |
