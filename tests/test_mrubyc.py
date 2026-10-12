@@ -149,9 +149,7 @@ class TestApiSpecStub:
         source.write_text("LED.toggle(:led1)\n", encoding="utf-8")
         spec = self._spec(tmp_path)
         output = tmp_path / "out"
-        result = mrubyc.build_mrubyc_module(
-            tmp_path, output, [source], 64 * 1024, spec
-        )
+        result = mrubyc.build_mrubyc_module(tmp_path, output, [source], 64 * 1024, spec)
         assert result.ok, result.detail
         stub_c = output / "api/dash_api_stub.c"
         assert stub_c.is_file()
