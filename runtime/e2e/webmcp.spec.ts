@@ -104,7 +104,7 @@ test("smart-kettle exposes the expected WebMCP tools and device operations", asy
   const beforeConnect = page.evaluate(async () => {
     const tools = await document.modelContext!.getTools!();
     const tool = tools.find((item) => item.name === "send_set_target")!;
-    return document.modelContext!.executeTool!(tool, JSON.stringify({ target_temp_c: 55 }));
+    return document.modelContext!.executeTool!(tool, { target_temp_c: 55 });
   });
   await expect(beforeConnect).rejects.toThrow(/UnknownError/);
   expect(await page.evaluate(() => window.__serialRequests)).toBe(0);
@@ -115,14 +115,14 @@ test("smart-kettle exposes the expected WebMCP tools and device operations", asy
   const readResult = await page.evaluate(async () => {
     const tools = await document.modelContext!.getTools!();
     const tool = tools.find((item) => item.name === "read_telemetry")!;
-    return JSON.parse(await document.modelContext!.executeTool!(tool, "{}"));
+    return JSON.parse(await document.modelContext!.executeTool!(tool, {}));
   });
   expect(readResult.messages.status.values.water_temp_c).toBe(23.5);
 
   const sendResult = page.evaluate(async () => {
     const tools = await document.modelContext!.getTools!();
     const tool = tools.find((item) => item.name === "send_set_target")!;
-    return JSON.parse(await document.modelContext!.executeTool!(tool, JSON.stringify({ target_temp_c: 55 })));
+    return JSON.parse(await document.modelContext!.executeTool!(tool, { target_temp_c: 55 }));
   });
   expect(await sendResult).toEqual({ sent: true, acked: true, seq: 0 });
 
@@ -130,7 +130,7 @@ test("smart-kettle exposes the expected WebMCP tools and device operations", asy
   const hazardResult = page.evaluate(async () => {
     const tools = await document.modelContext!.getTools!();
     const tool = tools.find((item) => item.name === "send_start_boil")!;
-    return JSON.parse(await document.modelContext!.executeTool!(tool, "{}"));
+    return JSON.parse(await document.modelContext!.executeTool!(tool, {}));
   });
   await accepted;
   expect(await hazardResult).toMatchObject({ sent: true, acked: true });
@@ -139,7 +139,7 @@ test("smart-kettle exposes the expected WebMCP tools and device operations", asy
   const cancelled = page.evaluate(async () => {
     const tools = await document.modelContext!.getTools!();
     const tool = tools.find((item) => item.name === "send_start_boil")!;
-    return document.modelContext!.executeTool!(tool, "{}");
+    return document.modelContext!.executeTool!(tool, {});
   });
   await dismiss;
   await expect(cancelled).rejects.toThrow(/UnknownError/);
@@ -163,7 +163,7 @@ test("bench-meter exposes only the two read-only WebMCP tools", async ({ page })
   const status = await page.evaluate(async () => {
     const tools = await document.modelContext!.getTools!();
     const tool = tools.find((item) => item.name === "dashboard_status")!;
-    return JSON.parse(await document.modelContext!.executeTool!(tool, "{}"));
+    return JSON.parse(await document.modelContext!.executeTool!(tool, {}));
   });
   expect(status.instruction).toMatch(/click Connect/i);
 });

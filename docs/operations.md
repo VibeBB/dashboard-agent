@@ -198,6 +198,12 @@ stdlib v1.26.4). Those carry per-CVE `exp:2027-01-03` waivers in
 `scripts/dependency_update_deferrals.json` (docker-base
 `emscripten/emsdk`, `node`).
 
+2026-10-12: the publish gate's refreshed Trivy DB surfaced three new
+stdlib IDs on the same tsgo binary (CVE-2026-78667/78669/97031, the Go
+1.26.9 fix line). emsdk was bumped to 6.0.12 in this change, but 6.0.12
+still vendors the same Go 1.26.4 tsgo — so the new IDs carry
+`exp:2027-01-12` waivers and re-verify on each emsdk stage bump.
+
 The weekly audit runs Lynis as container root (`--user 0`) with the
 committed `docker/lynis-container.prf` profile, which skips tests that
 are inapplicable inside a container (kernel/systemd/mounts/storage/

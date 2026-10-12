@@ -19,7 +19,7 @@ declare global {
       options?: { signal?: AbortSignal },
     ): void | Promise<void>;
     getTools?: () => Promise<DashboardModelContextTool[]>;
-    executeTool?: (tool: DashboardModelContextTool, input: string) => Promise<string>;
+    executeTool?: (tool: DashboardModelContextTool, input: Record<string, unknown>) => Promise<string>;
   }
 
   interface Document {

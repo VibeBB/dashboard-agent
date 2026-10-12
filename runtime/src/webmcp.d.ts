@@ -13,7 +13,7 @@ interface ModelContextTool {
 interface DocumentModelContext {
   registerTool(tool: ModelContextTool, options?: { signal?: AbortSignal }): Promise<void> | void;
   getTools?: () => Promise<Array<{ name: string }>>;
-  executeTool?: (tool: unknown, input: string) => Promise<string>;
+  executeTool?: (tool: unknown, input: Record<string, unknown>) => Promise<string>;
 }
 
 interface Document {

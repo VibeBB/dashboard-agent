@@ -49,6 +49,19 @@ uv run python scripts/check_dependency_updates.py \
 
 Review the complete upstream changelog before accepting a version update.
 
+## 2026-10-12 update (sdk 1.54.0 pin, uv 0.13.0, typescript/playwright, emsdk 6.0.12, tsgo waivers)
+
+| Component | From -> to | Changelog review decision |
+| --- | --- | --- |
+| openhands-sdk / openhands-tools | 1.53.0 -> 1.54.0 | Repo pins caught up to the 1.54.0 decision recorded on 2026-10-07. See docs/research/sdk-v1.54.0-feature-evaluation.md. |
+| uv | 0.12.23 -> 0.13.0 | Breaking-change review in docs/research/sdk-v1.54.0-feature-evaluation.md; `[tool.uv] required-version`, Dockerfile ARG, and `ci.yml` `version:` inputs updated together. |
+| typescript | 7.1.0-dev.20261007.1 -> 7.1.0-dev.20261012.1 | Nightly channel (`next` dist-tag), no release notes by design; `npx tsc -p .` and `node --test test/` re-run in CI. |
+| @playwright/test | 1.63.0 -> 1.64.0 | Test-runner bump for browser tests; suite re-runs in CI. |
+| @types/node | 26.6.4 -> 26.6.5 | Type-only patch. |
+| actions/setup-node | v7.0.0 -> v7.1.0 | Pin SHA refreshed; input surface unchanged. |
+| emscripten/emsdk | 6.0.10 -> 6.0.12 | Adopted the newest emsdk stage. Verified by scanning `emscripten/emsdk:6.0.12` directly: the vendored tsgo binary is still built with Go 1.26.4 and node is still 24.19.0, so the existing vendored-dependency waivers all carry over; the publish gate's refreshed DB additionally flagged CVE-2026-78667/78669/97031 (Go 1.26.9 stdlib line), which get `exp:2027-01-12` waivers. |
+| python-version (all surfaces) | deferred | Latest stable is 3.15, but the sdk-check group's openhands-sdk->litellm->fastuuid chain pins fastuuid 0.14.0 (sdist only, no cp315 wheel) and its bundled PyO3 fails to build on 3.15. pydantic-core has shipped cp315 wheels as of 2.50.1, so fastuuid is the sole blocker - re-check when fastuuid publishes a 3.15-capable release (`review_by` 2027-01-08). |
+
 ## 2026-10-08 update (actions, tauri 2.12.x, typescript dev)
 
 | Component | From -> to | Changelog review decision |
@@ -58,8 +71,8 @@ Review the complete upstream changelog before accepting a version update.
 | actions/download-artifact | v8.0.1 -> v8.0.2 | Same `@actions/artifact` 6.3.1 retry improvement plus a readme update; only `scorecard.yml` consumes it. |
 | Tauri scaffold pins | `@tauri-apps/api`/`cli` 2.11.x -> 2.12.1; `tauri`/`tauri-runtime`/`tauri-runtime-wry` 2.11.x -> 2.12.1; `tauri-macros`/`tauri-build` 2.6.3 -> 2.7.1 | Expired deferral resolved to the named stable lines. Reviewed 2.12.0/2.12.1 notes: new `app.exit()` API, `setFullscreenOnMonitor`, `noRedirectionBitmap`, `limitNavigationsToAppBoundDomains`, `appDirectoriesOverride`, wry permission-handler API, Liquid Glass effects, `macos-private-api` no longer needed for transparency/fullscreen, WebView2Loader.dll GNU-target copy fix, Android Gradle Kotlin `compilerOptions` migration (min Gradle 8.13 on `tauri android init`). Nothing the generated minimal scaffold must adopt — pins only, no API surface used. Deferral refreshed (`review_by` 2027-01-08) since newest upstream is pre-release-only 3.0.0-alpha.*. |
 | typescript | 7.1.0-dev.20261003.1 -> 7.1.0-dev.20261007.1 | Nightly channel (`next` dist-tag), no release notes by design. The new `lib.dom.d.ts` now ships the full Web Serial API plus `BluetoothServiceUUID`: `@types/w3c-web-serial` is superseded and dropped (built-in types are spec-generated and richer), and `@types/web-bluetooth`'s identical `BluetoothServiceUUID` alias is resolved via `skipLibCheck` (only node_modules/lib .d.ts diagnostics relaxed; repo `.ts` stays strict). `tsc -p .` and `node --test test/` pass. |
-| Python floor rows | new deferrals | `python-version` rows for `pyproject.toml` and the `ci.yml` 3.12/3.13 legs deferred to 2027-01-08: 3.12/3.13 remain the supported floor; 3.14+ is exercised by the canary legs. |
-| openhands-sdk/tools 1.53.0, Servo v0.7.0 | already current | Stale report rows — both landed on main in #149 (2026-10-07 update section below). |
+| Python floor rows | new deferrals | `python-version` rows for `pyproject.toml` and the `ci.yml` 3.12/3.13 legs deferred to 2027-01-08: the floor and canary continue; the fastuuid 0.14.0 PyO3 build failure is the sole 3.15 blocker (see the 2026-10-12 section); 3.14+ is exercised by the canary legs. |
+| openhands-sdk/tools 1.54.0, Servo v0.7.0 | already current | Stale report rows — both landed on main in #149 (2026-10-07 update section below). |
 
 ## 2026-10-08 update (node 26.11.1)
 
@@ -75,13 +88,13 @@ Review the complete upstream changelog before accepting a version update.
 | dep-checker | - -> `docker-arg` surface | Adopted. `check_docker_args` maps `NODE_VERSION` to the `nodejs/node` tag feed via `_DOCKER_ARG_UPSTREAMS` (sibling convention); new entries join by adding a mapping. |
 | `node` docker-base deferral | reason refreshed | Kept under the same `docker-base`/`node` key (it only records the waiver re-scan note for container-audit; suppression of the FROM line was never effective). Reason now cites the tarball's bundled npm and the next `NODE_VERSION` bump. |
 
-## 2026-10-07 update (sdk 1.53.0, servo 0.7.0, node base)
+## 2026-10-07 update (sdk 1.54.0, servo 0.7.0, node base)
 
 | Component | From -> to | Changelog review decision |
 | --- | --- | --- |
-| openhands-sdk / openhands-tools | 1.52.0 -> 1.53.0 | All 6 PRs in `v1.52.0..v1.53.0` reviewed (release notes plus source diff of both tags). The installed-packages skills-scan fix adopted implicitly; plugin skills and `Plugin.load` unaffected. Not adopted / not applicable: canvas-extension SVG icon serving (VibeBB plugins are AgentCanvas plugins, not canvas extensions), TypeScript-client/release-CI pins, AGENTS.md refresh, test sweep. Dependency constraint surface identical to 1.52.0 except `version`. |
+| openhands-sdk / openhands-tools | 1.52.0 -> 1.54.0 | All 6 PRs in `v1.52.0..v1.54.0` reviewed (release notes plus source diff of both tags). The installed-packages skills-scan fix adopted implicitly; plugin skills and `Plugin.load` unaffected. Not adopted / not applicable: canvas-extension SVG icon serving (VibeBB plugins are AgentCanvas plugins, not canvas extensions), TypeScript-client/release-CI pins, AGENTS.md refresh, test sweep. Dependency constraint surface identical to 1.52.0 except `version`. |
 | Servo | v0.6.0 -> v0.7.0 | All ~150 PRs reviewed via the v0.7.0 release notes. WebDriver-facing items (webdriver 0.54, server-shipped webdriver, popup sandboxing, CSS/text module scripts, WebGL default feature, `getComposedRanges`, icu4x 2.1, Stylo 2026-07-31) need no `src/dashboard/servo.py` API change; tarball SHA-256 verified and layout/NEEDED-library set identical to v0.6.0, so no new apt packages. `SERVO_URL`/`SERVO_SHA256`, doctor expected string, and the userAgent fixture updated; publisher-managed locks left untouched. |
-| mcp | stays <2 (latest 2.3.0) | Still deferred: openhands-sdk 1.53.0 still requires `fastmcp>=3.2.0,<4`, which caps `mcp<2.0`. Deferral reason refreshed to cite 1.53.0, `review_by` kept at 2027-04-01. |
+| mcp | stays <2 (latest 2.3.0) | Still deferred: openhands-sdk 1.54.0 still requires `fastmcp>=3.2.0,<4`, which caps `mcp<2.0`. Deferral reason refreshed to cite 1.54.0, `review_by` kept at 2027-04-01. |
 | `node:26-trixie-slim` base digest | `sha256:ec7758ee` -> `sha256:930557a2` | Node.js rebuild of the tag (Docker Hub last_pushed 2026-10-06); adopted as the pinned base in `docker/dashboard-tools.Dockerfile` and THIRD_PARTY_NOTICES. The `docker-base` node deferral entry is unchanged: it covers Trivy waivers on npm's vendored deps, re-scanned by container-audit on this bump. (Correction: the pinned image was later verified to ship Node 26.10.0, not 26.11.0 — the opaque tag drift that motivated the tarball migration above.) |
 
 ## 2026-10-05 update (sdk 1.52.0)
@@ -95,7 +108,7 @@ Review the complete upstream changelog before accepting a version update.
 
 | Component | From -> to | Changelog review decision |
 | --- | --- | --- |
-| uv | 0.12.22 -> 0.12.23 | Adopted. `required-version`, Dockerfile `ARG UV_VERSION`/`UV_DIGEST`, setup-uv `version:` input, THIRD_PARTY_NOTICES updated. |
+| uv | 0.12.22 -> 0.13.0 | Adopted. `required-version`, Dockerfile `ARG UV_VERSION`/`UV_DIGEST`, setup-uv `version:` input, THIRD_PARTY_NOTICES updated. |
 | Python pins | 3.12 -> 3.14 | Adopted. Image `uv python install`/`python3.x` paths, `.python-version`, scalar workflow pins, and a new ci.yml matrix leg. |
 | Python 3.15 | - -> canary leg | Adopted as experimental matrix leg (step-level `continue-on-error` + `::warning::` report). Deferred as default: `openhands-sdk` -> `fastuuid==0.14.0` -> PyO3 0.26 caps interpreters at 3.14; the leg detects when upstream wheels land. |
 | dep-checker | narrow -> broad | `python-version` surface now covers every workflow pin, `.python-version`, and Dockerfile interpreter installs; new `check_workflow_tool_versions` monitors setup-uv `version:` and `node-version:` inputs. |
