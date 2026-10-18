@@ -375,7 +375,7 @@ def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
     has_serial = "tauri_serial" in transport_kinds
     dependencies: dict[str, str] = {"@tauri-apps/api": "2.12.1"}
     if has_ble:
-        dependencies["@mnlphlp/plugin-blec"] = "0.17.0"
+        dependencies["@mnlphlp/plugin-blec"] = "0.18.0"
     if has_serial:
         dependencies["tauri-plugin-serialplugin-api"] = "3.0.7"
     package = {
@@ -405,7 +405,7 @@ def build_tauri_scaffold(contract: DashboardContract) -> dict[str, bytes]:
         'tauri-macros = { version = "=2.7.1" }',
     ]
     if has_ble:
-        cargo_dependencies.append('tauri-plugin-blec = { version = "=0.17.0" }')
+        cargo_dependencies.append('tauri-plugin-blec = { version = "=0.18.0" }')
     if has_serial:
         cargo_dependencies.append('tauri-plugin-serialplugin = { version = "=3.0.7" }')
     crate_name = contract.name.replace("-", "_")

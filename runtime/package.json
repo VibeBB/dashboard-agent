@@ -10,12 +10,12 @@
     "test": "node --test test/"
   },
   "devDependencies": {
-    "@playwright/test": "1.64.0",
+    "@playwright/test": "1.64.1",
     "@types/node": "26.6.5",
     "@types/w3c-web-usb": "1.0.14",
     "@types/web-bluetooth": "0.0.21",
     "esbuild": "0.28.2",
-    "typescript": "7.1.0-dev.20261012.1"
+    "typescript": "7.1.0-dev.20261018.1"
   },
   "allowScripts": {
     "esbuild@0.28.2": true

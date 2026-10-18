@@ -40,12 +40,12 @@ only when the matching transport is declared.
 | `@tauri-apps/api` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | `@tauri-apps/cli` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | `esbuild` | 0.28.2 | MIT; generated scaffold only |
-| `@mnlphlp/plugin-blec` | 0.17.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
+| `@mnlphlp/plugin-blec` | 0.18.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
 | `tauri-plugin-serialplugin-api` | 3.0.7 | Apache-2.0 OR MIT; generated scaffold only, serial |
 | Rust crate `tauri` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-runtime` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-runtime-wry` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-macros` | 2.7.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-build` | 2.7.1 | Apache-2.0 OR MIT; generated scaffold only |
-| Rust crate `tauri-plugin-blec` | 0.17.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
+| Rust crate `tauri-plugin-blec` | 0.18.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
 | Rust crate `tauri-plugin-serialplugin` | 3.0.7 | Apache-2.0 OR MIT; generated scaffold only, serial |
