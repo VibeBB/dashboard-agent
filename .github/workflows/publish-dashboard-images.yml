@@ -143,8 +143,30 @@ jobs:
       # wait at the group end still lands the full JSON scan before the
       # SARIF gate, so the diagnostic report exists even when the gate
       # fails — exactly when it is needed.
+      # Pre-pull the vulnerability and java DBs through a retry loop:
+      # a transient stream error mid-scan is fatal inside trivy-action
+      # and cannot be retried there, so warm each leg's private cache-dir
+      # first (the java DB is cached for 3 days once downloaded).
+      - name: Warm Trivy DB caches
+        run: |
+          set -euo pipefail
+          for dir in trivy-cache trivy-tools-json; do
+            mkdir -p "$RUNNER_TEMP/$dir"
+            for attempt in 1 2 3; do
+              if docker run --rm -v "$RUNNER_TEMP/$dir:/cache" aquasec/trivy:0.76.0 \
+                  --cache-dir /cache image --download-db-only --download-java-db-only; then
+                break
+              fi
+              [ "$attempt" = 3 ] && exit 1
+              echo "::warning::trivy DB warm-up attempt $attempt failed; retrying"
+              sleep $((attempt * 20))
+            done
+          done
       - parallel:
           - name: Scan tools image (Trivy JSON)
+            # Diagnostic leg, not a gate: an infra-level scan failure
+            # must not fail the publish while the SARIF gate is green.
+            continue-on-error: true
             # The SARIF gate follows this group so the JSON report exists
             # even when the gate fails the run. On dry_run dispatch it
             # scans the locally loaded rehearsal tag; plain dispatch
