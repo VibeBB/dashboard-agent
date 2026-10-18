@@ -19,7 +19,7 @@
       "name": "emscripten/emsdk",
       "latest": "digest-pinned",
       "review_by": "2027-01-03",
-      "reason": "emsdk 6.0.10 vendors npm/emscripten node_modules and a TypeScript go binary (tsc) carrying ~55 Trivy CRITICAL/HIGH findings covered by expiring .trivyignore waivers; re-scan on the next emsdk release and drop cleared waivers."
+      "reason": "emsdk 6.0.10 vendors npm/emscripten node_modules and a TypeScript go binary (tsc) carrying ~56 Trivy CRITICAL/HIGH findings covered by expiring .trivyignore waivers; re-scan on the next emsdk release and drop cleared waivers."
     },
     {
       "surface": "docker-base",

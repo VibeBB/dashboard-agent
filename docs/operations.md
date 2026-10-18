@@ -204,6 +204,12 @@ stdlib IDs on the same tsgo binary (CVE-2026-78667/78669/97031, the Go
 still vendors the same Go 1.26.4 tsgo — so the new IDs carry
 `exp:2027-01-12` waivers and re-verify on each emsdk stage bump.
 
+2026-10-18: the refreshed Trivy DB surfaced one more x/text HIGH on the
+same vendored tsgo (CVE-2026-56851, `golang.org/x/text` v0.38.0 → fixed
+in v0.41.0). Upstream cannot be rebuilt in-repo — the fix lands only when
+emscripten revendors tsgo — so the ID joins the vendored-tsgo waiver
+block with the block's `exp:2027-01-03` date.
+
 The weekly audit runs Lynis as container root (`--user 0`) with the
 committed `docker/lynis-container.prf` profile, which skips tests that
 are inapplicable inside a container (kernel/systemd/mounts/storage/
