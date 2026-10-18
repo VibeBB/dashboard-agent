@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Literal, cast
 
@@ -69,6 +70,24 @@ def _runtime_version(root: Path, package_name: str) -> str:
     return ""
 
 
+def _uv_version(root: Path) -> str:
+    try:
+        with (root / "pyproject.toml").open("rb") as stream:
+            data = tomllib.load(stream)
+    except (OSError, ValueError):
+        return ""
+    tool = data.get("tool")
+    if not isinstance(tool, dict):
+        return ""
+    uv = cast(dict[str, object], tool).get("uv")
+    if not isinstance(uv, dict):
+        return ""
+    required = cast(dict[str, object], uv).get("required-version")
+    if not isinstance(required, str):
+        return ""
+    return required.removeprefix("==").removeprefix("v")
+
+
 def checks() -> list[ToolCheck]:
     root = Path(__file__).resolve().parents[2]
     runtime_bin = root / "runtime" / "node_modules" / ".bin"
@@ -79,7 +98,7 @@ def checks() -> list[ToolCheck]:
         "playwright": _runtime_version(root, "@playwright/test"),
     }
     probes = (
-        ("uv", ["uv", "--version"], True, "0.13.0"),
+        ("uv", ["uv", "--version"], True, _uv_version(root)),
         ("node", ["node", "--version"], True, "v26."),
         (
             "typescript",

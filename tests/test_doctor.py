@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import tomllib
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -60,6 +61,33 @@ def test_doctor_expectations_match_runtime_package_pins(
 
     assert expected_versions == expected
     assert all(checks[name].status == "ok" for name in RUNTIME_PACKAGES)
+
+
+def test_doctor_uv_expectation_matches_pyproject_required_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, str | None] = {}
+
+    def capture(
+        name: str,
+        argv: list[str],
+        *,
+        required: bool,
+        expected: str | None = None,
+    ) -> doctor.ToolCheck:
+        if name == "uv":
+            captured[name] = expected
+        return doctor.ToolCheck(name=name, status="ok")
+
+    monkeypatch.setattr(doctor, "__file__", str(ROOT / "src" / "dashboard" / "doctor.py"))
+    monkeypatch.setattr(doctor, "_probe", capture)
+    doctor.checks()
+
+    pyproject = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
+    required = cast(dict[str, object], cast(dict[str, object], pyproject["tool"])["uv"])[
+        "required-version"
+    ]
+    assert captured["uv"] == cast(str, required).removeprefix("==")
 
 
 def test_runtime_version_prefers_dev_dependencies_and_falls_back(
