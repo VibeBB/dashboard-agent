@@ -77,9 +77,9 @@ COPY --from=emscripten /emsdk /emsdk
 COPY --from=mruby /opt/mruby /opt/mruby
 COPY --from=mruby /opt/mrubyc /opt/mrubyc
 
-# Debian slim snapshots lag the pcre2 security update (10.46-1~deb13u3,
-# CVE-2026-103111); apply --only-upgrade inside the build regardless of
-# which snapshot the pinned digest carries (idempotent when already fixed).
+# Apply every Debian security fix available at build time so the publish
+# Trivy gate cannot trip on fixable advisories released after the base
+# digest was pinned (apt always pulls the latest published fix).
 RUN for attempt in 1 2 3 4 5; do \
         apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 update \
         && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --no-install-recommends -y \
@@ -108,8 +108,7 @@ RUN for attempt in 1 2 3 4 5; do \
             fonts-dejavu-core \
             xz-utils \
             libatomic1 \
-        && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 install --only-upgrade --no-install-recommends -y \
-            libpcre2-8-0 \
+        && apt-get -o Acquire::Retries=5 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 upgrade -y --no-install-recommends \
         && rm -rf /var/lib/apt/lists/* \
         && break; \
         [ "$attempt" = 5 ] && exit 1; \
