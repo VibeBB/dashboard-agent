@@ -6,7 +6,7 @@ includes or invokes the following third-party software:
 | Component | Pin or source | License / use |
 | --- | --- | --- |
 | Debian 13 (`debian:13-slim`) | `sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f` | Debian packages; see Debian copyright files |
-| Node.js | 26.11.1 upstream tarball (`node-v26.11.1-linux-x64.tar.xz`), sha256-verified at build (`NODE_VERSION`/`NODE_SHA256` args) | MIT |
+| Node.js | 26.12.0 upstream tarball (`node-v26.12.0-linux-x64.tar.xz`), sha256-verified at build (`NODE_VERSION`/`NODE_SHA256` args) | MIT |
 | CPython | 3.14, installed by pinned uv | PSF-2.0 |
 | uv | 0.12.23, index digest `sha256:61d393e44e249f2e4b526b6c7ddcecce245946826e608e11c93ad4f5bba55b21` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |
@@ -40,12 +40,12 @@ only when the matching transport is declared.
 | `@tauri-apps/api` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | `@tauri-apps/cli` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | `esbuild` | 0.28.2 | MIT; generated scaffold only |
-| `@mnlphlp/plugin-blec` | 0.17.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
+| `@mnlphlp/plugin-blec` | 0.18.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
 | `tauri-plugin-serialplugin-api` | 3.0.7 | Apache-2.0 OR MIT; generated scaffold only, serial |
 | Rust crate `tauri` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-runtime` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-runtime-wry` | 2.12.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-macros` | 2.7.1 | Apache-2.0 OR MIT; generated scaffold only |
 | Rust crate `tauri-build` | 2.7.1 | Apache-2.0 OR MIT; generated scaffold only |
-| Rust crate `tauri-plugin-blec` | 0.17.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
+| Rust crate `tauri-plugin-blec` | 0.18.0 | MIT OR Apache-2.0; generated scaffold only, BLE |
 | Rust crate `tauri-plugin-serialplugin` | 3.0.7 | Apache-2.0 OR MIT; generated scaffold only, serial |

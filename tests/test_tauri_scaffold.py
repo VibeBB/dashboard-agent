@@ -65,7 +65,7 @@ def test_smart_kettle_tauri_scaffold_is_pinned_complete_and_deterministic() -> N
         "tauri": "tauri",
     }
     assert package["dependencies"] == {
-        "@mnlphlp/plugin-blec": "0.17.0",
+        "@mnlphlp/plugin-blec": "0.18.0",
         "@tauri-apps/api": "2.12.1",
         "tauri-plugin-serialplugin-api": "3.0.7",
     }
@@ -80,7 +80,7 @@ def test_smart_kettle_tauri_scaffold_is_pinned_complete_and_deterministic() -> N
         "tauri-runtime": {"version": "=2.12.1"},
         "tauri-runtime-wry": {"version": "=2.12.1"},
         "tauri-macros": {"version": "=2.7.1"},
-        "tauri-plugin-blec": {"version": "=0.17.0"},
+        "tauri-plugin-blec": {"version": "=0.18.0"},
         "tauri-plugin-serialplugin": {"version": "=3.0.7"},
     }
     assert cargo["build-dependencies"] == {"tauri-build": {"version": "=2.7.1"}}
