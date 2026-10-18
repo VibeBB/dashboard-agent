@@ -48,7 +48,7 @@ FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c
 
 ARG IMAGE_REVISION=unknown
 ARG NODE_VERSION=26.12.0
-# sha256 of https://nodejs.org/dist/v26.11.1/node-v26.11.1-linux-x64.tar.xz
+# sha256 of https://nodejs.org/dist/v26.12.0/node-v26.12.0-linux-x64.tar.xz
 ARG NODE_SHA256=fd47865ecd6391ebb431fc815e01b9135bf83ded5cf373247e9331e196b7aded
 ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.7.0/servo-x86_64-linux-gnu.tar.gz
 ARG SERVO_SHA256=728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333
