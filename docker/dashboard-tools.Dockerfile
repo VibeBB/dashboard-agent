@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
 
-FROM emscripten/emsdk:6.0.12@sha256:77638e6c215a65f25a704c0c831d5c2463a8c0468a58c6cb82489dbe621dfa05 AS emscripten
+FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS emscripten
 
 # mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
 # that the Emscripten leg links into the mruby/c WASM VM. Mirrors the
