@@ -210,6 +210,19 @@ in v0.41.0). Upstream cannot be rebuilt in-repo — the fix lands only when
 emscripten revendors tsgo — so the ID joins the vendored-tsgo waiver
 block with the block's `exp:2027-01-03` date.
 
+2026-10-29: the refreshed Trivy DB surfaced undici CVE-2026-109383,
+CVE-2026-109869 and CVE-2026-87018 in both bundled npm trees (the host
+Node 26.13.0 npm and the emsdk stage's node 24.19.0 npm), plus vite
+CVE-2026-112942 inside emsdk's vendored emscripten node_modules.
+undici is patched in place to 6.29.1 in both trees (sha256-verified
+registry tarball; npm 12.2.1 still vendors 6.29.0) and vite upgraded to
+8.3.5 via `npm --prefix`, following the existing source-map-js patch
+pattern. The jar-shaded guava inside
+`google-closure-compiler-java/compiler.jar` (CVE-2026-102554) and one
+new vendored-tsgo stdlib ID (CVE-2026-111943) cannot be fixed in-repo —
+both join the waiver set with `exp:2027-01-28` dates and re-verify on
+the next emsdk stage bump.
+
 The weekly audit runs Lynis as container root (`--user 0`) with the
 committed `docker/lynis-container.prf` profile, which skips tests that
 are inapplicable inside a container (kernel/systemd/mounts/storage/
