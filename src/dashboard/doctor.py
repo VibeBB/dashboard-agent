@@ -113,7 +113,7 @@ def checks() -> list[ToolCheck]:
             True,
             runtime_versions["playwright"],
         ),
-        ("emcc", ["emcc", "--version"], True, "6.0.12"),
+        ("emcc", ["emcc", "--version"], True, "6.0.13"),
         ("servo", [servo, "--version"], True, "0.7.0"),
     )
     return [
