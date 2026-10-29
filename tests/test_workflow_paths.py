@@ -70,7 +70,7 @@ def test_release_lints_version_bump_and_install_smokes_plugin() -> None:
 def test_publish_dispatch_builds_without_publishing() -> None:
     publish = (ROOT / ".github/workflows/publish-dashboard-images.yml").read_text(encoding="utf-8")
     assert "push: ${{ github.event_name == 'push' }}" in publish
-    assert "load: ${{ inputs.dry_run == true }}" in publish
+    assert "load: ${{ (inputs.dry_run == true || github.event_name == 'pull_request') }}" in publish
     irreversible_steps = [
         "Promote :latest",
         "Attest dashboard tools image provenance",
@@ -97,7 +97,10 @@ def test_publish_dry_run_rehearses_gates_without_alerts() -> None:
     ]
     for step_name in rehearsed_steps:
         block = publish.split(f"- name: {step_name}", 1)[1].split("\n      - name:", 1)[0]
-        assert "github.event_name == 'push' || inputs.dry_run == true" in block, step_name
+        assert (
+            "github.event_name == 'push' || "
+            "(inputs.dry_run == true || github.event_name == 'pull_request')" in block
+        ), step_name
     sarif_upload = publish.split("- name: Upload Trivy SARIF", 1)[1].split("\n      - name:", 1)[0]
     assert "github.event_name == 'push'" in sarif_upload
     assert "inputs.dry_run == true" not in sarif_upload
