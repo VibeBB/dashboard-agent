@@ -68,6 +68,15 @@ CVE-2026-56858 exp:2027-01-03
 CVE-2026-56859 exp:2027-01-03
 CVE-2026-56860 exp:2027-01-03
 CVE-2026-56862 exp:2027-01-03
+CVE-2026-111943 exp:2027-01-28
+#
+# --- google-closure-compiler jar vendored inside emsdk (dashboard-tools) ---
+# emsdk/upstream/emscripten/node_modules/google-closure-compiler-java/
+# compiler.jar shades com.google.guava:guava 33.4.6-jre (CVE-2026-102554,
+# fixed in 33.7.2). The classes are inside the jar — not upgradeable
+# without revendoring emscripten's tooling — so the finding is waived
+# pending an emsdk release that carries the fixed jar.
+CVE-2026-102554 exp:2027-01-28
 #
 # --- CIS baseline: build/CI tool images ---------------------------------
 # DS-0002 (runs as root) and DS-0026 (no HEALTHCHECK): these images are CI

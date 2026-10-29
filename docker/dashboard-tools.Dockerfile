@@ -48,8 +48,15 @@ FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c
 
 ARG IMAGE_REVISION=unknown
 ARG NODE_VERSION=26.13.0
-# sha256 of https://nodejs.org/dist/v26.12.0/node-v26.12.0-linux-x64.tar.xz
+# sha256 of https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.xz
 ARG NODE_SHA256=d28a96af6c38596f6d9d97c0ee531c13d238d757742387d1928de822d959e997
+# npm bundled with Node 26.13.0 and with the emsdk stage's node 24.19.0
+# vendors undici < 6.29.1 (CVE-2026-109383, CVE-2026-109869,
+# CVE-2026-87018); patched in place below from a sha256-verified
+# registry tarball (npm 12.2.1 still ships undici 6.29.0).
+ARG UNDICI_VERSION=6.29.1
+# sha256 of https://registry.npmjs.org/undici/-/undici-6.29.1.tgz
+ARG UNDICI_SHA256=29c4b8e0b2d86cb8795571c1959012ce057a14ecfd34858335f47c31e770a04f
 ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.7.0/servo-x86_64-linux-gnu.tar.gz
 ARG SERVO_SHA256=728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333
 
@@ -146,6 +153,31 @@ RUN curl --fail --location --silent --show-error \
 # fail the build if the landed version is still vulnerable.
 RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund source-map-js@1.2.2 \
     && node -p "require('/emsdk/upstream/emscripten/node_modules/source-map-js/package.json').version" | grep -qx '1.2.2'
+
+# The pinned emsdk stage vendors vite 8.3.1 inside the emscripten
+# toolchain (CVE-2026-112942, fixed in 8.3.5); upgrade the vendored copy
+# and fail the build if the landed version is still vulnerable.
+RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund vite@8.3.5 \
+    && node -p "require('/emsdk/upstream/emscripten/node_modules/vite/package.json').version" | grep -qx '8.3.5'
+
+# Patch undici inside both bundled npm trees in place — the host
+# /usr/local npm and the emsdk stage's own node 24.19.0 npm — following
+# npm's vendored tree (patch-level bump within its vendored major), not
+# upstream latest. Drop this once the bundled npms vendor the fix.
+RUN for npm_root in /usr/local/lib/node_modules/npm/node_modules \
+        /emsdk/node/*/lib/node_modules/npm/node_modules; do \
+        test -d "$npm_root/undici" \
+        && curl --fail --location --silent --show-error \
+            --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
+            --output /tmp/undici.tgz \
+            "https://registry.npmjs.org/undici/-/undici-${UNDICI_VERSION}.tgz" \
+        && echo "${UNDICI_SHA256}  /tmp/undici.tgz" | sha256sum --check \
+        && rm -rf "${npm_root}/undici" \
+        && mkdir -p "${npm_root}/undici" \
+        && tar -xzf /tmp/undici.tgz -C "${npm_root}/undici" --strip-components=1 \
+        && rm -f /tmp/undici.tgz \
+        && grep -F "\"version\": \"${UNDICI_VERSION}\"" "${npm_root}/undici/package.json"; \
+    done
 
 RUN curl --fail --location --silent --show-error \
         --retry 8 --retry-delay 20 --retry-max-time 600 --retry-all-errors \
