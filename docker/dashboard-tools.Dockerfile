@@ -1,12 +1,12 @@
-FROM ghcr.io/astral-sh/uv:0.13.1@sha256:4a1f3666816dafadd20ceb71eac9a7d56d7ef30279f7d64048519ab901ada336 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
 
-FROM emscripten/emsdk:6.0.12@sha256:77638e6c215a65f25a704c0c831d5c2463a8c0468a58c6cb82489dbe621dfa05 AS emscripten
+FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS emscripten
 
 # mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
 # that the Emscripten leg links into the mruby/c WASM VM. Mirrors the
 # pins in firmware-agent (mruby 4.0.0, mrubyc master for the
 # emscripten HAL).
-FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f AS mruby
+FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS mruby
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -44,12 +44,12 @@ WORKDIR /opt/mruby-src
 RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc \
     && PATH=/opt/mruby/bin:$PATH make -C /opt/mrubyc
 
-FROM debian:13-slim@sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f
+FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
 
 ARG IMAGE_REVISION=unknown
-ARG NODE_VERSION=26.12.0
+ARG NODE_VERSION=26.13.0
 # sha256 of https://nodejs.org/dist/v26.12.0/node-v26.12.0-linux-x64.tar.xz
-ARG NODE_SHA256=fd47865ecd6391ebb431fc815e01b9135bf83ded5cf373247e9331e196b7aded
+ARG NODE_SHA256=d28a96af6c38596f6d9d97c0ee531c13d238d757742387d1928de822d959e997
 ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.7.0/servo-x86_64-linux-gnu.tar.gz
 ARG SERVO_SHA256=728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333
 
