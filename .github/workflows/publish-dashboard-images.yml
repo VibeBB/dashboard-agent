@@ -286,6 +286,10 @@ jobs:
           path: trivy-image.json
           retention-days: 30
       - id: image
+        # A plain manual dispatch is a build-only rehearsal: push and load
+        # are both false, so buildx reports no digest. Only runs that
+        # produced an image artifact may resolve its registry reference.
+        if: github.event_name == 'push' || (inputs.dry_run == true || github.event_name == 'pull_request')
         env:
           IMAGE_OWNER: ${{ steps.owner.outputs.name }}
           BUILT_DIGEST: ${{ steps.tools.outputs.digest }}
