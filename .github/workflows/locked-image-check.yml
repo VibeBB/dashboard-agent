@@ -186,9 +186,16 @@ jobs:
               IMAGE: ${{ needs.check-lock.outputs.image }}
               DIGEST: ${{ needs.check-lock.outputs.digest }}
             run: |
-              gh attestation verify "oci://${IMAGE}@${DIGEST}" \
-                --repo "$GITHUB_REPOSITORY" \
-                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml"
+              # `gh attestation verify` intermittently fails to initialize
+              # the public-good Sigstore verifier; retry before failing.
+              for attempt in 1 2 3; do
+                if gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml"; then
+                  break
+                fi
+                [ "$attempt" -lt 3 ] && sleep 15 || exit 1
+              done
               echo "- image provenance attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
           - name: Warn when tools image has no SBOM attestation
             if: needs.check-lock.outputs.sbom_attestation == ''
@@ -200,10 +207,17 @@ jobs:
               IMAGE: ${{ needs.check-lock.outputs.image }}
               DIGEST: ${{ needs.check-lock.outputs.digest }}
             run: |
-              gh attestation verify "oci://${IMAGE}@${DIGEST}" \
-                --repo "$GITHUB_REPOSITORY" \
-                --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml" \
-                --predicate-type https://spdx.dev/Document/v2.3
+              # `gh attestation verify` intermittently fails to initialize
+              # the public-good Sigstore verifier; retry before failing.
+              for attempt in 1 2 3; do
+                if gh attestation verify "oci://${IMAGE}@${DIGEST}" \
+                  --repo "$GITHUB_REPOSITORY" \
+                  --signer-workflow "$GITHUB_REPOSITORY/.github/workflows/publish-dashboard-images.yml" \
+                  --predicate-type https://spdx.dev/Document/v2.3; then
+                  break
+                fi
+                [ "$attempt" -lt 3 ] && sleep 15 || exit 1
+              done
               echo "- image SBOM attestation: verified \`${IMAGE}@${DIGEST}\`" >> "$GITHUB_STEP_SUMMARY"
           - name: Pull locked dashboard image
             run: uv run python scripts/pull_locked_image.py --entry dashboard_tools
