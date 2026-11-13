@@ -10,8 +10,9 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import cast
 
+from jsonschema import ValidationError, validate
 from mcp import types
-from mcp.server import Server
+from mcp.server import Server, ServerRequestContext
 from mcp.server.lowlevel import NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
@@ -28,8 +29,6 @@ from .records import (
     VisionReviewInput,
 )
 from .workspace import workspace_path
-
-server: Server = Server(f"dashboard-mcp/{__version__}")
 
 _CONTRACT = {"contract_path": {"type": "string"}}
 _OUT = {"out_dir": {"type": "string"}}
@@ -207,16 +206,17 @@ def tool_specs() -> list[types.Tool]:
         types.Tool(
             name=name,
             description=description,
-            inputSchema=schema,
-            annotations=types.ToolAnnotations(readOnlyHint=read_only),
+            input_schema=schema,
+            annotations=types.ToolAnnotations(read_only_hint=read_only),
         )
         for name, (description, schema, read_only) in TOOLS.items()
     ]
 
 
-@server.list_tools()
-async def list_tools() -> list[types.Tool]:
-    return tool_specs()
+async def list_tools(
+    ctx: ServerRequestContext | None, params: types.PaginatedRequestParams | None
+) -> types.ListToolsResult:
+    return types.ListToolsResult(tools=tool_specs())
 
 
 def _string(arguments: dict[str, object], key: str) -> str:
@@ -356,7 +356,7 @@ def render_content(payload: service.Json) -> list[types.ContentBlock]:
                         types.ImageContent(
                             type="image",
                             data=base64.b64encode(data).decode("ascii"),
-                            mimeType=mime,
+                            mime_type=mime,
                         )
                     )
         except OSError:
@@ -372,11 +372,24 @@ def render_content(payload: service.Json) -> list[types.ContentBlock]:
     ]
 
 
-@server.call_tool()
-async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
+async def call_tool(
+    ctx: ServerRequestContext | None, params: types.CallToolRequestParams
+) -> types.CallToolResult:
+    name, arguments = params.name, params.arguments or {}
     is_error = name not in TOOLS
+    spec = next((tool for tool in tool_specs() if tool.name == name), None)
+    if spec is not None:
+        try:
+            validate(arguments, spec.input_schema)
+        except ValidationError as exc:
+            return types.CallToolResult(
+                content=[
+                    types.TextContent(type="text", text=f"Input validation error: {exc.message}")
+                ],
+                is_error=True,
+            )
     try:
-        payload: service.Json = await asyncio.to_thread(dispatch, name, arguments or {})
+        payload: service.Json = await asyncio.to_thread(dispatch, name, arguments)
     except Exception as exc:
         payload = {
             "verdict": "fail",
@@ -397,7 +410,12 @@ async def call_tool(name: str, arguments: dict[str, object]) -> types.CallToolRe
             )
         ]
     )
-    return types.CallToolResult(content=content, isError=is_error)
+    return types.CallToolResult(content=content, is_error=is_error)
+
+
+server: Server = Server(
+    f"dashboard-mcp/{__version__}", on_list_tools=list_tools, on_call_tool=call_tool
+)
 
 
 async def _run() -> None:

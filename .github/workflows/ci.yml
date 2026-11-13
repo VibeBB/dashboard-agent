@@ -29,7 +29,7 @@ jobs:
     outputs:
       code: ${{ steps.scope.outputs.code }}
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -64,7 +64,7 @@ jobs:
       matrix:
         python-version: ["3.12", "3.13", "3.14"]
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -75,7 +75,7 @@ jobs:
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         id: setup-uv
         with:
-          version: 0.13.6
+          version: 0.13.8
           python-version: ${{ matrix.python-version }}
           cache-suffix: python-${{ matrix.python-version }}
       - name: Sync dependencies
@@ -133,7 +133,7 @@ jobs:
       # time.
       PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -145,7 +145,7 @@ jobs:
         id: setup-uv
         continue-on-error: true
         with:
-          version: 0.13.6
+          version: 0.13.8
           python-version: "3.15"
           cache-suffix: python-3.15
           # The canary's uv sync always fails while deps lack 3.15
@@ -194,7 +194,7 @@ jobs:
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -226,7 +226,7 @@ jobs:
     # No actions/cache usage: forbid restore and save entirely.
     cache-mode: none
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -259,7 +259,7 @@ jobs:
     outputs:
       contracts: ${{ steps.list.outputs.contracts }}
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -304,7 +304,7 @@ jobs:
       matrix:
         include: ${{ fromJSON(needs.e2e-examples.outputs.contracts) }}
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true
@@ -322,7 +322,7 @@ jobs:
       # keep the original gha-only behavior.
       - name: Log in to GHCR for the registry build cache
         id: ghcr-login
-        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         continue-on-error: true
         if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false
         with:
@@ -464,7 +464,7 @@ jobs:
     # No actions/cache usage: forbid restore and save entirely.
     cache-mode: none
     steps:
-      - uses: step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43 # v2.22.3
+      - uses: step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a # v2.22.4
         with:
           egress-policy: audit
           disable-telemetry: true

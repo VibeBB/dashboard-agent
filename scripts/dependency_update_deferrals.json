@@ -1,13 +1,6 @@
 {
   "deferrals": [
     {
-      "surface": "pypi",
-      "name": "mcp",
-      "latest": "2.3.0",
-      "review_by": "2027-04-01",
-      "reason": "openhands-sdk 1.59.0 requires fastmcp>=3.2.0,<4, which requires mcp<2.0. Defer MCP 2.x until a supported SDK/fastmcp release removes that constraint."
-    },
-    {
       "surface": "tauri-scaffold",
       "name": "*tauri*",
       "latest": "*",
@@ -34,6 +27,27 @@
       "latest": "3.15",
       "review_by": "2027-01-08",
       "reason": "Latest stable is 3.15, but the sdk-check group's openhands-sdk->litellm->fastuuid chain pins fastuuid 0.14.0 (sdist only, no cp315 wheel) and its bundled PyO3 fails to build on 3.15. pydantic-core has shipped cp315 wheels as of 2.50.1, so fastuuid is the sole blocker - re-check when fastuuid publishes a 3.15-capable release."
+    },
+    {
+      "surface": "tauri-scaffold",
+      "name": "@mnlphlp/plugin-blec",
+      "latest": "0.20.0",
+      "review_by": "2027-01-08",
+      "reason": "npm package must version-match its paired tauri-plugin-blec Rust crate, which stays at 0.18.0 under the tauri-scaffold deferral until a stable Tauri 3.x ships."
+    },
+    {
+      "surface": "workflow-download",
+      "name": "nodejs/node (major)",
+      "latest": "v27.0.0-alpha.*",
+      "review_by": "2027-04-01",
+      "reason": "Newest Node line is 27.0.0-alpha.* pre-releases; CI stays on the 26.x LTS line until a stable 27.x (or next LTS) ships."
+    },
+    {
+      "surface": "docker-arg",
+      "name": "NODE_VERSION",
+      "latest": "v27.0.0-alpha.*",
+      "review_by": "2027-04-01",
+      "reason": "Newest Node line is 27.0.0-alpha.* pre-releases; the tools image stays on the 26.x LTS line until a stable 27.x (or next LTS) ships."
     }
   ]
 }

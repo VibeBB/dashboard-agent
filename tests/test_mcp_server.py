@@ -5,7 +5,7 @@ import base64
 import hashlib
 import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from mcp import types
 from pytest import MonkeyPatch, raises
@@ -13,9 +13,64 @@ from pytest import MonkeyPatch, raises
 from dashboard import mcp_server, service
 from dashboard.workspace import workspace_path
 
+_FACETS: dict[str, Any] = {
+    "observed": ["first observation", "second observation"],
+    "works": ["what works"],
+    "feelings": {"maker": "can crimp", "user": "never sees it"},
+    "next_actions": ["next action"],
+}
+_CLAIM: dict[str, Any] = {
+    "text": "claim text",
+    "anchor": "anchor",
+    "artifact": "out/x",
+}
+
+
+def _decision() -> dict[str, Any]:
+    return {
+        "id": "d1",
+        "stage": "design",
+        "question": "question text here",
+        "principles": ["p"],
+        "options": [
+            {"name": "x", "pros": ["p"], "cons": ["c"]},
+            {"name": "y", "pros": ["p"], "cons": ["c"]},
+        ],
+        "chosen": "x",
+        "rationale": "r" * 200,
+        "evidence": [{"path": "out/evidence.json"}],
+        "risks": ["r"],
+        "revisit_when": "later",
+    }
+
+
+def _impression() -> dict[str, Any]:
+    return {
+        "impression": "impression text",
+        "facets": dict(_FACETS),
+        "claims": [dict(_CLAIM)],
+        "confidence": "medium",
+        "stage": "export",
+        "artifacts": ["out"],
+    }
+
+
+def _vision() -> dict[str, Any]:
+    return {
+        "impression": "impression text",
+        "facets": dict(_FACETS),
+        "claims": [dict(_CLAIM)],
+        "confidence": "medium",
+        "model": "model-name",
+        "checklist": "checklist-name",
+        "lookback": [{"claim": 0, "verdict": "confirmed", "note": "note text"}],
+    }
+
 
 async def _call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
-    return cast(types.CallToolResult, await mcp_server.call_tool(name, arguments))
+    return await mcp_server.call_tool(
+        None, types.CallToolRequestParams(name=name, arguments=arguments)
+    )
 
 
 def _result_payload(result: types.CallToolResult) -> dict[str, object]:
@@ -35,7 +90,7 @@ def _dispatch_for(verdict: str):
 def test_call_tool_marks_unknown_tool_as_error() -> None:
     result = asyncio.run(_call_tool("missing_tool", {}))
 
-    assert result.isError is True
+    assert result.is_error is True
     assert _result_payload(result) == {
         "verdict": "fail",
         "detail": "unknown tool missing_tool",
@@ -50,10 +105,10 @@ def test_call_tool_marks_handler_exceptions_as_errors(
 
     monkeypatch.setattr(mcp_server, "dispatch", fail)
 
-    result = asyncio.run(_call_tool("dashboard_validate", {}))
+    result = asyncio.run(_call_tool("dashboard_validate", {"contract_path": "x.dash.json"}))
     payload = _result_payload(result)
 
-    assert result.isError is True
+    assert result.is_error is True
     assert payload["verdict"] == "fail"
     assert payload["error_type"] == "KeyError"
     assert payload["detail"] == "dashboard_validate error: 'contract_path'"
@@ -62,9 +117,9 @@ def test_call_tool_marks_handler_exceptions_as_errors(
 def test_service_failure_verdict_is_not_an_mcp_error(monkeypatch: MonkeyPatch) -> None:
     for verdict in ("fail", "unknown"):
         monkeypatch.setattr(mcp_server, "dispatch", _dispatch_for(verdict))
-        result = asyncio.run(_call_tool("dashboard_check", {}))
+        result = asyncio.run(_call_tool("dashboard_check", {"contract_path": "x.dash.json"}))
 
-        assert result.isError is False
+        assert result.is_error is False
         assert _result_payload(result)["verdict"] == verdict
 
 
@@ -83,9 +138,14 @@ def test_record_tools_use_input_schemas_and_return_text_only(
         ("dashboard_record_impression", "impression"),
         ("dashboard_record_vision_review", "vision-review"),
     ):
-        result = asyncio.run(_call_tool(name, {"stage": "generate"}))
+        args = {
+            "dashboard_record_decision": _decision(),
+            "dashboard_record_impression": _impression(),
+            "dashboard_record_vision_review": _vision(),
+        }[name]
+        result = asyncio.run(_call_tool(name, args))
 
-        assert result.isError is False
+        assert result.is_error is False
         assert len(result.content) == 1
         assert isinstance(result.content[0], types.TextContent)
         assert _result_payload(result)["stage"] == "record"
@@ -96,17 +156,17 @@ def test_record_tools_use_input_schemas_and_return_text_only(
         "dashboard_record_impression",
         "dashboard_record_vision_review",
     ):
-        assert "properties" in specs[name].inputSchema
+        assert "properties" in specs[name].input_schema
         annotations = specs[name].annotations
         assert annotations is not None
-        assert annotations.readOnlyHint is False
+        assert annotations.read_only_hint is False
 
     def invalid_record(_kind: str, _arguments: dict[str, object]) -> service.Json:
         return {"verdict": "fail", "stage": "record", "detail": "invalid"}
 
     monkeypatch.setattr(service, "record_payload", invalid_record)
-    invalid = asyncio.run(_call_tool("dashboard_record_decision", {}))
-    assert invalid.isError is False
+    invalid = asyncio.run(_call_tool("dashboard_record_decision", _decision()))
+    assert invalid.is_error is False
     assert _result_payload(invalid)["detail"] == "invalid"
 
 
@@ -119,11 +179,11 @@ def test_records_status_is_read_only_text_only(monkeypatch: MonkeyPatch) -> None
     result = asyncio.run(_call_tool("dashboard_records_status", {}))
     tool = next(tool for tool in mcp_server.tool_specs() if tool.name == "dashboard_records_status")
 
-    assert result.isError is False
+    assert result.is_error is False
     assert len(result.content) == 1
     assert isinstance(result.content[0], types.TextContent)
     assert tool.annotations is not None
-    assert tool.annotations.readOnlyHint is True
+    assert tool.annotations.read_only_hint is True
 
 
 def test_screenshot_tool_is_write_capable_and_inlines_image(
@@ -149,11 +209,11 @@ def test_screenshot_tool_is_write_capable_and_inlines_image(
     tool = next(tool for tool in mcp_server.tool_specs() if tool.name == "dashboard_screenshot")
 
     assert tool.annotations is not None
-    assert tool.annotations.readOnlyHint is False
+    assert tool.annotations.read_only_hint is False
     result = asyncio.run(_call_tool("dashboard_screenshot", {"contract_path": "contract.json"}))
     payload = _result_payload(result)
 
-    assert result.isError is False
+    assert result.is_error is False
     assert payload["vision_review"] == vision_review
     assert payload["inline_images"] == [
         {
@@ -166,7 +226,7 @@ def test_screenshot_tool_is_write_capable_and_inlines_image(
     assert len(result.content) == 2
     block = result.content[1]
     assert isinstance(block, types.ImageContent)
-    assert block.mimeType == "image/png"
+    assert block.mime_type == "image/png"
     assert base64.b64decode(block.data) == image.read_bytes()
 
 

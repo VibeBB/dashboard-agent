@@ -19,23 +19,23 @@ hooks:
       hooks:
         - type: command
           name: blind-guard
-          command: 'p=$(for c in "${DASHBOARD_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/blind_guard.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "dashboard plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/blind_guard.py"'
+          command: 'p=$(for c in  "${DASHBOARD_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/blind_guard.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "dashboard plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/blind_guard.py"'
     - matcher: file_editor|apply_patch|terminal
       hooks:
         - type: command
           name: protect-generated
-          command: 'p=$(for c in "${DASHBOARD_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/protect_generated.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "dashboard plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/protect_generated.py"'
+          command: 'p=$(for c in  "${DASHBOARD_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/protect_generated.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || { echo "dashboard plugin root unresolved" >&2; exit 2; }; exec python3 "$p/hooks/scripts/protect_generated.py"'
     - matcher: terminal
       hooks:
         - type: command
           name: safety-rail
-          command: 'p=$(for c in "${DASHBOARD_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/safety_rail.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/safety_rail.py"'
+          command: 'p=$(for c in  "${DASHBOARD_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/safety_rail.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/safety_rail.py"'
   post_tool_use:
     - matcher: inspect_image_with_vision
       hooks:
         - type: command
           name: record-vision-tool-event
-          command: 'p=$(for c in "${DASHBOARD_PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
+          command: 'p=$(for c in  "${DASHBOARD_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
 permission_mode: never_confirm
 ---
 

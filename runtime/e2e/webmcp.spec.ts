@@ -106,12 +106,13 @@ test("smart-kettle exposes the expected WebMCP tools and device operations", asy
     const tool = tools.find((item) => item.name === "send_set_target")!;
     return document.modelContext!.executeTool!(tool, { target_temp_c: 55 });
   });
-  await expect(beforeConnect).rejects.toThrow(/UnknownError/);
+  await expect(beforeConnect).rejects.toThrow(/OperationError/);
   expect(await page.evaluate(() => window.__serialRequests)).toBe(0);
   expect(await page.evaluate(() => window.__serialWrites.length)).toBe(0);
 
   await connectSerial(page);
   await expect(page.locator(".connection-state")).toContainText("connected");
+  await expect(page.locator("output[data-message='status'][data-field='water_temp_c']")).toHaveText("23.5 °C");
   const readResult = await page.evaluate(async () => {
     const tools = await document.modelContext!.getTools!();
     const tool = tools.find((item) => item.name === "read_telemetry")!;
@@ -142,7 +143,7 @@ test("smart-kettle exposes the expected WebMCP tools and device operations", asy
     return document.modelContext!.executeTool!(tool, {});
   });
   await dismiss;
-  await expect(cancelled).rejects.toThrow(/UnknownError/);
+  await expect(cancelled).rejects.toThrow(/OperationError/);
   expect(await page.evaluate(() => window.__serialWrites.length)).toBe(2);
   expect(setTarget.id).toBeGreaterThan(0);
   expect(startBoil.id).toBeGreaterThan(0);

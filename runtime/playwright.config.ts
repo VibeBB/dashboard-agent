@@ -28,7 +28,7 @@ export default defineConfig({
     {
       name: "chromium-webmcp",
       testMatch: ["webmcp.spec.ts"],
-      use: { launchOptions: { args: ["--enable-features=WebMCPTesting"] } },
+      use: { launchOptions: { args: ["--enable-features=WebMCP,WebMCPTesting"] } },
     },
   ],
 });

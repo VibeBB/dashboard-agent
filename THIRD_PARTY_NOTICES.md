@@ -6,12 +6,13 @@ includes or invokes the following third-party software:
 | Component | Pin or source | License / use |
 | --- | --- | --- |
 | Debian 13 (`debian:13-slim`) | `sha256:a29215f6a35e51e22adffa17f89e9d2ef06214e64a2bad10d765c46aea49f11f` | Debian packages; see Debian copyright files |
-| Node.js | 26.13.0 upstream tarball (`node-v26.13.0-linux-x64.tar.xz`), sha256-verified at build (`NODE_VERSION`/`NODE_SHA256` args) | MIT |
+| Node.js | 26.13.1 upstream tarball (`node-v26.13.1-linux-x64.tar.xz`), sha256-verified at build (`NODE_VERSION`/`NODE_SHA256` args) | MIT |
 | CPython | 3.14, installed by pinned uv | PSF-2.0 |
-| uv | 0.13.6, index digest `sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0` | MIT / Apache-2.0 |
+| uv | 0.13.8, index digest `sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |
-| MCP Python SDK | `mcp>=1.29,<2` | MIT |
-| OpenHands SDK and tools | 1.59.0 (development plugin check) | MIT |
+| MCP Python SDK | `mcp>=2` | MIT |
+| jsonschema | `jsonschema>=4` | MIT |
+| OpenHands SDK and tools | 1.62.0 (development plugin check) | MIT |
 | TypeScript | 7.1.0-dev.20261007.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
 | Playwright | 1.63.0 | Apache-2.0 |
@@ -22,7 +23,7 @@ includes or invokes the following third-party software:
 | Emscripten SDK | 6.0.13, image digest `sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a` | MIT / UIUC |
 | mruby | 4.0.0 tarball, sha256-verified at build (`MRUBY_VERSION`/`MRUBY_SHA256` args; provides `mrbc`) | MIT |
 | mruby/c | master `2dec4802b09be1fc12f388d3c9267ffd9dc6c404` tarball, sha256-verified at build (`MRUBYC_REF`/`MRUBYC_SHA256` args; the release4.0.0 tag predates the emscripten HAL) | BSD-3-Clause |
-| Servo | v0.7.0, SHA-256 `728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333` | MPL-2.0; unmodified binary invoked as a subprocess |
+| Servo | v0.8.0, SHA-256 `02a78892746e69bc39d471da2bb012fd8ce228e464cda5a017334d0e88c61de1` | MPL-2.0; unmodified binary invoked as a subprocess |
 | GStreamer runtime packages | Debian 13 | LGPL-2.1-or-later |
 
 Container package copyright and license texts are provided by Debian under
