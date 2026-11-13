@@ -10,7 +10,8 @@ includes or invokes the following third-party software:
 | CPython | 3.14, installed by pinned uv | PSF-2.0 |
 | uv | 0.13.8, index digest `sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85` | MIT / Apache-2.0 |
 | Pydantic | `pydantic>=2` | MIT |
-| MCP Python SDK | `mcp>=1.29,<2` | MIT |
+| MCP Python SDK | `mcp>=2` | MIT |
+| jsonschema | `jsonschema>=4` | MIT |
 | OpenHands SDK and tools | 1.62.0 (development plugin check) | MIT |
 | TypeScript | 7.1.0-dev.20261007.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
