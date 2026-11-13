@@ -201,7 +201,9 @@ def _done_payload(report: Path, **overrides: object) -> dict[str, object]:
 
 
 async def _call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
-    return cast(types.CallToolResult, await mcp_server.call_tool(name, arguments))
+    return await mcp_server.call_tool(
+        None, types.CallToolRequestParams(name=name, arguments=arguments)
+    )
 
 
 def _tool_payload(result: types.CallToolResult) -> dict[str, object]:
@@ -574,16 +576,16 @@ def test_mcp_and_cli_route_ux_liaison_tools(
     monkeypatch.setattr(service, "ux_respond_payload", respond)
     tools = {tool.name: tool for tool in mcp_server.tool_specs()}
     assert tools["dashboard_ux_inbox"].annotations is not None
-    assert tools["dashboard_ux_inbox"].annotations.readOnlyHint is True
+    assert tools["dashboard_ux_inbox"].annotations.read_only_hint is True
     assert tools["dashboard_ux_respond"].annotations is not None
-    assert tools["dashboard_ux_respond"].annotations.readOnlyHint is False
+    assert tools["dashboard_ux_respond"].annotations.read_only_hint is False
 
     inbox_result = asyncio.run(_call_tool("dashboard_ux_inbox", {}))
-    assert inbox_result.isError is False
+    assert inbox_result.is_error is False
     assert _tool_payload(inbox_result)["stage"] == "ux-inbox"
     response_payload: dict[str, object] = {"request": "review-ui", "status": "accepted"}
     respond_result = asyncio.run(_call_tool("dashboard_ux_respond", response_payload))
-    assert respond_result.isError is False
+    assert respond_result.is_error is False
     assert captured["response_payload"] == response_payload
 
     liaison_dir = tmp_path / "liaison"

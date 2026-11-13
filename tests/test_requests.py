@@ -176,11 +176,11 @@ def test_cli_and_mcp_request_args_accept_repeatable_decision_refs(
     monkeypatch.setenv("OPENHANDS_PROJECT_DIR", str(tmp_path))
 
     async def call_request() -> types.CallToolResult:
-        return cast(
-            types.CallToolResult,
-            await mcp_server.call_tool(
-                "dashboard_request",
-                {
+        return await mcp_server.call_tool(
+            None,
+            types.CallToolRequestParams(
+                name="dashboard_request",
+                arguments={
                     "contract_path": str(contract),
                     "target": "fpga",
                     "risk": "low",
@@ -192,10 +192,10 @@ def test_cli_and_mcp_request_args_accept_repeatable_decision_refs(
         )
 
     result = asyncio.run(call_request())
-    assert result.isError is False
+    assert result.is_error is False
     assert captured["decision_refs"] == [_DECISION_ID, "c" * 64]
     tool = next(tool for tool in mcp_server.tool_specs() if tool.name == "dashboard_request")
-    target = cast(dict[str, object], tool.inputSchema["properties"])
+    target = cast(dict[str, object], tool.input_schema["properties"])
     target_values = cast(dict[str, object], target["target"])["enum"]
     assert "fpga" in cast(list[str], target_values)
     assert json.loads(capsys.readouterr().out)["verdict"] == "pass"

@@ -1,4 +1,4 @@
-FROM ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0 AS uv
+FROM ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 AS uv
 
 FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS emscripten
 
@@ -6,7 +6,7 @@ FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a
 # that the Emscripten leg links into the mruby/c WASM VM. Mirrors the
 # pins in firmware-agent (mruby 4.0.0, mrubyc master for the
 # emscripten HAL).
-FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4 AS mruby
+FROM debian:13-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2 AS mruby
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
@@ -44,21 +44,21 @@ WORKDIR /opt/mruby-src
 RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc \
     && PATH=/opt/mruby/bin:$PATH make -C /opt/mrubyc
 
-FROM debian:13-slim@sha256:f6b08b09a05725f9431502d3b5714f5c4576e82c1a84fa1debe0c24a7e0c3ec4
+FROM debian:13-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 
 ARG IMAGE_REVISION=unknown
-ARG NODE_VERSION=26.13.0
-# sha256 of https://nodejs.org/dist/v26.13.0/node-v26.13.0-linux-x64.tar.xz
-ARG NODE_SHA256=d28a96af6c38596f6d9d97c0ee531c13d238d757742387d1928de822d959e997
-# npm bundled with Node 26.13.0 and with the emsdk stage's node 24.19.0
-# vendors undici < 6.29.1 (CVE-2026-109383, CVE-2026-109869,
+ARG NODE_VERSION=26.13.1
+# sha256 of https://nodejs.org/dist/v26.13.1/node-v26.13.1-linux-x64.tar.xz
+ARG NODE_SHA256=5c063e46bab0fbc1c17cc445d7ff129cbdcd0471be6ed83b6ab864f8143bc864
+# npm bundled with Node 26.13.1 (npm 11.20.0) and with the emsdk stage's
+# node 24.19.0 vendors undici < 6.29.1 (CVE-2026-109383, CVE-2026-109869,
 # CVE-2026-87018); patched in place below from a sha256-verified
-# registry tarball (npm 12.2.1 still ships undici 6.29.0).
+# registry tarball.
 ARG UNDICI_VERSION=6.29.1
 # sha256 of https://registry.npmjs.org/undici/-/undici-6.29.1.tgz
 ARG UNDICI_SHA256=29c4b8e0b2d86cb8795571c1959012ce057a14ecfd34858335f47c31e770a04f
-ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.7.0/servo-x86_64-linux-gnu.tar.gz
-ARG SERVO_SHA256=728eba1be1cc1851e05dfaa90e18f98ab8644dd2355bedb0b8a5e89795ebe333
+ARG SERVO_URL=https://github.com/servo/servo/releases/download/v0.8.0/servo-x86_64-linux-gnu.tar.gz
+ARG SERVO_SHA256=02a78892746e69bc39d471da2bb012fd8ce228e464cda5a017334d0e88c61de1
 
 # Fail the build when the left side of a verification pipe (curl|sha256sum)
 # breaks instead of silently passing the right side.
@@ -154,11 +154,11 @@ RUN curl --fail --location --silent --show-error \
 RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund source-map-js@1.2.2 \
     && node -p "require('/emsdk/upstream/emscripten/node_modules/source-map-js/package.json').version" | grep -qx '1.2.2'
 
-# The pinned emsdk stage vendors vite 8.3.1 inside the emscripten
+# The pinned emsdk stage vendors vite 8.3.8 inside the emscripten
 # toolchain (CVE-2026-112942, fixed in 8.3.5); upgrade the vendored copy
 # and fail the build if the landed version is still vulnerable.
-RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund vite@8.3.5 \
-    && node -p "require('/emsdk/upstream/emscripten/node_modules/vite/package.json').version" | grep -qx '8.3.5'
+RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund vite@8.3.8 \
+    && node -p "require('/emsdk/upstream/emscripten/node_modules/vite/package.json').version" | grep -qx '8.3.8'
 
 # Patch undici inside both bundled npm trees in place — the host
 # /usr/local npm and the emsdk stage's own node 24.19.0 npm — following

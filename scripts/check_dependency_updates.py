@@ -954,6 +954,8 @@ def _default_fetch_bytes(url: str) -> bytes:
 
 
 _NPM_LATEST_URL = "https://registry.npmjs.org/npm/latest"
+_NODE_INDEX_URL = "https://nodejs.org/dist/index.json"
+_NODE_ARG = re.compile(r"^ARG\s+NODE_VERSION=(\S+)", re.M)
 _UNDICI_PACKUMENT_URL = "https://registry.npmjs.org/undici"
 _UNDICI_ARG = re.compile(r"^ARG\s+UNDICI_VERSION=(\S+)", re.M)
 
@@ -994,16 +996,23 @@ def check_bundled_undici(
     """npm's vendored undici vs. the Dockerfile's UNDICI_VERSION swap pin.
 
     The tools image swaps npm's bundled undici tarball for a fixed release
-    (UNDICI_VERSION + UNDICI_SHA256). When upstream npm vendors a version
-    >= the pin, the swap is removable.
+    (UNDICI_VERSION + UNDICI_SHA256). The swapped npm is the one bundled
+    inside the pinned Node tarball, so the npm under test is resolved from
+    NODE_VERSION via the nodejs.org release index (falling back to the
+    latest npm release when no NODE_VERSION ARG exists). When that npm
+    vendors a version >= the pin, the swap is removable.
     """
     statuses: list[DependencyStatus] = []
     source = "docker/"
     pin = ""
+    node_version = ""
     for dockerfile in sorted((repo_root / "docker").glob("*.Dockerfile")):
-        match = _UNDICI_ARG.search(dockerfile.read_text(encoding="utf-8"))
+        text = dockerfile.read_text(encoding="utf-8")
+        match = _UNDICI_ARG.search(text)
         if match is not None:
             pin = match.group(1)
+            node_match = _NODE_ARG.search(text)
+            node_version = node_match.group(1) if node_match is not None else ""
             source = str(dockerfile.relative_to(repo_root))
             break
     if not pin:
@@ -1012,8 +1021,21 @@ def check_bundled_undici(
     bundled = ""
     npm_version = ""
     try:
-        latest_npm = fetch_json(_NPM_LATEST_URL)
-        npm_version = str(_dict_get(latest_npm, "version"))
+        if node_version:
+            index_obj: object = fetch_json(_NODE_INDEX_URL)
+            releases = cast("list[Any]", index_obj) if isinstance(index_obj, list) else []
+            for release in releases:
+                if not isinstance(release, dict):
+                    continue
+                rel = cast("dict[str, Any]", release)
+                if rel.get("version") == f"v{node_version}":
+                    npm_version = str(rel.get("npm") or "")
+                    break
+            if not npm_version:
+                raise ValueError("npm not found for NODE_VERSION in Node index")
+        else:
+            latest_npm = fetch_json(_NPM_LATEST_URL)
+            npm_version = str(_dict_get(latest_npm, "version"))
         tarball = fetch_bytes(f"https://registry.npmjs.org/npm/-/npm-{npm_version}.tgz")
         bundled = _bundled_undici_version(tarball)
     except (OSError, ValueError, KeyError, tarfile.TarError):
@@ -1024,7 +1046,13 @@ def check_bundled_undici(
             "bundled",
             "npm-bundled-undici",
             pin,
-            f"{bundled} (npm {npm_version})" if bundled else "?",
+            (
+                f"{bundled} (node v{node_version} npm {npm_version})"
+                if bundled and node_version
+                else f"{bundled} (npm {npm_version})"
+                if bundled
+                else "?"
+            ),
             source,
             removable,
             (

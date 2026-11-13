@@ -75,7 +75,7 @@ def test_checker_covers_required_dependency_surfaces() -> None:
 def test_current_dependency_deferrals_have_review_dates() -> None:
     deferrals = load_deferrals(ROOT)
 
-    assert len(deferrals) == 5
+    assert len(deferrals) == 7
     assert {item.review_by for item in deferrals} == {
         date(2027, 1, 3),
         date(2027, 1, 8),
@@ -83,14 +83,13 @@ def test_current_dependency_deferrals_have_review_dates() -> None:
     }
     assert {item.name for item in deferrals} == {
         "*tauri*",
-        "mcp",
+        "@mnlphlp/plugin-blec",
+        "nodejs/node (major)",
+        "NODE_VERSION",
         "emscripten/emsdk",
         "node",
         "*",
     }
-    mcp = next(item for item in deferrals if item.name == "mcp")
-    assert mcp.latest == "2.3.0"
-    assert "fastmcp>=3.2.0,<4" in mcp.reason
 
 
 def test_deferrals_expire_back_into_update_candidates() -> None:
@@ -494,3 +493,28 @@ def test_check_bundled_undici_reports_required_swap(tmp_path: Path):
     assert not bundled.outdated
     assert "still required" in bundled.note
     assert not by_name["undici"].outdated
+
+
+def test_check_bundled_undici_resolves_npm_via_node_index(tmp_path: Path):
+    (tmp_path / "docker").mkdir()
+    (tmp_path / "docker" / "tools.Dockerfile").write_text(
+        "FROM scratch\nARG NODE_VERSION=9.9.9\nARG UNDICI_VERSION=6.29.1\n",
+        encoding="utf-8",
+    )
+
+    def fetch_json(url: str) -> Any:
+        if url == "https://nodejs.org/dist/index.json":
+            return [{"version": "v9.9.8", "npm": "1.0.0"}, {"version": "v9.9.9", "npm": "1.2.3"}]
+        if url == "https://registry.npmjs.org/undici":
+            return {"versions": {"6.29.1": {}}}
+        raise AssertionError(url)
+
+    def fetch_bytes(url: str) -> bytes:
+        assert url == "https://registry.npmjs.org/npm/-/npm-1.2.3.tgz"
+        return _npm_tarball("6.29.0")
+
+    statuses = check_bundled_undici(tmp_path, fetch_json=fetch_json, fetch_bytes=fetch_bytes)
+    bundled = {s.name: s for s in statuses}["npm-bundled-undici"]
+    assert bundled.latest == "6.29.0 (node v9.9.9 npm 1.2.3)"
+    assert not bundled.outdated
+    assert "still required" in bundled.note
