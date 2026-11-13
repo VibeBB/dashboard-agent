@@ -88,7 +88,7 @@ Primary sources:
 
 | Servo v0.7.0 -> v0.8.0 | adopted | Monthly release (October changeset); the tools image consumes the prebuilt `servo-x86_64-linux-gnu.tar.gz` for WebDriver smoke checks only — archive URL and SHA-256 re-pinned, verified against the release's published `.sha256` asset. |
 | Node.js 26.13.0 -> 26.13.1 | adopted | Patch release on the 26.x LTS line; sha256-pinned tarball re-verified. Node 27.0.0-alpha.* deferred (pre-release line). |
-| @playwright/test 1.64.1 -> 1.65.1 | adopted | Minor release; runtime browser tests (`node --test`, playwright chromium E2E in image) unchanged. |
+| @playwright/test 1.64.1 -> 1.65.1 | adopted | Minor release; the bundled Chromium 159 changed the WebMCP surface: `WebMCPTesting` alone no longer exposes `document.modelContext` (the launch flag is now `WebMCP,WebMCPTesting`) and `executeTool` rejects with `OperationError` instead of propagating the page's `UnknownError`. `runtime/playwright.config.ts` and `runtime/e2e/webmcp.spec.ts` updated; a latent race where `read_telemetry` ran before the mock serial frame arrived is fixed by asserting the telemetry widget first. All 14 e2e specs pass locally. |
 | typescript 7.1.0-dev.20261029.1 -> 7.1.0-dev.20261113.1 | adopted | Tracked dev build; `npx tsc -p .` clean. |
 | vite 8.3.5 -> 8.3.8 | adopted | Vendored inside the emsdk image stage (CVE-2026-112942 mitigation); npm install pin + version assertion updated. |
 | @mnlphlp/plugin-blec 0.20.0 | deferred | Must version-match the paired `tauri-plugin-blec` Rust crate, which stays at 0.18.0 under the tauri-scaffold deferral until a stable Tauri 3.x ships; explicit deferral added. |

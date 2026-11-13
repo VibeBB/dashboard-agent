@@ -49,6 +49,34 @@ uv run python scripts/check_dependency_updates.py \
 
 Review the complete upstream changelog before accepting a version update.
 
+## 2026-11-14 update (sdk 1.62.0, mcp 2.x, playwright 1.65.1, node 26.13.1)
+
+sdk `==1.59.0` -> `==1.62.0` (sdk + tools), uv `0.13.6` -> `0.13.8`, ruff
+`0.17.3` -> `0.17.5`, pydantic -> 2.14.3 (lock), `mcp>=1.29,<2` ->
+`mcp>=2` + `jsonschema>=4` (new runtime dep; the SDK's fastmcp 4
+migration pins `mcp>=2`, so `mcp_server.py` moved to the mcp 2.x lowlevel
+API and a jsonschema shim restores the dropped request-layer input
+validation), Node.js `26.13.0` -> `26.13.1` (sha256 tarball re-verified),
+`@playwright/test` `1.64.1` -> `1.65.1`, `typescript` dev ->
+`7.1.0-dev.20261113.1`, vite `8.3.5` -> `8.3.8` (emsdk stage vendor
+pin), Servo `v0.7.0` -> `v0.8.0` (archive + sha256 re-pinned), zizmor
+`1.31.1` -> `1.32.0`, trivy `v0.76.1` -> `v0.76.2`, harden-runner
+v2.22.4, docker/login-action v4.8.0, codeql-action v4.39.3. Full
+changelog review:
+[SDK v1.62.0 feature evaluation](research/sdk-v1.62.0-feature-evaluation.md).
+
+Playwright 1.65.1's bundled Chromium 159 renamed the WebMCP surface:
+`document.modelContext` now requires `--enable-features=WebMCP`
+(`WebMCPTesting` alone no longer exposes it) and `executeTool` rejects
+with `OperationError`; `runtime/playwright.config.ts` and
+`runtime/e2e/webmcp.spec.ts` updated accordingly, including a
+deterministic wait for the telemetry widget before `read_telemetry`.
+`@mnlphlp/plugin-blec` 0.20.0 stays deferred (paired `tauri-plugin-blec`
+crate held at 0.18.0 under the Tauri 3.x deferral); Node 27 alpha stays
+deferred. The `PLUGIN_ROOT` env candidate was added after each repo's
+explicit `*_PLUGIN_ROOT` override in plugin files (SDK #6542 exports it
+to hook commands).
+
 ## 2026-10-29 update (sdk 1.59.0, uv 0.13.6, node 26.13.0, emsdk 6.0.13)
 
 sdk `==1.55.1` -> `==1.59.0` (sdk + tools), uv `==0.13.1` -> `==0.13.6`,
