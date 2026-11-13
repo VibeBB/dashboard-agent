@@ -5,14 +5,66 @@ import base64
 import hashlib
 import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from mcp import types
 from pytest import MonkeyPatch, raises
 
 from dashboard import mcp_server, service
 from dashboard.workspace import workspace_path
-from test_records import _decision, _impression, _vision
+
+_FACETS: dict[str, Any] = {
+    "observed": ["first observation", "second observation"],
+    "works": ["what works"],
+    "feelings": {"maker": "can crimp", "user": "never sees it"},
+    "next_actions": ["next action"],
+}
+_CLAIM: dict[str, Any] = {
+    "text": "claim text",
+    "anchor": "anchor",
+    "artifact": "out/x",
+}
+
+
+def _decision() -> dict[str, Any]:
+    return {
+        "id": "d1",
+        "stage": "design",
+        "question": "question text here",
+        "principles": ["p"],
+        "options": [
+            {"name": "x", "pros": ["p"], "cons": ["c"]},
+            {"name": "y", "pros": ["p"], "cons": ["c"]},
+        ],
+        "chosen": "x",
+        "rationale": "r" * 200,
+        "evidence": [{"path": "out/evidence.json"}],
+        "risks": ["r"],
+        "revisit_when": "later",
+    }
+
+
+def _impression() -> dict[str, Any]:
+    return {
+        "impression": "impression text",
+        "facets": dict(_FACETS),
+        "claims": [dict(_CLAIM)],
+        "confidence": "medium",
+        "stage": "export",
+        "artifacts": ["out"],
+    }
+
+
+def _vision() -> dict[str, Any]:
+    return {
+        "impression": "impression text",
+        "facets": dict(_FACETS),
+        "claims": [dict(_CLAIM)],
+        "confidence": "medium",
+        "model": "model-name",
+        "checklist": "checklist-name",
+        "lookback": [{"claim": 0, "verdict": "confirmed", "note": "note text"}],
+    }
 
 
 async def _call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
@@ -87,7 +139,7 @@ def test_record_tools_use_input_schemas_and_return_text_only(
         ("dashboard_record_vision_review", "vision-review"),
     ):
         args = {
-            "dashboard_record_decision": _decision("out/evidence.json"),
+            "dashboard_record_decision": _decision(),
             "dashboard_record_impression": _impression(),
             "dashboard_record_vision_review": _vision(),
         }[name]
@@ -113,7 +165,7 @@ def test_record_tools_use_input_schemas_and_return_text_only(
         return {"verdict": "fail", "stage": "record", "detail": "invalid"}
 
     monkeypatch.setattr(service, "record_payload", invalid_record)
-    invalid = asyncio.run(_call_tool("dashboard_record_decision", _decision("out/evidence.json")))
+    invalid = asyncio.run(_call_tool("dashboard_record_decision", _decision()))
     assert invalid.is_error is False
     assert _result_payload(invalid)["detail"] == "invalid"
 
