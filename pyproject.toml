@@ -7,6 +7,7 @@ requires-python = ">=3.12"
 dependencies = [
     "pydantic>=2",
     "mcp>=2",
+    "jsonschema>=4",
 ]
 
 [dependency-groups]

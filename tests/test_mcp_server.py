@@ -12,6 +12,7 @@ from pytest import MonkeyPatch, raises
 
 from dashboard import mcp_server, service
 from dashboard.workspace import workspace_path
+from test_records import _decision, _impression, _vision
 
 
 async def _call_tool(name: str, arguments: dict[str, object]) -> types.CallToolResult:
@@ -52,7 +53,7 @@ def test_call_tool_marks_handler_exceptions_as_errors(
 
     monkeypatch.setattr(mcp_server, "dispatch", fail)
 
-    result = asyncio.run(_call_tool("dashboard_validate", {}))
+    result = asyncio.run(_call_tool("dashboard_validate", {"contract_path": "x.dash.json"}))
     payload = _result_payload(result)
 
     assert result.is_error is True
@@ -64,7 +65,7 @@ def test_call_tool_marks_handler_exceptions_as_errors(
 def test_service_failure_verdict_is_not_an_mcp_error(monkeypatch: MonkeyPatch) -> None:
     for verdict in ("fail", "unknown"):
         monkeypatch.setattr(mcp_server, "dispatch", _dispatch_for(verdict))
-        result = asyncio.run(_call_tool("dashboard_check", {}))
+        result = asyncio.run(_call_tool("dashboard_check", {"contract_path": "x.dash.json"}))
 
         assert result.is_error is False
         assert _result_payload(result)["verdict"] == verdict
@@ -85,7 +86,12 @@ def test_record_tools_use_input_schemas_and_return_text_only(
         ("dashboard_record_impression", "impression"),
         ("dashboard_record_vision_review", "vision-review"),
     ):
-        result = asyncio.run(_call_tool(name, {"stage": "generate"}))
+        args = {
+            "dashboard_record_decision": _decision("out/evidence.json"),
+            "dashboard_record_impression": _impression(),
+            "dashboard_record_vision_review": _vision(),
+        }[name]
+        result = asyncio.run(_call_tool(name, args))
 
         assert result.is_error is False
         assert len(result.content) == 1
@@ -107,7 +113,7 @@ def test_record_tools_use_input_schemas_and_return_text_only(
         return {"verdict": "fail", "stage": "record", "detail": "invalid"}
 
     monkeypatch.setattr(service, "record_payload", invalid_record)
-    invalid = asyncio.run(_call_tool("dashboard_record_decision", {}))
+    invalid = asyncio.run(_call_tool("dashboard_record_decision", _decision("out/evidence.json")))
     assert invalid.is_error is False
     assert _result_payload(invalid)["detail"] == "invalid"
 

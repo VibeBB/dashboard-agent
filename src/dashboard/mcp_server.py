@@ -10,6 +10,7 @@ from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import cast
 
+from jsonschema import ValidationError, validate
 from mcp import types
 from mcp.server import Server, ServerRequestContext
 from mcp.server.lowlevel import NotificationOptions
@@ -376,6 +377,17 @@ async def call_tool(
 ) -> types.CallToolResult:
     name, arguments = params.name, params.arguments or {}
     is_error = name not in TOOLS
+    spec = next((tool for tool in tool_specs() if tool.name == name), None)
+    if spec is not None:
+        try:
+            validate(arguments, spec.input_schema)
+        except ValidationError as exc:
+            return types.CallToolResult(
+                content=[
+                    types.TextContent(type="text", text=f"Input validation error: {exc.message}")
+                ],
+                is_error=True,
+            )
     try:
         payload: service.Json = await asyncio.to_thread(dispatch, name, arguments)
     except Exception as exc:

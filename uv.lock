@@ -1034,6 +1034,7 @@ version = "0.1.0"
 source = { editable = "." }
 default-groups = ["dev", "sdk-check"]
 dependencies = [
+    { name = "jsonschema" },
     { name = "mcp" },
     { name = "pydantic" },
 ]
@@ -1053,6 +1054,7 @@ sdk-check = [
 
 [package.metadata]
 requires-dist = [
+    { name = "jsonschema", specifier = ">=4" },
     { name = "mcp", specifier = ">=2" },
     { name = "pydantic", specifier = ">=2" },
 ]
