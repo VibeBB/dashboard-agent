@@ -1,24 +1,24 @@
 {
   "dashboard_tools": {
-    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/61753448",
-    "digest": "sha256:97c939c8144e9a5e2f890e0999f722a325ab9fa0733eeca6b7316636ede53f83",
+    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/67399802",
+    "digest": "sha256:e5c1751caa8d62a10937174cddcb658c03e2c0c6057c1f1e808a4e75386fbe15",
     "dockerfile": "docker/dashboard-tools.Dockerfile",
     "image": "ghcr.io/vibebb/dashboard-tools",
-    "published_at": "2026-10-30T12:37:23Z",
-    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/61754376",
-    "tag": "452f8eb8426be9b7aa0fa01c90b48f3d855c81a7-tools",
+    "published_at": "2026-11-14T00:18:35Z",
+    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/67400964",
+    "tag": "e66d8490ef49f684a58f68e688dcb1ee8b04eccb-tools",
     "tools": {
-      "chromium": "156.0.8078.4",
+      "chromium": "159.0.8154.6",
       "dashboard_agent": "0.1.0",
       "emcc": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.13 (e13ee988ce3d87a738dd8f3661d02223308c412a)\nCopyright (C) 2026 the Emscripten authors (see AUTHORS.txt)\nThis is free and open source software under the MIT license.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
-      "node": "v26.13.0",
+      "node": "v26.13.1",
       "npm": "11.20.0",
-      "playwright": "1.64.1",
+      "playwright": "1.65.1",
       "python": "Python 3.14.10",
-      "servoshell": "Version: Servo 0.7.0-aac43a3f3",
-      "typescript": "Version 7.1.0-dev.20261029.1",
-      "uv": "uv 0.13.6 (x86_64-unknown-linux-musl)"
+      "servoshell": "Version: Servo 0.8.0-4e136d8ef",
+      "typescript": "Version 7.1.0-dev.20261113.1",
+      "uv": "uv 0.13.8 (x86_64-unknown-linux-musl)"
     },
-    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/41055768557"
+    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/43530585642"
   }
 }
