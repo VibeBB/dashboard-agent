@@ -16,6 +16,8 @@ This file tracks completed improvements and open follow-ups.
   human-readable command controls; sliders show their current value and unit.
 - Distinguish hazardous cards and buttons, show the confirmation badge, and
   identify unavailable routes with human-readable transport labels.
+- Give record-capable delegates identity-only startup and bounded Stop
+  enforcement, with delegated primary review debt returned to its coordinator.
 
 ## Open follow-ups
 
@@ -28,10 +30,6 @@ This file tracks completed improvements and open follow-ups.
   the earlier deferred testing idea.
 - Investigate the Servo render showing both `websocket (chrome)` and
   `websocket (tauri)` connect buttons; their route behavior is unchanged.
-- Decide at the VibeBB family level whether to install `require-records` Stop
-  hooks on sub-agent definitions. Plugin lifecycle hooks do not propagate to
-  sub-agents; the current per-agent hooks enforce generated-file and safety
-  guards but not Stop-record requirements.
 
 The deterministic gates and schemas should remain authoritative while these
 items are evaluated.

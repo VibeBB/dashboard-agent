@@ -33,7 +33,7 @@ advisory, and an exhausted denial budget does not change any gate result.
 
 ## Per-agent hooks
 
-Each of the three agent frontmatter files repeats these tool hooks because
+The agent frontmatter files repeat their tool hooks because
 plugin-level hooks do not propagate to spawned agents:
 
 | Event | Matcher | Script | Behavior/failure |
@@ -43,9 +43,10 @@ plugin-level hooks do not propagate to spawned agents:
 | `post_tool_use` | `inspect_image_with_vision` | `record_vision_tool_event.py` | Best-effort image/vision tool event logging. |
 | `post_tool_use` | `dashboard_screenshot\|dashboard_gates\|dashboard_smoke\|file_editor` | `record_image_observation.py` | Best-effort dashboard/intake image observation logging. |
 
-No agent frontmatter currently declares a `require-records` Stop hook. Whether
-to add per-sub-agent record enforcement is a family-level decision tracked in
-[Improvement notes](improvement-notes.md).
+Each record-capable agent declares its own `require-records` Stop hook and
+identity-only `record-context` startup hook. Delegated primary reviews return
+their independent-review debt to an explicit coordinator; see
+[Records and vision](records-and-vision.md#coordinating-a-delegated-primary).
 
 ## Shared-hook normalized AST hashes
 
