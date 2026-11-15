@@ -28,8 +28,8 @@ EXPECTED: dict[str, str] = {
     "ensure_agent_profiles.py": _EXPECTED_ENSURE_AGENT_PROFILES_NORMALIZED_AST_SHA256,
     "_provenance.py": _EXPECTED_PROVENANCE_NORMALIZED_AST_SHA256,
     "safety_rail.py": _EXPECTED_SAFETY_RAIL_NORMALIZED_AST_SHA256,
-    "_records.py": "0c04e50f44a7a54f28843d853a183fe77506ee8f64182d54d11bf878ac867413",
-    "require_records.py": "a317fbea05ef6fdd10c6e657812ed76caa2983c946a8c05159a96803ea2826be",
+    "_records.py": "c7e18931d4d7d63ac4d063bc03051ef3ecbbcf2854d007a5c59bb3682677c49d",
+    "require_records.py": "5240262f9b052cfda258d8701533e1b05afd702ca7c79c80b9bcd22cebcd5729",
 }
 REQUIRED = frozenset(
     {
