@@ -29,7 +29,7 @@ EXPECTED: dict[str, str] = {
     "_provenance.py": _EXPECTED_PROVENANCE_NORMALIZED_AST_SHA256,
     "safety_rail.py": _EXPECTED_SAFETY_RAIL_NORMALIZED_AST_SHA256,
     "_records.py": "0c04e50f44a7a54f28843d853a183fe77506ee8f64182d54d11bf878ac867413",
-    "require_records.py": "1867b1e0d391da292c17b3f2f0c2aad9bc5744da1fbaf0554d1189c046e43cff",
+    "require_records.py": "787e4b448d3392304916fcc2259da0e0d44ba0334784608ada5a2bd9ca896422",
 }
 REQUIRED = frozenset(
     {
