@@ -1,7 +1,7 @@
 ---
 name: dashboard-platform-matrix
 description: Select browser routes and acknowledge support caveats.
-version: 0.1.0
+version: 1.0.0
 license: BSD-3-Clause
 triggers:
   - platform support
