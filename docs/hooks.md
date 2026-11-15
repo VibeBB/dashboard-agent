@@ -33,7 +33,7 @@ advisory, and an exhausted denial budget does not change any gate result.
 
 ## Per-agent hooks
 
-Each of the three agent frontmatter files repeats these tool hooks because
+The agent frontmatter files repeat their tool hooks because
 plugin-level hooks do not propagate to spawned agents:
 
 | Event | Matcher | Script | Behavior/failure |
@@ -43,9 +43,12 @@ plugin-level hooks do not propagate to spawned agents:
 | `post_tool_use` | `inspect_image_with_vision` | `record_vision_tool_event.py` | Best-effort image/vision tool event logging. |
 | `post_tool_use` | `dashboard_screenshot\|dashboard_gates\|dashboard_smoke\|file_editor` | `record_image_observation.py` | Best-effort dashboard/intake image observation logging. |
 
-No agent frontmatter currently declares a `require-records` Stop hook. Whether
-to add per-sub-agent record enforcement is a family-level decision tracked in
-[Improvement notes](improvement-notes.md).
+Record-capable agents declare identity-only `record-context` startup hooks.
+Primary-capable agents declare their own `require-records` Stop hook; blind
+reviewers return a bound review to the caller without workspace-wide Stop debt.
+Delegated primary reviews return
+their independent-review debt to an explicit coordinator; see
+[Records and vision](records-and-vision.md#coordinating-a-delegated-primary).
 
 ## Shared-hook normalized AST hashes
 
@@ -58,8 +61,8 @@ SHA-256 digests (not raw file hashes):
 | `ensure_agent_profiles.py` | `81cf8a503e249c29e4a67901b58004bde0037e4e7d969b3287f5087ca7e25152` | Yes |
 | `_provenance.py` | `129bc2a98d85c300026ef50dabe90940c4b3c0e7054fb02d52d1d1dee3b18672` | No |
 | `safety_rail.py` | `1a9f3f72fec383f046db2ca8805a7190c33daa86daf42f06c3cd27e3f8be245b` | Yes |
-| `_records.py` | `0c04e50f44a7a54f28843d853a183fe77506ee8f64182d54d11bf878ac867413` | Yes |
-| `require_records.py` | `1867b1e0d391da292c17b3f2f0c2aad9bc5744da1fbaf0554d1189c046e43cff` | Yes |
+| `_records.py` | `031bf027f9fcb3c58470f70f5601b7587d082bc148099b22dda0ed75238d01c0` | Yes |
+| `require_records.py` | `3b60e28729bb5e6e66c7d43a38be67cd1a9af2f8980a80d114a2b939ee72e67e` | Yes |
 
 `_records.py`, `require_records.py`, and `blind_guard.py` are byte-identical
 copies of the wire-agent VRP v2 hooks (`src/dashboard/_vrp.py` mirrors

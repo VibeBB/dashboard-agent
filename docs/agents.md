@@ -23,10 +23,12 @@ render inspection.
 The architect delegates implementation to `dashboard-developer` and
 independent review/vision review to `dashboard-review` through the SDK `task`
 tool. Each sub-agent declares its own pre/post-tool hooks because parent/plugin
-hooks do not propagate. The current agent frontmatter does not install
-`require-records` as a per-agent Stop hook; whether the family should provide
-such enforcement for sub-agent sessions remains an explicit improvement
-decision (see [Improvement notes](improvement-notes.md)).
+hooks do not propagate. Each record-capable delegate declares identity-only
+`record-context` at SessionStart. Primary-capable delegates declare their own
+`require-records` Stop hook; blind reviewers return a bound review to the caller
+without workspace-wide Stop obligations.
+Delegated primary reviews name the caller as `coordinator_session_id`; that
+coordinator owns the blind-review and reconciliation obligations.
 
 ## Shared responsibilities
 
