@@ -23,6 +23,7 @@ from pydantic import (
 )
 
 from . import _vrp, records
+from .contract import load_contract
 from .gates import GateReport
 from .records import records_dir as _heads_records_dir
 from .workspace import workspace_path, workspace_root
@@ -502,7 +503,11 @@ def _artifact_reference(value: str, root: Path) -> tuple[HashedPath, Path]:
     return HashedPath(path=relative, sha256=digest), path
 
 
-def _gate_reports(artifacts: list[tuple[HashedPath, Path]]) -> list[GateReport]:
+def _gate_reports(
+    artifacts: list[tuple[HashedPath, Path]],
+    subjects: dict[str, str],
+) -> list[GateReport]:
+    """Select full reports bound to the current declared dashboard subjects."""
     reports: list[GateReport] = []
     for reference, path in artifacts:
         if not reference.path.endswith(".dash-report.json") or not path.is_file():
@@ -511,8 +516,53 @@ def _gate_reports(artifacts: list[tuple[HashedPath, Path]]) -> list[GateReport]:
             report = GateReport.model_validate(json.loads(path.read_text(encoding="utf-8")))
         except (OSError, UnicodeError, json.JSONDecodeError, ValidationError):
             continue
-        reports.append(report)
+        if (
+            report.scope == "full"
+            and report.contract_sha256 in subjects
+            and report.design == subjects[report.contract_sha256]
+        ):
+            reports.append(report)
     return reports
+
+
+def _dashboard_subjects(
+    artifacts: list[tuple[HashedPath, Path]], request: UxRequest, root: Path
+) -> dict[str, str]:
+    references = [reference for reference, _ in artifacts] + list(request.inputs)
+    subjects: dict[str, str] = {}
+    for reference in references:
+        if not reference.path.endswith(".dash.json"):
+            continue
+        path = workspace_path(reference.path, root)
+        if not path.is_file() or records.sha256_file(path) != reference.sha256:
+            raise ValueError(f"dashboard subject is missing or stale: {reference.path}")
+        subjects[reference.sha256] = load_contract(path).name
+    return subjects
+
+
+def _check_done_reports(
+    reports: list[GateReport], subjects: dict[str, str], claims: list[GateVerdict]
+) -> None:
+    if not subjects or not reports:
+        raise ValueError(
+            "done responses require a passing full .dash-report.json "
+            "bound to a declared current .dash.json subject"
+        )
+    for digest, design in subjects.items():
+        matching = [report for report in reports if report.contract_sha256 == digest]
+        if not matching or any(
+            report.verdict != "pass"
+            or not report.checks
+            or any(check.status == "fail" for check in report.checks)
+            for report in matching
+        ):
+            raise ValueError(f"no consistent passing full report for dashboard subject {design!r}")
+    for claim in claims:
+        statuses = [
+            check.status for report in reports for check in report.checks if check.id == claim.gate
+        ]
+        if not statuses or any(status != claim.verdict for status in statuses):
+            raise ValueError(f"gate verdict for {claim.gate!r} does not match full subject reports")
 
 
 def _records_heads(root: Path) -> tuple[dict[str, str], list[str]]:
@@ -591,18 +641,11 @@ def ux_respond(payload: Mapping[str, object], root: Path | None = None) -> dict[
             raise ValueError("unknown impression_refs: " + ", ".join(unknown_impressions))
 
         artifact_refs = [_artifact_reference(value, base) for value in request_input.artifacts]
-        reports = _gate_reports(artifact_refs)
         if request_input.status == "done":
-            if not any(report.verdict == "pass" and report.scope == "full" for report in reports):
-                raise ValueError("done responses require a passing full .dash-report.json artifact")
-            for claimed in request_input.gate_verdicts:
-                for report in reports:
-                    for check in report.checks:
-                        if check.id == claimed.gate and check.status != claimed.verdict:
-                            raise ValueError(
-                                f"gate verdict for {claimed.gate!r} does not match "
-                                f"dashboard report status {check.status!r}"
-                            )
+            subjects = _dashboard_subjects(artifact_refs, request, base)
+            _check_done_reports(
+                _gate_reports(artifact_refs, subjects), subjects, request_input.gate_verdicts
+            )
 
         heads, broken_logs = _records_heads(base)
         if request_input.status == "done" and broken_logs:

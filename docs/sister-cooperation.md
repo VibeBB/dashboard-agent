@@ -154,3 +154,19 @@ approval step.
 AI review findings can only stop a change. This plugin's deterministic
 gates and the change check decide. The record formats are in
 [UX-creator-agent `docs/sister-cooperation.md`](https://github.com/VibeBB/UX-creator-agent/blob/main/docs/sister-cooperation.md#change-control-ecreco-and-design-review).
+
+## Dashboard completion evidence
+
+A dashboard `done` reply declares its current `*.dash.json` subjects in the
+request inputs or response artifacts, together with the generated full
+`*.dash-report.json` artifacts. Each selected report must bind a subject's
+current SHA-256 and contract name; a static report or another subject's report
+cannot supply its gate evidence. Every declared dashboard subject needs a
+consistent passing full report, and every claimed gate must occur with that
+status in the selected reports. Empty reports and contradictory results fail
+closed. An unclaimed `not_applicable` check retains its domain meaning; it
+cannot support a claimed `pass`.
+
+Run the official dashboard gates for the current inputs and include both the
+subject and report paths when responding. Report selection validates the
+declared evidence and does not rerun browser or physical-device tests.

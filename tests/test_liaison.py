@@ -160,6 +160,11 @@ def _write_gate_report(
     scope: str = "full",
     check_status: str = "pass",
 ) -> Path:
+    contract = root / "full.dash.json"
+    source = Path(__file__).resolve().parents[1] / "examples/bench-meter/bench-meter.dash.json"
+    body = json.loads(source.read_text(encoding="utf-8"))
+    body["name"] = "full"
+    contract.write_text(json.dumps(body), encoding="utf-8")
     path = root / "out" / "full.dash-report.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(
@@ -169,7 +174,7 @@ def _write_gate_report(
                 "artifact_kind": "dashboard_gate_report",
                 "design": "full",
                 "scope": scope,
-                "contract_sha256": "b" * 64,
+                "contract_sha256": hashlib.sha256(contract.read_bytes()).hexdigest(),
                 "verdict": verdict,
                 "checks": [
                     {
@@ -187,11 +192,15 @@ def _write_gate_report(
 
 
 def _done_payload(report: Path, **overrides: object) -> dict[str, object]:
+    artifacts = [str(report)]
+    subject = report.parent.parent / "full.dash.json"
+    if subject.is_file():
+        artifacts.append(str(subject))
     payload: dict[str, object] = {
         "request": "review-ui",
         "status": "done",
         "reason": "The dashboard implementation and validation are complete.",
-        "artifacts": [str(report)],
+        "artifacts": artifacts,
         "gate_verdicts": [{"gate": "ui.full", "verdict": "pass"}],
         "decision_refs": [_logged_id(report, "decision", _DECISION_ID)],
         "impression_refs": [_logged_id(report, "stage_impression", _IMPRESSION_ID)],
@@ -629,3 +638,79 @@ def test_respond_refuses_refs_into_broken_chain(tmp_path: Path) -> None:
     result = liaison.ux_respond(payload, root=tmp_path)
     assert result["verdict"] == "fail"
     assert "fails integrity" in cast(str, result["detail"])
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"scope": "static"},
+        {"contract_sha256": "b" * 64},
+        {"contract_sha256": None},
+        {"design": "a-different-dashboard"},
+        {"checks": []},
+        {"checks": [{"id": "another.gate", "status": "pass"}]},
+        {"checks": [{"id": "ui.full", "status": "not_applicable"}]},
+        {"checks": [{"id": "ui.full", "status": "fail"}]},
+    ],
+)
+def test_done_requires_full_evidence_for_current_subject(
+    tmp_path: Path, change: dict[str, object]
+) -> None:
+    _write_request(tmp_path, "review-ui", inputs=False)
+    _record_refs(tmp_path)
+    report = _write_gate_report(tmp_path)
+    body = json.loads(report.read_text(encoding="utf-8"))
+    report.write_text(json.dumps(body | change), encoding="utf-8")
+    result = liaison.ux_respond(_done_payload(report), root=tmp_path)
+    assert result["verdict"] == "fail"
+    assert not (tmp_path / "liaison/review-ui.ux-response.json").exists()
+
+
+def test_done_rejects_report_after_subject_changes(tmp_path: Path) -> None:
+    _write_request(tmp_path, "review-ui", inputs=False)
+    _record_refs(tmp_path)
+    report = _write_gate_report(tmp_path)
+    contract = tmp_path / "full.dash.json"
+    contract.write_text(contract.read_text(encoding="utf-8") + "\n", encoding="utf-8")
+    assert liaison.ux_respond(_done_payload(report), root=tmp_path)["verdict"] == "fail"
+
+
+def test_done_requires_declared_subject(tmp_path: Path) -> None:
+    _write_request(tmp_path, "review-ui", inputs=False)
+    _record_refs(tmp_path)
+    report = _write_gate_report(tmp_path)
+    payload = _done_payload(report, artifacts=[str(report)])
+    assert liaison.ux_respond(payload, root=tmp_path)["verdict"] == "fail"
+
+
+def test_done_ignores_unrelated_static_gate_status(tmp_path: Path) -> None:
+    _write_request(tmp_path, "review-ui", inputs=False)
+    _record_refs(tmp_path)
+    report = _write_gate_report(tmp_path)
+    static = report.with_name("unrelated.dash-report.json")
+    body = json.loads(report.read_text(encoding="utf-8"))
+    body["scope"] = "static"
+    body["contract_sha256"] = "f" * 64
+    body["checks"][0]["status"] = "fail"
+    static.write_text(json.dumps(body), encoding="utf-8")
+    payload = _done_payload(report)
+    payload["artifacts"] = [*cast(list[str], payload["artifacts"]), str(static)]
+    result = liaison.ux_respond(payload, root=tmp_path)
+    assert result["verdict"] == "pass"
+
+
+def test_done_can_bind_a_requested_dashboard_subject(tmp_path: Path) -> None:
+    request_path = _write_request(tmp_path, "review-ui", inputs=False)
+    _record_refs(tmp_path)
+    report = _write_gate_report(tmp_path)
+    contract = tmp_path / "full.dash.json"
+    body = json.loads(request_path.read_text(encoding="utf-8"))
+    body["inputs"] = [
+        {
+            "path": contract.name,
+            "sha256": hashlib.sha256(contract.read_bytes()).hexdigest(),
+        }
+    ]
+    request_path.write_text(json.dumps(body), encoding="utf-8")
+    payload = _done_payload(report, artifacts=[str(report)])
+    assert liaison.ux_respond(payload, root=tmp_path)["verdict"] == "pass"
