@@ -59,8 +59,8 @@ SHA-256 digests (not raw file hashes):
 | `ensure_agent_profiles.py` | `81cf8a503e249c29e4a67901b58004bde0037e4e7d969b3287f5087ca7e25152` | Yes |
 | `_provenance.py` | `129bc2a98d85c300026ef50dabe90940c4b3c0e7054fb02d52d1d1dee3b18672` | No |
 | `safety_rail.py` | `1a9f3f72fec383f046db2ca8805a7190c33daa86daf42f06c3cd27e3f8be245b` | Yes |
-| `_records.py` | `0c04e50f44a7a54f28843d853a183fe77506ee8f64182d54d11bf878ac867413` | Yes |
-| `require_records.py` | `1867b1e0d391da292c17b3f2f0c2aad9bc5744da1fbaf0554d1189c046e43cff` | Yes |
+| `_records.py` | `031bf027f9fcb3c58470f70f5601b7587d082bc148099b22dda0ed75238d01c0` | Yes |
+| `require_records.py` | `9b8a8151885201e4366267fa82f243c695ac59fa558dcba2179e966addc2e3db` | Yes |
 
 `_records.py`, `require_records.py`, and `blind_guard.py` are byte-identical
 copies of the wire-agent VRP v2 hooks (`src/dashboard/_vrp.py` mirrors
