@@ -42,12 +42,6 @@ hooks:
         - type: command
           name: record-vision-tool-event
           command: 'p=$(for c in  "${DASHBOARD_PLUGIN_ROOT:-}" "${PLUGIN_ROOT:-}" "${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard" "${HOME:-}/.agents/plugins/dashboard" "${HOME:-}/.openhands/plugins/installed/dashboard"; do [ -f "$c/hooks/scripts/record_vision_tool_event.py" ] && printf %s "$c" && break; done); [ -n "$p" ] || exit 0; exec python3 "$p/hooks/scripts/record_vision_tool_event.py"'
-  stop:
-    - matcher: "*"
-      hooks:
-        - type: command
-          name: require-records
-          command: "p=$(for c in  \"${DASHBOARD_PLUGIN_ROOT:-}\" \"${PLUGIN_ROOT:-}\" \"${OPENHANDS_PROJECT_DIR:-.}/plugins/dashboard\" \"${HOME:-}/.agents/plugins/dashboard\" \"${HOME:-}/.openhands/plugins/installed/dashboard\" \"${HOME:-}/plugins/installed/dashboard\" \"${OH_PERSISTENCE_DIR:-/nonexistent}/plugins/installed/dashboard\"; do [ -f \"$c/hooks/scripts/require_records.py\" ] && printf %s \"$c\" && break; done); [ -n \"$p\" ] || exit 0; exec python3 \"$p/hooks/scripts/require_records.py\" stop"
 
 permission_mode: never_confirm
 ---

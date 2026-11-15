@@ -43,8 +43,10 @@ plugin-level hooks do not propagate to spawned agents:
 | `post_tool_use` | `inspect_image_with_vision` | `record_vision_tool_event.py` | Best-effort image/vision tool event logging. |
 | `post_tool_use` | `dashboard_screenshot\|dashboard_gates\|dashboard_smoke\|file_editor` | `record_image_observation.py` | Best-effort dashboard/intake image observation logging. |
 
-Each record-capable agent declares its own `require-records` Stop hook and
-identity-only `record-context` startup hook. Delegated primary reviews return
+Record-capable agents declare identity-only `record-context` startup hooks.
+Primary-capable agents declare their own `require-records` Stop hook; blind
+reviewers return a bound review to the caller without workspace-wide Stop debt.
+Delegated primary reviews return
 their independent-review debt to an explicit coordinator; see
 [Records and vision](records-and-vision.md#coordinating-a-delegated-primary).
 
@@ -60,7 +62,7 @@ SHA-256 digests (not raw file hashes):
 | `_provenance.py` | `129bc2a98d85c300026ef50dabe90940c4b3c0e7054fb02d52d1d1dee3b18672` | No |
 | `safety_rail.py` | `1a9f3f72fec383f046db2ca8805a7190c33daa86daf42f06c3cd27e3f8be245b` | Yes |
 | `_records.py` | `031bf027f9fcb3c58470f70f5601b7587d082bc148099b22dda0ed75238d01c0` | Yes |
-| `require_records.py` | `9b8a8151885201e4366267fa82f243c695ac59fa558dcba2179e966addc2e3db` | Yes |
+| `require_records.py` | `3b60e28729bb5e6e66c7d43a38be67cd1a9af2f8980a80d114a2b939ee72e67e` | Yes |
 
 `_records.py`, `require_records.py`, and `blind_guard.py` are byte-identical
 copies of the wire-agent VRP v2 hooks (`src/dashboard/_vrp.py` mirrors

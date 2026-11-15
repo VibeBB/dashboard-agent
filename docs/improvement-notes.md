@@ -16,8 +16,9 @@ This file tracks completed improvements and open follow-ups.
   human-readable command controls; sliders show their current value and unit.
 - Distinguish hazardous cards and buttons, show the confirmation badge, and
   identify unavailable routes with human-readable transport labels.
-- Give record-capable delegates identity-only startup and bounded Stop
-  enforcement, with delegated primary review debt returned to its coordinator.
+- Give record-capable delegates identity-only startup and primary-capable roles
+  bounded Stop enforcement, with delegated primary review debt returned to its
+  coordinator. Blind reviewers return a bound review without workspace-wide debt.
 
 ## Open follow-ups
 
