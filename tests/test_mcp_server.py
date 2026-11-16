@@ -223,7 +223,7 @@ def test_screenshot_tool_is_write_capable_and_inlines_image(
             "reason": None,
         }
     ]
-    assert len(result.content) == 2
+    assert len(result.content) == 3
     block = result.content[1]
     assert isinstance(block, types.ImageContent)
     assert block.mime_type == "image/png"
@@ -280,7 +280,7 @@ def test_gates_and_smoke_tools_inline_generated_images(
     for tool_name in ("dashboard_gates", "dashboard_smoke"):
         result = asyncio.run(_call_tool(tool_name, {"contract_path": "contract.json"}))
 
-        assert len(result.content) == 2
+        assert len(result.content) == 3
         assert isinstance(result.content[1], types.ImageContent)
         inline_images = cast(
             list[dict[str, object]],

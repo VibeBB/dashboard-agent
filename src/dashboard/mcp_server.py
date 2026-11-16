@@ -6,7 +6,7 @@ import asyncio
 import base64
 import hashlib
 import json
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from pathlib import Path
 from typing import cast
 
@@ -17,7 +17,7 @@ from mcp.server.lowlevel import NotificationOptions
 from mcp.server.models import InitializationOptions
 from mcp.server.stdio import stdio_server
 
-from . import __version__, service
+from . import __version__, _vrp, service
 from .liaison import UxRespondInput
 from .records import (
     DecisionInput,
@@ -357,6 +357,7 @@ def render_content(payload: service.Json) -> list[types.ContentBlock]:
                             type="image",
                             data=base64.b64encode(data).decode("ascii"),
                             mime_type=mime,
+                            _meta=_vrp.rendered_image_metadata(path, data, "dashboard"),
                         )
                     )
         except OSError:
@@ -383,9 +384,9 @@ async def call_tool(
             validate(arguments, spec.input_schema)
         except ValidationError as exc:
             return types.CallToolResult(
-                content=[
-                    types.TextContent(type="text", text=f"Input validation error: {exc.message}")
-                ],
+                content=_with_image_metadata(
+                    [types.TextContent(type="text", text=f"Input validation error: {exc.message}")]
+                ),
                 is_error=True,
             )
     try:
@@ -410,7 +411,7 @@ async def call_tool(
             )
         ]
     )
-    return types.CallToolResult(content=content, is_error=is_error)
+    return types.CallToolResult(content=_with_image_metadata(content), is_error=is_error)
 
 
 server: Server = Server(
@@ -436,6 +437,33 @@ async def _run() -> None:
 
 def main() -> None:
     asyncio.run(_run())
+
+
+def _with_image_metadata(content: Sequence[types.ContentBlock]) -> list[types.ContentBlock]:
+    """Keep producer identity in text because SDK image conversion can omit metadata."""
+    inline_images: list[dict[str, object]] = []
+    for block in content:
+        if not isinstance(block, types.ImageContent):
+            continue
+        identity: object = (block.meta or {}).get("vibebb_image_identity")
+        if not isinstance(identity, dict):
+            continue
+        claim = cast(dict[str, object], identity)
+        inline_images.append(
+            {
+                "path": claim.get("path"),
+                "sha256": claim.get("sha256"),
+                "attached": True,
+                "identity_status": "bound",
+                "image_identity": claim,
+            }
+        )
+    if not inline_images:
+        return list(content)
+    return [
+        *content,
+        types.TextContent(type="text", text=json.dumps({"inline_images": inline_images})),
+    ]
 
 
 if __name__ == "__main__":
