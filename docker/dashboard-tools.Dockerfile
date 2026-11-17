@@ -1,6 +1,6 @@
 FROM ghcr.io/astral-sh/uv:0.13.8@sha256:5cc1805e2426484abca4ad46ea783bab281fdb225fd82d8ce6d66a81254bac85 AS uv
 
-FROM emscripten/emsdk:6.0.13@sha256:fb7864e398acfda863dfcea78b8bc8adad359fa60c6a0bbeb845931de64aa68a AS emscripten
+FROM emscripten/emsdk:7.0.0@sha256:6bd7aef93408b10bf7b36642cb7c91119b302f720b9ec2d20439f73cf07fe894 AS emscripten
 
 # mruby/mrubyc build stage: mrbc compiles UX .rb sources into bytecode
 # that the Emscripten leg links into the mruby/c WASM VM. Mirrors the
@@ -147,18 +147,6 @@ RUN curl --fail --location --silent --show-error \
         "source=https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
         "version=v${NODE_VERSION}" \
         > /usr/share/doc/node/SOURCE
-
-# The pinned emsdk stage vendors source-map-js 1.2.1 inside the emscripten
-# toolchain (CVE-2026-93749, fixed in 1.2.2); upgrade the vendored copy and
-# fail the build if the landed version is still vulnerable.
-RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund source-map-js@1.2.2 \
-    && node -p "require('/emsdk/upstream/emscripten/node_modules/source-map-js/package.json').version" | grep -qx '1.2.2'
-
-# The pinned emsdk stage vendors vite 8.3.8 inside the emscripten
-# toolchain (CVE-2026-112942, fixed in 8.3.5); upgrade the vendored copy
-# and fail the build if the landed version is still vulnerable.
-RUN npm --prefix /emsdk/upstream/emscripten install --no-save --no-audit --no-fund vite@8.3.8 \
-    && node -p "require('/emsdk/upstream/emscripten/node_modules/vite/package.json').version" | grep -qx '8.3.8'
 
 # Patch undici inside both bundled npm trees in place — the host
 # /usr/local npm and the emsdk stage's own node 24.19.0 npm — following

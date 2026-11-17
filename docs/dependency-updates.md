@@ -19,9 +19,8 @@ The checker covers:
   tag feeds (`NODE_VERSION` -> nodejs/node), and checksum `ARG`s such as
   `SERVO_SHA256` in `docker/*.Dockerfile`.
 - Inline `npm install name@x.y.z` pins in `docker/*.Dockerfile` — vendored
-  packages that `runtime/package.json` and `uv.lock` never see (currently
-  `source-map-js`, layered onto the vendored emsdk toolchain for
-  CVE-2026-93749).
+  packages that `runtime/package.json` and `uv.lock` never see (no live pins
+  today; e.g. `source-map-js` until emsdk 7.0.0 vendored the fix).
 - Exact dependencies in `runtime/package.json`.
 - npm and Rust crate pins emitted by `src/dashboard/generate.py` for Tauri
   scaffolds.
@@ -47,6 +46,41 @@ uv run python scripts/check_dependency_updates.py \
 ```
 
 Review the complete upstream changelog before accepting a version update.
+
+## 2026-11-17 update (emsdk 7.0.0)
+
+`emscripten/emsdk` `6.0.13` -> `7.0.0` (major). The checker only verifies the
+docker-base digest pin, so this was driven manually per the deferral's
+re-scan-on-release rule.
+
+Changelog review (6.0.13 -> 7.0.0, emscripten ChangeLog): the breaking items
+do not touch this repo's emcc usage — the codec parity leg and the mrubyc
+emscripten HAL are C sources built with `-O2 --no-entry -sMODULARIZE=1
+-sEXPORT_ES6=1 -sALLOW_MEMORY_GROWTH=1`, so the `EMCC_ONLY_FORCED_STDLIBS`
+removal, `libclang_rt` split (`-nostdlib` now needs `-lemcc`), libc++ 23
+transitive-include removal, 64 KiB pipe capacity, auxiliary output renaming,
+WasmFS OPFS handle change, `--whole-archive`/SIDE_MODULE restore, automatic
+JS `__deps`, and the raised minimum browser versions (Chrome 93 / Firefox 92 /
+Safari 15.4) all apply to features we do not use. No source changes; adoption
+rests on the in-build `emcc --version` check, codec parity run, and the
+image's Emscripten E2E gates. mimalloc 3.6.1 rides along upstream.
+
+Vendored-toolchain re-scan (Trivy 0.76.2, CRITICAL/HIGH, fixable only,
+`emscripten/emsdk:7.0.0` scanned directly, as done for 6.0.12): 32 unique
+CVEs. 28 still match existing `.trivyignore` waivers (node 24.19.0 npm tree
+incl. tar 7.5.16 CRITICAL, tsgo on Go 1.26.4 stdlib, google-closure jar,
+brace-expansion, ip-address, picomatch). 4 unwaived — three undici 6.26.0
+findings covered by the existing in-place undici 6.29.1 patch, and an apt
+2.8.3 finding on the emsdk stage that is never copied into the final image
+(`COPY --from=emscripten /emsdk` only). 16 earlier waivers are stale under
+7.0.0 (upstream revendored fixed copies) and were dropped.
+
+Dockerfile audit on the new base: vendored `source-map-js` is already 1.2.2
+and vendored `vite` 8.3.5 is already the CVE-2026-112942 fix version, so both
+forced-install patch RUNs were removed; the undici in-place patch (6.26.0 <
+6.29.1) remains. The emsdk stage still vendors node 24.19.0, unchanged from
+6.0.13. `src/dashboard/doctor.py` now derives the emcc expectation from the
+Dockerfile `FROM` line instead of a second hardcoded copy.
 
 ## 2026-11-17 update (typescript 7.1.0-dev.20261116.1)
 
