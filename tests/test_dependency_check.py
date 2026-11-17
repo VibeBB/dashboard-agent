@@ -54,14 +54,13 @@ def test_checker_covers_required_dependency_surfaces() -> None:
         "github-actions",
         "git-clone",
         "docker-base",
-        "docker-npm",
         "servo",
         "workflow-download",
     } <= surfaces
+    # docker-npm is conditional: it reports only while a Dockerfile carries an
+    # inline `npm install name@x.y.z` pin (none since emsdk 7.0.0 vendored the
+    # fixed source-map-js/vite copies); the fixture tests below cover it.
     assert any(status.name == "typescript" and status.surface == "npm" for status in statuses)
-    assert any(
-        status.name == "source-map-js" and status.surface == "docker-npm" for status in statuses
-    )
     assert any(status.name == "tauri" and status.surface == "tauri-scaffold" for status in statuses)
     assert any(
         status.name == "transitive-lib" and status.surface == "pypi-lock" for status in statuses

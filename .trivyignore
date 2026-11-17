@@ -17,38 +17,21 @@
 # the Node 26 install's bundled npm (/usr/local/lib/node_modules/npm/
 # node_modules — identical tree from the verified upstream tarball).
 # brace-expansion, browserslist, fast-uri, flatted,
-# ip-address, js-yaml, nanoid, picomatch, postcss, tar, undici. No upstream
-# release with patched bundles exists yet; re-evaluate at the next
-# emsdk release or NODE_VERSION bump — tracked in
+# ip-address, js-yaml, nanoid, picomatch, postcss, tar, undici. Re-verified
+# 2026-11-17 on emsdk 7.0.0: upstream cleared 16 findings, and undici is
+# covered by the in-place 6.29.1 patch. Re-evaluate at the
+# next emsdk release or NODE_VERSION bump — tracked in
 # scripts/dependency_update_deferrals.json.
 CVE-2026-102276 exp:2027-01-03
 CVE-2026-102278 exp:2027-01-03
-CVE-2026-12151 exp:2027-01-03
 CVE-2026-13149 exp:2027-01-03
 CVE-2026-14257 exp:2027-01-03
-CVE-2026-16221 exp:2027-01-03
-CVE-2026-18446 exp:2027-01-03
-CVE-2026-19534 exp:2027-01-03
-CVE-2026-32141 exp:2027-01-03
-CVE-2026-33228 exp:2027-01-03
 CVE-2026-33671 exp:2027-01-03
-CVE-2026-59869 exp:2027-01-03
 CVE-2026-59873 exp:2027-01-03
 CVE-2026-59874 exp:2027-01-03
-CVE-2026-67213 exp:2027-01-03
-CVE-2026-67214 exp:2027-01-03
 CVE-2026-69152 exp:2027-01-03
 CVE-2026-69192 exp:2027-01-03
-CVE-2026-73088 exp:2027-01-03
-CVE-2026-73089 exp:2027-01-03
 CVE-2026-73566 exp:2027-01-03
-CVE-2026-73646 exp:2027-01-03
-CVE-2026-75899 exp:2027-01-03
-CVE-2026-75931 exp:2027-01-03
-CVE-2026-75975 exp:2027-01-03
-CVE-2026-76172 exp:2027-01-03
-CVE-2026-84292 exp:2027-01-03
-CVE-2026-84375 exp:2027-01-03
 GHSA-5p4m-2wfm-xmqj exp:2027-01-03
 #
 # --- TypeScript go binary vendored inside emsdk (dashboard-tools) -----------
@@ -91,7 +74,7 @@ AVD-DS-0026 exp:2027-01-04
 # --- emsdk vendored tsgo Go-stdlib 1.26.9 line ----------------------------
 # New CVE IDs surfaced by the publish gate (run 38220410477): the vendored
 # @typescript/typescript-linux-x64 tsc binary is built with Go 1.26.4 —
-# including emsdk 6.0.12, verified by scanning emscripten/emsdk:6.0.12 —
+# including emsdk 7.0.0, verified by scanning emscripten/emsdk:7.0.0 —
 # so the stdlib HIGHs are unfixable until emscripten revendors tsgo on Go
 # >=1.26.9. Re-verified on each emsdk stage bump.
 CVE-2026-78667 exp:2027-01-12

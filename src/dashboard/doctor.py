@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import tomllib
@@ -88,6 +89,33 @@ def _uv_version(root: Path) -> str:
     return required.removeprefix("==").removeprefix("v")
 
 
+def _emsdk_version(root: Path) -> str:
+    # The Dockerfile is the checker-covered pin source. Inside the tools image
+    # it is only reachable through the launcher's workspace mount
+    # (OPENHANDS_PROJECT_DIR); a bare container falls back to the vendored
+    # toolchain's own version file.
+    candidates = [root / "docker" / "dashboard-tools.Dockerfile"]
+    project_dir = os.environ.get("OPENHANDS_PROJECT_DIR")
+    if project_dir:
+        candidates.append(Path(project_dir) / "docker" / "dashboard-tools.Dockerfile")
+    for dockerfile in candidates:
+        try:
+            for line in dockerfile.read_text(encoding="utf-8").splitlines():
+                if line.startswith("FROM emscripten/emsdk:"):
+                    return line.split(":", 1)[1].split("@", 1)[0].split()[0]
+        except OSError:
+            continue
+    try:
+        return (
+            Path("/emsdk/upstream/emscripten/emscripten-version.txt")
+            .read_text(encoding="utf-8")
+            .strip()
+            .strip('"')
+        )
+    except OSError:
+        return ""
+
+
 def checks() -> list[ToolCheck]:
     root = Path(__file__).resolve().parents[2]
     runtime_bin = root / "runtime" / "node_modules" / ".bin"
@@ -113,7 +141,7 @@ def checks() -> list[ToolCheck]:
             True,
             runtime_versions["playwright"],
         ),
-        ("emcc", ["emcc", "--version"], True, "6.0.13"),
+        ("emcc", ["emcc", "--version"], True, _emsdk_version(root)),
         ("servo", [servo, "--version"], True, "0.8.0"),
     )
     return [
