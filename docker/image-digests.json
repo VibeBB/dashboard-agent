@@ -1,16 +1,16 @@
 {
   "dashboard_tools": {
-    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/68657898",
-    "digest": "sha256:5c8ba24cd59789fffca215d1dce00ed6c0c000623e24e6fcf9ebcfbce978d950",
+    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/68683171",
+    "digest": "sha256:b37fe8ee4b78805411b45ff30e638cbba4e00e630eb6f727b52e494587121091",
     "dockerfile": "docker/dashboard-tools.Dockerfile",
     "image": "ghcr.io/vibebb/dashboard-tools",
-    "published_at": "2026-11-17T14:30:56Z",
-    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/68659385",
-    "tag": "3b402638ac08ec1a104ed485bb07b69f19d6da88-tools",
+    "published_at": "2026-11-17T15:30:18Z",
+    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/68684803",
+    "tag": "24d8e662831bdc4162ef1a2a0006df36f318d5f9-tools",
     "tools": {
       "chromium": "159.0.8154.6",
       "dashboard_agent": "1.0.0",
-      "emcc": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 6.0.13 (e13ee988ce3d87a738dd8f3661d02223308c412a)\nCopyright (C) 2026 the Emscripten authors (see AUTHORS.txt)\nThis is free and open source software under the MIT license.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
+      "emcc": "emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 7.0.0 (777e6e5db7b4990bcaeb1b9998ed642cc84e6629)\nCopyright (C) 2026 the Emscripten authors (see AUTHORS.txt)\nThis is free and open source software under the MIT license.\nThere is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.",
       "node": "v26.13.1",
       "npm": "11.20.0",
       "playwright": "1.65.1",
@@ -19,6 +19,6 @@
       "typescript": "Version 7.1.0-dev.20261116.1",
       "uv": "uv 0.13.8 (x86_64-unknown-linux-musl)"
     },
-    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/44102368422"
+    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/44113357055"
   }
 }
