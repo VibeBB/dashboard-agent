@@ -33,8 +33,7 @@ The checker covers:
 Short-lived reviewed exceptions are recorded in
 `scripts/dependency_update_deferrals.json`. Each exception has a review date;
 expired entries stop suppressing candidates automatically. Current deferrals
-cover `mcp` 2.x (blocked by the SDK's `fastmcp<4` requirement; recheck
-2027-04-01), the Tauri scaffold's pre-release-only 3.0.0-alpha.* line (stable
+cover the Tauri scaffold's pre-release-only 3.0.0-alpha.* line (stable
 2.x pins applied; recheck 2027-01-08), the Python floor pins on `pyproject.toml`
 and the `ci.yml` required legs (3.12/3.13 floor with 3.14+ covered by canary
 legs; recheck 2027-01-08), and the digest-pinned `emscripten/emsdk` and `node`
@@ -48,6 +47,15 @@ uv run python scripts/check_dependency_updates.py \
 ```
 
 Review the complete upstream changelog before accepting a version update.
+
+## 2026-11-17 update (typescript 7.1.0-dev.20261116.1)
+
+`typescript` `7.1.0-dev.20261113.1` -> `7.1.0-dev.20261116.1` — the only
+candidate the weekly checker surfaced across every covered surface. The
+dev channel publishes daily snapshots of the Go-native compiler without a
+release changelog, so adoption rested on the pinned-suite verification:
+`npx tsc -p .` clean, `node --test test/` 32/32, `npx playwright test`
+14/14 (both example contracts regenerated first). Deferrals unchanged.
 
 ## 2026-11-14 update (sdk 1.62.0, mcp 2.x, playwright 1.65.1, node 26.13.1)
 
