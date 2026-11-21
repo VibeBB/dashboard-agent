@@ -1,12 +1,12 @@
 {
   "dashboard_tools": {
-    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/68683171",
-    "digest": "sha256:b37fe8ee4b78805411b45ff30e638cbba4e00e630eb6f727b52e494587121091",
+    "attestation": "https://github.com/VibeBB/dashboard-agent/attestations/70428440",
+    "digest": "sha256:1fd48cf44665314daf09337099f893611eb2eebf2a1135994f0fa0d1cc7bb99a",
     "dockerfile": "docker/dashboard-tools.Dockerfile",
     "image": "ghcr.io/vibebb/dashboard-tools",
-    "published_at": "2026-11-17T15:30:18Z",
-    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/68684803",
-    "tag": "24d8e662831bdc4162ef1a2a0006df36f318d5f9-tools",
+    "published_at": "2026-11-21T03:24:27Z",
+    "sbom_attestation": "https://github.com/VibeBB/dashboard-agent/attestations/70429193",
+    "tag": "227d814a21faf025753e8b19d7e17b662c29c84b-tools",
     "tools": {
       "chromium": "159.0.8154.6",
       "dashboard_agent": "1.0.0",
@@ -16,9 +16,9 @@
       "playwright": "1.65.1",
       "python": "Python 3.14.10",
       "servoshell": "Version: Servo 0.8.0-4e136d8ef",
-      "typescript": "Version 7.1.0-dev.20261116.1",
-      "uv": "uv 0.13.8 (x86_64-unknown-linux-musl)"
+      "typescript": "Version 7.1.0-dev.20261120.1",
+      "uv": "uv 0.13.9 (x86_64-unknown-linux-musl)"
     },
-    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/44113357055"
+    "workflow_run": "https://github.com/VibeBB/dashboard-agent/actions/runs/44860081683"
   }
 }
