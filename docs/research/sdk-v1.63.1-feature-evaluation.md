@@ -68,4 +68,3 @@ Primary sources:
 | ossf/scorecard-action | v2.5.0 -> v2.6.0 | adopted | Scorecard v5.7.0. New `fail_on_publish_error` input evaluated and not adopted: result publishing must never fail the required scorecard check. Example-workflow additions not applicable. |
 | typescript (dev) | 7.1.0-dev.20261116.1 -> 7.1.0-dev.20261120.1 | adopted | Nightly `next` channel, no release notes by design; `npx tsc -p .` and `node --test` remain the gate. |
 | ghcr.io/astral-sh/uv base | 0.13.8 -> 0.13.9 (`sha256:d3b601f0`) | adopted | Digest pin refreshed in `dashboard-tools.Dockerfile`. |
-
