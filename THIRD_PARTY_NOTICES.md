@@ -13,12 +13,12 @@ includes or invokes the following third-party software:
 | MCP Python SDK | `mcp>=2` | MIT |
 | jsonschema | `jsonschema>=4` | MIT |
 | OpenHands SDK and tools | 1.63.1 (development plugin check) | MIT |
-| TypeScript | 7.1.0-dev.20261007.1 | Apache-2.0 |
+| TypeScript | 7.1.0-dev.20261120.1 | Apache-2.0 |
 | esbuild | 0.28.2 | MIT |
-| Playwright | 1.63.0 | Apache-2.0 |
-| Chromium | Playwright 1.63.0 browser build | BSD-3-Clause and bundled notices |
-| `@types/node` | 26.6.4 | MIT |
-| `@types/web-bluetooth` | 0.0.21 | MIT |
+| Playwright | 1.65.1 | Apache-2.0 |
+| Chromium | Playwright 1.65.1 browser build | BSD-3-Clause and bundled notices |
+| `@types/node` | 26.6.6 | MIT |
+| `@types/web-bluetooth` | 0.0.22 | MIT |
 | `@types/w3c-web-usb` | 1.0.14 | MIT |
 | Emscripten SDK | 7.0.0, image digest `sha256:6bd7aef93408b10bf7b36642cb7c91119b302f720b9ec2d20439f73cf07fe894` | MIT / UIUC |
 | mruby | 4.0.0 tarball, sha256-verified at build (`MRUBY_VERSION`/`MRUBY_SHA256` args; provides `mrbc`) | MIT |
