@@ -20,7 +20,7 @@ includes or invokes the following third-party software:
 | `@types/node` | 26.6.6 | MIT |
 | `@types/web-bluetooth` | 0.0.22 | MIT |
 | `@types/w3c-web-usb` | 1.0.14 | MIT |
-| Emscripten SDK | 7.0.0, image digest `sha256:6bd7aef93408b10bf7b36642cb7c91119b302f720b9ec2d20439f73cf07fe894` | MIT / UIUC |
+| Emscripten SDK | 7.0.1, image digest `sha256:73aece2e0ab748487945ad117b79fc4d277e9f656e54fc800a9b1a0a6562715b` | MIT / UIUC |
 | mruby | 4.0.0 tarball, sha256-verified at build (`MRUBY_VERSION`/`MRUBY_SHA256` args; provides `mrbc`) | MIT |
 | mruby/c | master `2dec4802b09be1fc12f388d3c9267ffd9dc6c404` tarball, sha256-verified at build (`MRUBYC_REF`/`MRUBYC_SHA256` args; the release4.0.0 tag predates the emscripten HAL) | BSD-3-Clause |
 | Servo | v0.8.0, SHA-256 `02a78892746e69bc39d471da2bb012fd8ce228e464cda5a017334d0e88c61de1` | MPL-2.0; unmodified binary invoked as a subprocess |
