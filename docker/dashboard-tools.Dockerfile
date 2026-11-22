@@ -42,7 +42,7 @@ RUN curl --fail --location --silent --show-error \
 
 WORKDIR /opt/mruby-src
 RUN ruby ./minirake -j"$(nproc)" && cp build/host/bin/mrbc /opt/mruby/bin/mrbc \
-    && PATH=/opt/mruby/bin:$PATH make -C /opt/mrubyc
+    && PATH=/opt/mruby/bin:$PATH CFLAGS="-DMRBC_SUPPORT_OP_EXT=1" make -C /opt/mrubyc
 
 FROM debian:13-slim@sha256:a72b4433de1cf7d6bae0c4cee74d0547f58601a643b3375f070c51600d63b6b2
 
