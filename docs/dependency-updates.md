@@ -58,6 +58,22 @@ Review the complete upstream changelog before accepting a version update.
 | pydantic / ruff / transitive drift | -> 2.14.4 / 0.17.5-0.17.6 | Lock drift via `uv lock --upgrade`. |
 | typescript (dev) / uv base image | -> 7.1.0-dev.20261120.1 / uv 0.13.9 digest | Adopted; `tsc -p .` and `node --test` are the gate. |
 
+## 2026-11-22 update (emsdk 7.0.1)
+
+`emscripten/emsdk` `7.0.0` -> `7.0.1` (patch; tag + digest re-pinned).
+Upstream changelog reviewed: JS tools rebundled with rolldown, embind
+link-time invokers, `struct_info.json` cDefines exposed as const JS
+symbols, zlib port 1.3.2 -> 1.4, Safari pthreads `emscripten_get_now`
+fix, JSPI minimum-browser defaults — no removal touching the emcc legs.
+
+Vendored-toolchain re-scan (Trivy 0.76.2, CRITICAL/HIGH,
+`emscripten/emsdk:7.0.1` scanned directly): identical vendored trees to
+7.0.0 — node 24.19.0 npm 11.17.0 still ships brace-expansion 5.0.6, tar
+7.5.16 (CRITICAL), ip-address, picomatch and undici 6.26.0; the tsgo
+binary is still Go 1.26.4; the closure jar still shades guava 33.4.6-jre.
+Every `.trivyignore` waiver carries over unchanged; the undici 6.29.1
+in-place patch stays (clears the two new undici CVE IDs as well).
+
 ## 2026-11-17 update (emsdk 7.0.0)
 
 `emscripten/emsdk` `6.0.13` -> `7.0.0` (major). The checker only verifies the
