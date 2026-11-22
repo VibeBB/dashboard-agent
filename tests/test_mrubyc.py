@@ -45,7 +45,10 @@ def _stub_mrbc(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     _stub(
         tmp_path,
         "emcc",
-        '#!/bin/sh\nfor last; do :; done\nmkdir -p "$(dirname "$last")" && touch "$last"\n',
+        "#!/bin/sh\n"
+        "for last; do :; done\n"
+        'mkdir -p "$(dirname "$last")" && touch "$last"\n'
+        'echo "$@" > "$last.argv"\n',
     )
     _stub(tmp_path, "node", "#!/bin/sh\nexit 0\n")
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ.get('PATH', '')}")
@@ -89,6 +92,8 @@ class TestBuildMrubycModule:
         assert "extern const uint8_t app[];" in shim
         assert "memory_pool[32768]" in shim
         assert "mrbc_create_task(app, 0)" in shim
+        emcc_argv = (output / "module.mjs.argv").read_text(encoding="utf-8")
+        assert "-DMRBC_SUPPORT_OP_EXT=1" in emcc_argv
 
     def test_mrbc_failure_propagates(
         self, tmp_path: Path, mrubyc_tree: Path, monkeypatch: pytest.MonkeyPatch
