@@ -1,5 +1,51 @@
 # Operations
 
+## Release process
+
+1. Check that `git ls-remote --exit-code --tags origin refs/tags/vX.Y.Z` returns
+   status 2 (no matching tag), then merge the version update through a PR.
+2. Wait for the main-branch publisher to pass all image gates and attest the
+   candidate. Push an unsigned `vX.Y.Z` tag on the verified main commit.
+3. After CI and installation smoke pass, approve the `production` deployment.
+   Publication rechecks the policy and the exact digest, refuses an existing
+   Release (including a draft), and never creates or moves the Git tag.
+4. Install from that Git tag as before. The launcher needs a recent GitHub CLI
+   (`gh`) and network access to verify the per-version Release metadata and
+   resolve the immutable `dashboard-tools` digest. The development lock is not a
+   fallback for tags that require versioned metadata.
+
+Default-branch installs and legacy releases can use the checked-in lock
+only when GitHub returns 404 for both release assets and the verifier does
+not exist at that version tag. A tag containing the verifier requires both
+assets, even before publication. A partial upload, malformed metadata,
+failed signature, or network error stops execution rather than falling
+back. Neither path resolves a mutable `:latest` tag.
+
+If the post-publish check fails, do not rerun the write job: it refuses to
+modify the existing Release. With a recent `gh` and a local checkout of the
+published tag, rerun the same verifier without changing GitHub or GHCR:
+
+```bash
+PYTHONPATH=plugins/dashboard/scripts python3 - <<'PY'
+import subprocess
+from pathlib import Path
+
+from dashboard_release_image import IMAGE, resolve
+
+metadata = resolve(Path("plugins/dashboard/.plugin/plugin.json"))
+commit = subprocess.check_output(
+    ["git", "rev-parse", "HEAD"], text=True
+).strip()
+if metadata.commit != commit:
+    raise SystemExit("published metadata does not match the checked-out tag")
+print(f"{IMAGE}@{metadata.digest}")
+PY
+```
+
+Compare the printed digest with the candidate recorded by the release job.
+If verification still fails or the digest differs, leave that Release
+untouched and publish a fix on a new version tag.
+
 ## SBOM attestations
 
 `publish-dashboard-images.yml` generates and attests a package-level SPDX-2.3
@@ -84,34 +130,6 @@ docker buildx build --load \
 ```
 
 ## CI and image provenance
-
-Workflow lint runs actionlint and zizmor on workflow changes and during weekly
-scheduled checks; zizmor runs from a sha256-verified wheel and switches to
-offline mode on bot digest-lock branches. Release automation dispatches and
-waits for CI and workflow lint on the version-bump branch, then validates the
-remotely installed plugin; its `dry_run` input rehearses the path without
-merging or tagging. The bump/dispatch/watch/merge state machine lives in
-`scripts/release_bump.sh` and is covered by stubbed-`gh`/`git`
-pytest tests.
-The dashboard image publisher pushes only the immutable `<sha>-tools` tag,
-gates on the Trivy fixable-CVE scan of the pushed digest, and only then
-promotes `:latest` server-side (`buildx imagetools create`) — a gate failure
-leaves the previous good `:latest` untouched; the offending fixable CVEs
-are rendered into the run summary by `scripts/trivy_gate_summary.py`.
-Both publisher scans share a weekly (`cache-trivy-<iso-week>`)
-`actions/cache` restore of the vulnerability DB. Manual `workflow_dispatch`
-defaults to a build-only rehearsal; dispatching with `dry_run=true` also
-loads the image into the local daemon and runs the Trivy gate, the SPDX
-SBOM chain, tool measurement, and the launcher smoke against the local
-rehearsal tag — while pushing tags, promoting `:latest`, attestations, the
-code-scanning SARIF upload, and the digest-lock PR stay skipped.
-Diagnostic artifacts (Trivy JSON/SARIF, smoke reports, audit reports) are
-retained 30 days; the attested full Syft SBOM stays 90 days.
-Build provenance and the
-attestation URL are recorded in new digest locks. Locked-image checks verify
-present attestations against this repository's publisher workflow (each
-verify result also lands in the run summary); existing
-pins without metadata continue with a warning until the next publish.
 
 ## Device and WebMCP safety
 
@@ -251,37 +269,8 @@ they lapse.
 
 ## CI runner network auditing
 
-Every workflow job starts with `step-security/harden-runner` in audit-only
-mode. It observes network egress without blocking requests; per-run insights
-are available in the GitHub Actions job summary. `digest-lock-sweep.yml`
-runs in `egress-policy: block` mode restricted to
-`api.github.com`/`github.com` — it only talks to the GitHub API. Other
-jobs stay in audit mode until the reported domains are verified.
-
-## Digest-lock PR verification
-
-The publisher dispatches `ci.yml`, `workflow-lint.yml`, and
-`locked-image-check.yml` on the lock branch — the last validates the new pin
-(attestation verify plus full gates against the new digest) before merge —
-then polls the authoritative required-check set for up to 15 minutes.
-Non-required failures do not block publishing; a concluded required-check
-failure or a PR closed without merge fails the job. A PR merged externally
-triggers the existing post-merge main workflows without waiting for their
-results. If required checks remain pending at the deadline, the publisher
-arms squash auto-merge with branch deletion and exits successfully so
-branch protection can complete the merge.
-
-Merges performed by the digest-lock sweep (or by armed auto-merge) run under
-`GITHUB_TOKEN`, which suppresses the push events `ci.yml` and
-`locked-image-check.yml` rely on. The sweep therefore dispatches `ci.yml`,
-`locked-image-check.yml`, and `container-audit.yml` (re-scan of the newly
-pinned image) on main after each successful merge, and
-`main-ci-failure-issue.yml` runs a scheduled reconcile that closes failure
-issues whose workflow's latest main run is green (bot-dispatched runs never
-emit `workflow_run` events, so the watcher alone cannot close them).
-The sweep's `dry_run` dispatch input prints the merge/arm decision per
-open PR without mutating, which exercises the mergeable_state decision
-table on demand.
+The publisher gates the candidate digest without modifying the development
+lock. The tag workflow verifies the candidate again before promotion.
 
 SPDX generation prefers the GHCR registry source, writes temporary data under
 the runner's temporary directory, and disables file metadata. The publisher
@@ -293,12 +282,6 @@ uploaded as a 90-day workflow-run artifact.
 ## Repository settings
 
 These checks depend on settings outside the workflow files:
-
-- `dependency-review.yml` needs the dependency graph (and Dependabot
-  security updates) enabled for its license gate to see manifests.
-- Release rehearsal is manual: `release.yml` has never run a real
-  `workflow_dispatch`; a `dry_run` pass exercises the bump/dispatch/watch
-  path before the first real release.
 
 ## Python canary promotion policy
 
@@ -328,18 +311,6 @@ failure — the leg does not silently revert to advisory.
 The following live in repository Settings rather than code; they are
 intentional for the solo-maintainer bot-merge workflow and are recorded
 here so audits do not re-flag them:
-
-- Branch protection does not require approving reviews, code owners, or
-  "apply to administrators": every merge is performed by automation
-  (digest-lock, version-bump, and Devin PRs), so required approvers would
-  only add friction to a pipeline that already gates on the required-check
-  set. OpenSSF Scorecard reports this as Branch-Protection 3 and
-  Code-Review 0; that is the recorded trade-off, not an oversight.
-- The Dependency graph must stay enabled for `dependency-review.yml` to
-  evaluate pull requests.
-- `release.yml` is dispatch-only; run it once with `dry_run=true` before
-  the first real release to rehearse bump, verify, and install-smoke
-  without creating a GitHub release.
 
 ## Dependency update sweep procedure
 

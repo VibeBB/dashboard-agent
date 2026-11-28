@@ -71,6 +71,10 @@ def _read_versions(root: Path, files: list[str]) -> dict[str, str]:
     return versions
 
 
+def current_version(root: Path) -> str:
+    return _current_version(_read_versions(root, _version_files(root)))
+
+
 def _parse(version: str) -> tuple[int, int, int]:
     match = _SEMVER.fullmatch(version)
     if match is None:
@@ -146,7 +150,7 @@ def main(argv: list[str] | None = None) -> int:
             print("\n".join([*files, _LOCK]))
             return 0
         current = _current_version(_read_versions(root, files))
-        if args.set_version:
+        if args.set_version is not None:
             new = args.set_version.removeprefix("v")
             if not _SEMVER.fullmatch(new):
                 raise BumpError(f"--set '{new}' is not X.Y.Z")

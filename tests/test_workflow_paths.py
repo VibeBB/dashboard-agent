@@ -36,13 +36,13 @@ def test_ci_is_dispatchable_and_reusable_with_a_ref() -> None:
     assert ci.count("ref: ${{ inputs.ref || github.sha }}") == ci.count("uses: actions/checkout")
 
 
-def test_publisher_builds_the_locked_dashboard_image() -> None:
+def test_publisher_builds_the_dashboard_tools_candidate() -> None:
     publish = ROOT / ".github/workflows/publish-dashboard-images.yml"
     text = publish.read_text(encoding="utf-8")
     assert "docker/dashboard-tools.Dockerfile" in text
     assert "IMAGE_REVISION" in text
-    assert "dashboard_tools" in text
-    assert "plugins/dashboard/tools-image.json" in text
+    assert "dashboard-tools" in text
+    assert "!plugins/dashboard/tools-image.json" in text
 
 
 def test_publisher_retriggers_when_its_workflow_changes() -> None:
@@ -55,14 +55,12 @@ def test_all_workflows_use_dashboard_runner_label() -> None:
     assert all("ubuntu-24.04" not in path.read_text(encoding="utf-8") for path in WORKFLOWS)
 
 
-def test_release_lints_version_bump_and_install_smokes_plugin() -> None:
+def test_release_verifies_tagged_commit_and_install_smokes_plugin() -> None:
     release = (ROOT / ".github/workflows/release.yml").read_text(encoding="utf-8")
-    # The bump script dispatches the gate workflows on the fallback bump branch.
-    bump = (ROOT / "scripts/release_bump.sh").read_text(encoding="utf-8")
-    assert "workflow-lint.yml" in bump
-    assert "ci.yml" in bump
+    assert "scripts/validate_release.sh" in release
+    assert "./.github/workflows/ci.yml" in release
     assert "install-smoke:" in release
-    assert "needs: [bump-version, install-smoke]" in release
+    assert "needs: [validate, verify, install-smoke]" in release
     assert "--repo VibeBB/dashboard-agent" in release
     assert "--repo-path plugins/dashboard" in release
 
@@ -72,10 +70,8 @@ def test_publish_dispatch_builds_without_publishing() -> None:
     assert "push: ${{ github.event_name == 'push' }}" in publish
     assert "load: ${{ (inputs.dry_run == true || github.event_name == 'pull_request') }}" in publish
     irreversible_steps = [
-        "Promote :latest",
-        "Attest dashboard tools image provenance",
+        "Attest gated tools image provenance",
         "Attest tools SBOM",
-        "Update digest lock and merge PR",
     ]
     for step_name in irreversible_steps:
         block = publish.split(f"- name: {step_name}", 1)[1].split("\n      - name:", 1)[0]
@@ -108,13 +104,6 @@ def test_publish_dry_run_rehearses_gates_without_alerts() -> None:
     assert "- name: Resolve scan image reference" in publish
 
 
-def test_sweep_reports_merge_decisions_and_dispatches_audit() -> None:
-    sweep = (ROOT / ".github/workflows/digest-lock-sweep.yml").read_text(encoding="utf-8")
-    assert "dry_run:" in sweep
-    assert "clean|blocked|behind|unstable" in sweep
-    assert "container-audit.yml" in sweep
-
-
 def test_container_audit_reruns_when_its_inputs_change() -> None:
     audit = (ROOT / ".github/workflows/container-audit.yml").read_text(encoding="utf-8")
     assert '".github/workflows/container-audit.yml"' in audit
@@ -127,7 +116,7 @@ def test_container_audit_reruns_when_its_inputs_change() -> None:
 def test_main_failure_report_tracks_default_branch_workflows() -> None:
     workflow = (ROOT / ".github/workflows/main-ci-failure-issue.yml").read_text(encoding="utf-8")
     assert '- "Container hardening audit"' in workflow
-    assert "- Digest lock PR sweep" in workflow
+    assert "- Digest lock PR sweep" not in workflow
     assert "- Workflow lint" in workflow
     assert "- PR branch cleanup" in workflow
     assert "actions: read # reads the completed run's jobs" in workflow

@@ -1,3 +1,4 @@
 /.github/ @uist1idrju3i
-/scripts/release_bump.sh @uist1idrju3i
-/scripts/publish_image_pin_pr.sh @uist1idrju3i
+/scripts/validate_release.sh @uist1idrju3i
+/scripts/validate_release_candidate.py @uist1idrju3i
+/plugins/dashboard/scripts/dashboard_release_image.py @uist1idrju3i

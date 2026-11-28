@@ -10,7 +10,6 @@ on:
       - "Container hardening audit"
       - Publish dashboard images
       - Locked image check
-      - Digest lock PR sweep
       - Dependency update check
       - Release
       - Scorecard

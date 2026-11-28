@@ -15,7 +15,13 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
+
+_SCRIPTS_DIR = str(Path(__file__).resolve().parent)
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+
+import dashboard_release_image  # noqa: E402
 
 _MODULES = {"mcp_server": "dashboard.mcp_server"}
 ISOLATED_NETWORK = "dashboard-isolated"
@@ -31,6 +37,7 @@ _PUBLISH_FILE = ".github/workflows/publish-dashboard-images.yml"
 
 
 class ImagePin(TypedDict):
+    release_verified: NotRequired[bool]
     ref: str
     image: str | None
     digest: str | None
@@ -119,6 +126,21 @@ def image_pin(plugin_root: Path) -> ImagePin | None:
     explicit = os.environ.get("DASHBOARD_TOOLS_IMAGE")
     if explicit:
         return {"ref": explicit, "image": None, "digest": None, "attestation": None}
+    plugin_json = plugin_root / ".plugin/plugin.json"
+    repo_root = plugin_root.parent.parent
+    development = (repo_root / ".git").exists() and (
+        repo_root / "docker/dashboard-tools.Dockerfile"
+    ).is_file()
+    if plugin_json.is_file() and not development:
+        image = dashboard_release_image.resolve_if_released(plugin_json)
+        if image is not None:
+            return {
+                "ref": f"{dashboard_release_image.IMAGE}@{image.digest}",
+                "image": dashboard_release_image.IMAGE,
+                "digest": image.digest,
+                "attestation": None,
+                "release_verified": True,
+            }
     plugin_lock = _lock_ref(plugin_root / "tools-image.json")
     return plugin_lock or _lock_ref(plugin_root.parent.parent / "docker" / "image-digests.json")
 
@@ -277,6 +299,8 @@ def _attestation_mode() -> str:
 
 
 def _verify_attestation(pin: ImagePin, *, override: bool) -> None:
+    if pin.get("release_verified", False):
+        return
     mode = _attestation_mode()
     if mode == "off":
         return
@@ -427,9 +451,12 @@ def main() -> int:
         return 2
     plugin_root = _plugin_root()
     source = resolve_source(plugin_root)
-    pin = image_pin(plugin_root)
-    image = pin["ref"] if pin is not None else None
     try:
+        try:
+            pin = image_pin(plugin_root) if mode == "docker" or arguments[0] == "prewarm" else None
+        except (OSError, ValueError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(f"cannot verify release image metadata: {exc}") from exc
+        image = pin["ref"] if pin is not None else None
         if arguments[0] == "prewarm":
             if pin is None:
                 raise RuntimeError("no dashboard tools image is configured")

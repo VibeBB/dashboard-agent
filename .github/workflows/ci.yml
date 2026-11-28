@@ -491,3 +491,27 @@ jobs:
               print(f"::error::e2e legs not {expected}: {bad}")
               sys.exit(1)
           PY
+
+  release-policy:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    steps:
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
+        with:
+          egress-policy: audit
+          disable-telemetry: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          python-version: "3.14"
+          cache-suffix: release-policy
+      - name: Sync dependencies
+        run: uv sync --locked
+      - name: Check release policy
+        run: |
+          shellcheck scripts/validate_release.sh
+          uv run pytest tests/test_release_policy.py -q

@@ -1,70 +1,56 @@
 name: Release
 
 on:
-  workflow_dispatch:
-    inputs:
-      bump:
-        description: Version bump kind
-        required: false
-        default: patch
-        type: choice
-        options: [patch, minor, major]
-      version:
-        description: Explicit X.Y.Z override
-        required: false
-        type: string
-      dry_run:
-        description: Rehearse the bump and checks without merging or tagging
-        required: false
-        type: boolean
-        default: false
+  push:
+    tags: ["v[0-9]+.[0-9]+.[0-9]+"]
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: release
   cancel-in-progress: false
 
 jobs:
-  bump-version:
+  validate:
     runs-on: ubuntu-26.04
-    # The job gh-watches a dispatched ci.yml whose e2e alone allows ~90min.
-    timeout-minutes: 120
+    timeout-minutes: 15
     permissions:
-      actions: write
-      contents: write
-      pull-requests: write
+      actions: read
+      attestations: read
+      contents: read
     outputs:
-      version: ${{ steps.bump.outputs.version }}
-      sha: ${{ steps.bump.outputs.sha }}
+      version: ${{ steps.release.outputs.version }}
+      sha: ${{ steps.release.outputs.sha }}
+      source: ${{ steps.release.outputs.source }}
+      image: ${{ steps.release.outputs.image }}
     steps:
       - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
           egress-policy: audit
           disable-telemetry: true
-      - name: Require main
-        env:
-          REF: ${{ github.ref }}
-        run: test "$REF" = "refs/heads/main"
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-          persist-credentials: true
-      - name: Bump version files
-        id: bump
+          persist-credentials: false
+      - name: Validate tag, production policy, and gated candidate
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
-          BUMP: ${{ inputs.bump }}
-          SET_VERSION: ${{ inputs.version }}
-          DRY_RUN: ${{ inputs.dry_run }}
-        # The release state machine lives in scripts/release_bump.sh so the
-        # dry_run rehearsal path is exercisable under pytest (stubbed gh,
-        # local git remotes — see tests/test_release_bump.py).
-        run: bash scripts/release_bump.sh
+        run: bash scripts/validate_release.sh
+
+  verify:
+    needs: validate
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/ci.yml # zizmor: ignore[self-repository] same-repo reuse
+    with:
+      ref: ${{ needs.validate.outputs.sha }}
 
   install-smoke:
-    needs: bump-version
+    needs: validate
+    permissions:
+      contents: read
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     steps:
@@ -74,31 +60,29 @@ jobs:
           disable-telemetry: true
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.bump-version.outputs.sha }}
+          ref: ${{ needs.validate.outputs.sha }}
           persist-credentials: false
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
         with:
           python-version: "3.14"
-          cache-suffix: release-install-smoke
+          cache-suffix: install-smoke
       - name: Sync dependencies
         run: uv sync --locked --group sdk-check
       - name: Smoke-test remote install
         env:
-          REF: ${{ needs.bump-version.outputs.sha }}
+          REF: ${{ github.ref_name }}
         run: >
           uv run --group sdk-check python scripts/smoke_install_plugin.py
           --repo VibeBB/dashboard-agent --ref "$REF" --repo-path plugins/dashboard
 
-  release:
-    needs: [bump-version, install-smoke]
-    if: inputs.dry_run != true
+  build:
+    needs: [validate, verify, install-smoke]
     runs-on: ubuntu-26.04
-    timeout-minutes: 15
+    timeout-minutes: 60
     permissions:
-      contents: write
+      contents: read
     env:
-      VERSION: ${{ needs.bump-version.outputs.version }}
-      SHA: ${{ needs.bump-version.outputs.sha }}
+      VERSION: ${{ needs.validate.outputs.version }}
     steps:
       - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
         with:
@@ -106,17 +90,172 @@ jobs:
           disable-telemetry: true
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.bump-version.outputs.sha }}
+          ref: ${{ needs.validate.outputs.sha }}
           persist-credentials: false
-      - name: Build release archives
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+        with:
+          python-version: "3.14"
+          cache-suffix: release
+      - name: Sync dependencies
+        run: uv sync --locked
+      - name: Build release zips
         run: |
           set -euo pipefail
           mkdir -p dist
           (cd plugins && zip -r "$GITHUB_WORKSPACE/dist/dashboard-plugin-v${VERSION}.zip" dashboard)
           zip -r "dist/dashboard-examples-v${VERSION}.zip" examples
-      - name: Create release and tag
+      - name: Smoke published tools through the launcher
+        env:
+          DASHBOARD_TOOLS_IMAGE: ${{ needs.validate.outputs.image }}
+          DASHBOARD_SRC: ${{ github.workspace }}/src
+          OPENHANDS_PROJECT_DIR: ${{ github.workspace }}
+        run: |
+          set -euo pipefail
+          docker pull "$DASHBOARD_TOOLS_IMAGE"
+          launcher=plugins/dashboard/scripts/dashboard_launcher.py
+          python3 "$launcher" doctor > "$RUNNER_TEMP/dashboard-doctor.json"
+          for contract in examples/smart-kettle/smart-kettle.dash.json examples/bench-meter/bench-meter.dash.json; do
+            design=$(basename "$contract" .dash.json)
+            out="examples/$design/out"
+            mkdir -p "$out"
+            python3 "$launcher" generate "$contract"
+            set +e
+            python3 "$launcher" gates "$contract" > "$out/$design.stdout.json"
+            status=$?
+            set -e
+            report="$out/$design.dash-report.json"
+            stdout="$out/$design.stdout.json"
+            if python3 - "$report" "$stdout" <<'PY'
+          import json
+          import os
+          import sys
+          from pathlib import Path
+
+          report_path, stdout_path = map(Path, sys.argv[1:])
+          if report_path.is_file():
+              report = json.loads(report_path.read_text(encoding="utf-8"))
+              lines = [
+                  f"{check['id']:26} {check['status']:16} {check['detail'][:180]}"
+                  for check in report["checks"]
+              ]
+              print("\n".join(lines))
+              verdict = report["verdict"]
+              summary_path = os.environ.get("GITHUB_STEP_SUMMARY")
+              if summary_path and lines:
+                  design = report_path.name.removesuffix(".dash-report.json")
+                  with open(summary_path, "a", encoding="utf-8") as summary:
+                      summary.write(
+                          f"### {design} gates — verdict: {verdict}\n\n```\n"
+                          + "\n".join(lines)
+                          + "\n```\n"
+                      )
+          elif stdout_path.is_file():
+              output = stdout_path.read_text(encoding="utf-8")
+              print(output, end="")
+              verdict = json.loads(output)["verdict"]
+          else:
+              print(f"missing diagnostics: {report_path} and {stdout_path}", file=sys.stderr)
+              sys.exit(1)
+          sys.exit(0 if verdict == "pass" else 1)
+          PY
+            then
+              diagnostics_status=0
+            else
+              diagnostics_status=$?
+            fi
+            if [ "$status" -ne 0 ] || [ "$diagnostics_status" -ne 0 ]; then
+              echo "$design gates failed (exit=$status, diagnostics=$diagnostics_status)" >&2
+              exit 1
+            fi
+          done
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: dashboard-release-${{ github.run_id }}
+          path: dist/*.zip
+          if-no-files-found: error
+          overwrite: true
+
+  publish:
+    needs: [validate, build]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      actions: read
+      artifact-metadata: write
+      attestations: write
+      contents: write
+      id-token: write
+      packages: write
+    steps:
+      - uses: step-security/harden-runner@aebdcf6156ab6691adf63218240e476564a1ed4c # v2.23.0
+        with:
+          egress-policy: audit
+          disable-telemetry: true
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.validate.outputs.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: dashboard-release-${{ github.run_id }}
+          path: dist
+          digest-mismatch: error
+      - name: Write the versioned image manifest
+        env:
+          IMAGE: ${{ needs.validate.outputs.image }}
+          RELEASE_SHA: ${{ needs.validate.outputs.sha }}
+        run: python3 -m scripts.validate_release_candidate --write-manifest dist/dashboard-tools-image.json
+      - name: Attest versioned image metadata
+        id: image_provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/dashboard-tools-image.json
+      - name: Attest release ZIPs
+        id: zip_provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-path: dist/*.zip
+      - name: Recheck production policy and the exact gated candidate
         env:
           GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SOURCE: ${{ needs.validate.outputs.source }}
+          IMAGE: ${{ needs.validate.outputs.image }}
+        run: bash scripts/validate_release.sh --publish-check
+      - name: Promote the exact verified image and publish the Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE: ${{ needs.validate.outputs.image }}
+          IMAGE_BUNDLE: ${{ steps.image_provenance.outputs.bundle-path }}
+          ZIP_BUNDLE: ${{ steps.zip_provenance.outputs.bundle-path }}
         run: |
-          gh release create "v${VERSION}" --target "$SHA" \
-            --title "dashboard-agent v${VERSION}" --generate-notes dist/*.zip
+          set -euo pipefail
+          digest=${IMAGE##*@}
+          package=${IMAGE%@*}
+          printf '%s' "$GH_TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker buildx imagetools create --prefer-index=false \
+            --tag "$package:$GITHUB_REF_NAME" --tag "$package:latest" "$IMAGE"
+          for ref in "$package:$GITHUB_REF_NAME" "$package:latest"; do
+            test "$(docker buildx imagetools inspect "$ref" --format '{{.Manifest.Digest}}')" = "$digest"
+          done
+          cp "$IMAGE_BUNDLE" dist/dashboard-tools-image.bundle.jsonl
+          cp "$ZIP_BUNDLE" dist/dashboard-zips.bundle.jsonl
+          gh release create "$GITHUB_REF_NAME" --verify-tag --generate-notes \
+            --title "dashboard $GITHUB_REF_NAME" dist/*.zip dist/dashboard-tools-image.json \
+            dist/dashboard-tools-image.bundle.jsonl dist/dashboard-zips.bundle.jsonl
+      - name: Verify the published image metadata as an installed plugin
+        env:
+          IMAGE: ${{ needs.validate.outputs.image }}
+          RELEASE_SHA: ${{ needs.validate.outputs.sha }}
+        run: |
+          PYTHONPATH=plugins/dashboard/scripts python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          from dashboard_release_image import IMAGE, resolve
+
+          metadata = resolve(Path("plugins/dashboard/.plugin/plugin.json"))
+          if f"{IMAGE}@{metadata.digest}" != os.environ["IMAGE"] or metadata.commit != os.environ["RELEASE_SHA"]:
+              raise SystemExit("published image metadata does not match the exact release candidate")
+          PY
